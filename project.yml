@@ -1,0 +1,59 @@
+name: TaskMan
+options:
+  bundleIdPrefix: com.taskman
+  createIntermediateGroups: true
+  deploymentTarget:
+    macOS: "15.0"
+  xcodeVersion: "16.0"
+  groupSortPosition: top
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    MACOSX_DEPLOYMENT_TARGET: "15.0"
+    ENABLE_PREVIEWS: true
+
+packages:
+  MarkdownUI:
+    url: https://github.com/gonzalezreal/swift-markdown-ui
+    from: "2.4.0"
+
+targets:
+  TaskMan:
+    type: application
+    platform: macOS
+    sources:
+      - path: TaskMan
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.taskman.TaskMan
+        DEVELOPMENT_TEAM: ${DEVELOPMENT_TEAM}
+        CODE_SIGN_STYLE: Automatic
+        PRODUCT_NAME: TaskMan
+        INFOPLIST_FILE: TaskMan/Resources/Info.plist
+        CODE_SIGN_ENTITLEMENTS: TaskMan/Resources/TaskMan.entitlements
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+    dependencies:
+      - package: MarkdownUI
+      - framework: CloudKit.framework
+        embed: false
+    scheme:
+      testTargets:
+        - TaskManTests
+      environmentVariables:
+        - variable: SQLITE_ENABLE_THREAD_ASSERTIONS
+          value: "1"
+
+  TaskManTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: TaskManTests
+    dependencies:
+      - target: TaskMan
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.taskman.TaskManTests
+        DEVELOPMENT_TEAM: ${DEVELOPMENT_TEAM}
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/TaskMan.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/TaskMan"
+        BUNDLE_LOADER: "$(TEST_HOST)"

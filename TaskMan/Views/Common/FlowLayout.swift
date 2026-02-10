@@ -1,0 +1,77 @@
+import SwiftUI
+
+struct FlowLayout: Layout {
+    var spacing: CGFloat = 8
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let result = arrangeSubviews(proposal: proposal, subviews: subviews)
+        return result.size
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let result = arrangeSubviews(proposal: proposal, subviews: subviews)
+        for (index, position) in result.positions.enumerated() {
+            guard index < subviews.count else { break }
+            subviews[index].place(
+                at: CGPoint(
+                    x: bounds.minX + position.x,
+                    y: bounds.minY + position.y
+                ),
+                proposal: .unspecified
+            )
+        }
+    }
+
+    private struct ArrangementResult {
+        var size: CGSize
+        var positions: [CGPoint]
+    }
+
+    private func arrangeSubviews(proposal: ProposedViewSize, subviews: Subviews) -> ArrangementResult {
+        let maxWidth = proposal.width ?? .infinity
+        var positions: [CGPoint] = []
+        var currentX: CGFloat = 0
+        var currentY: CGFloat = 0
+        var lineHeight: CGFloat = 0
+        var totalHeight: CGFloat = 0
+        var totalWidth: CGFloat = 0
+
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+
+            // Wrap to next line if this item doesn't fit
+            if currentX + size.width > maxWidth, currentX > 0 {
+                currentX = 0
+                currentY += lineHeight + spacing
+                lineHeight = 0
+            }
+
+            positions.append(CGPoint(x: currentX, y: currentY))
+
+            lineHeight = max(lineHeight, size.height)
+            currentX += size.width + spacing
+            totalWidth = max(totalWidth, currentX - spacing)
+            totalHeight = currentY + lineHeight
+        }
+
+        return ArrangementResult(
+            size: CGSize(width: totalWidth, height: totalHeight),
+            positions: positions
+        )
+    }
+}
+
+#Preview {
+    FlowLayout(spacing: 8) {
+        ForEach(["Swift", "macOS", "iCloud", "SwiftUI", "Tags", "FlowLayout", "Preview"], id: \.self) { text in
+            Text(text)
+                .font(.caption)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 4)
+                .background(.blue.opacity(0.1))
+                .clipShape(Capsule())
+        }
+    }
+    .padding()
+    .frame(width: 300)
+}
