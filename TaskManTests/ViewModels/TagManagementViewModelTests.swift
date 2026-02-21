@@ -16,7 +16,7 @@ struct TagManagementViewModelTests {
         viewModel.newTagName = "  Work  "
         viewModel.addTag(context: context)
 
-        let descriptor = FetchDescriptor<Tag>()
+        let descriptor = FetchDescriptor<TaskMan.Tag>()
         let tags = try context.fetch(descriptor)
         #expect(tags.count == 1)
         #expect(tags.first?.name == "Work") // Trimmed
@@ -33,7 +33,7 @@ struct TagManagementViewModelTests {
         viewModel.newTagName = "   "
         viewModel.addTag(context: context)
 
-        let descriptor = FetchDescriptor<Tag>()
+        let descriptor = FetchDescriptor<TaskMan.Tag>()
         let tags = try context.fetch(descriptor)
         #expect(tags.count == 0)
     }
@@ -50,7 +50,7 @@ struct TagManagementViewModelTests {
 
         viewModel.deleteTag(tag, context: context)
 
-        let descriptor = FetchDescriptor<Tag>()
+        let descriptor = FetchDescriptor<TaskMan.Tag>()
         let tags = try context.fetch(descriptor)
         #expect(tags.count == 0)
     }

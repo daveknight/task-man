@@ -2,11 +2,11 @@ import SwiftData
 import Foundation
 
 struct PersistenceController: Sendable {
-    static let shared = PersistenceController()
+    static let shared = PersistenceController(storeURL: StorageSettings.resolvedStoreURL)
 
     let container: ModelContainer
 
-    init(inMemory: Bool = false) {
+    init(storeURL: URL? = nil, inMemory: Bool = false) {
         let schema = Schema([TaskItem.self, Tag.self])
 
         let configuration: ModelConfiguration
@@ -16,10 +16,10 @@ struct PersistenceController: Sendable {
                 isStoredInMemoryOnly: true
             )
         } else {
+            let url = storeURL ?? StorageSettings.defaultStoreURL
             configuration = ModelConfiguration(
                 schema: schema,
-                isStoredInMemoryOnly: false,
-                cloudKitDatabase: .automatic
+                url: url
             )
         }
 

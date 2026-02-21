@@ -22,7 +22,7 @@ struct PersistenceControllerTests {
         let tasks = try context.fetch(taskDescriptor)
         #expect(tasks.count == 5)
 
-        let tagDescriptor = FetchDescriptor<Tag>()
+        let tagDescriptor = FetchDescriptor<TaskMan.Tag>()
         let tags = try context.fetch(tagDescriptor)
         #expect(tags.count == 2)
     }

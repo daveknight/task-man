@@ -35,8 +35,6 @@ targets:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
     dependencies:
       - package: MarkdownUI
-      - framework: CloudKit.framework
-        embed: false
     scheme:
       testTargets:
         - TaskManTests
@@ -55,5 +53,6 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.taskman.TaskManTests
         DEVELOPMENT_TEAM: ${DEVELOPMENT_TEAM}
+        GENERATE_INFOPLIST_FILE: true
         TEST_HOST: "$(BUILT_PRODUCTS_DIR)/TaskMan.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/TaskMan"
         BUNDLE_LOADER: "$(TEST_HOST)"

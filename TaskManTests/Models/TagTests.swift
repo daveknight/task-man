@@ -38,7 +38,7 @@ struct TagTests {
         let tag = TestHelpers.makeTag(name: "Personal", colorName: PresetColor.mint.rawValue)
         context.insert(tag)
 
-        let descriptor = FetchDescriptor<Tag>(sortBy: [SortDescriptor(\.name)])
+        let descriptor = FetchDescriptor<TaskMan.Tag>(sortBy: [SortDescriptor(\TaskMan.Tag.name)])
         let fetched = try context.fetch(descriptor)
         #expect(fetched.count == 1)
         #expect(fetched.first?.name == "Personal")
