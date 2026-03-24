@@ -17,9 +17,11 @@ struct TagSelectorView: View {
 
             FlowLayout(spacing: AppConstants.Spacing.sm) {
                 ForEach(allTags) { tag in
+                    let isSelected = selectedTags.contains(where: { $0.id == tag.id })
                     TagChipView(
                         tag: tag,
-                        isSelected: selectedTags.contains(where: { $0.id == tag.id }),
+                        isSelected: isSelected,
+                        removable: isSelected,
                         onTap: { toggleTag(tag) }
                     )
                 }
