@@ -1,0 +1,578 @@
+{
+  "version": 1,
+  "notes": [
+    "Dates are relative to the seed day ('today' or the CLI's --today override): 'today', '+3d', '-2d', '+2w', '+1m', '-40d'.",
+    "status is the manual work state: 'open' (default), 'in_progress', or 'waiting'. The section shown in the list is derived, never stored.",
+    "Expected section for each task at seed time is in 'expect', so tests can assert the board without re-deriving it by hand.",
+    "repeat.mode: 'schedule' (next due follows the calendar) or 'after_completion' (next due counts from the day it was completed).",
+    "repeat.startOffsetDays: the start date sits this many days before each due date, so the task stays in Upcoming until then.",
+    "When a repeat names byWeekday and the seeded due date isn't one of those days, the seeder moves the due date forward to the next day that is.",
+    "waitUntil is the check-back date for waiting tasks. 'waiting' = visible in the Waiting section (no check-back date, or it or the due date has arrived). 'waiting_later' = tucked behind the section's 'Show N waiting until later' row.",
+    "flagged: true marks the single priority flag. It never changes a task's section or order.",
+    "afterPurge: whether a Trash task survives the next purge-trash ('kept' or 'removed'). Purge removes tasks whose deletion day is more than 30 days ago.",
+    "Seeds are checked in CI at a pinned --today (a Wednesday, plus a Saturday run), so weekday-dependent repeats like 'Stand-up notes' give stable results."
+  ],
+  "tags": [
+    "home",
+    "finance",
+    "errands",
+    "health",
+    "kids",
+    "car",
+    "work",
+    "someday"
+  ],
+  "tasks": [
+    {
+      "expect": "in_progress",
+      "title": "Schedule next drum lesson",
+      "status": "in_progress",
+      "tags": [
+        "kids"
+      ]
+    },
+    {
+      "expect": "in_progress",
+      "title": "Twitter litigation claim - Nov 24 deadline to submit the claim form",
+      "status": "in_progress",
+      "due": "+10d",
+      "tags": [
+        "finance"
+      ],
+      "description": "Claim form is on the settlement site.\n\n- Find account creation date\n- Screenshot account settings page\n- Submit before the deadline",
+      "flagged": true
+    },
+    {
+      "expect": "in_progress",
+      "title": "Draft holiday card list",
+      "status": "in_progress",
+      "subtasks": [
+        {
+          "title": "Pull addresses from last year",
+          "done": true
+        },
+        {
+          "title": "Add new neighbors",
+          "done": false
+        },
+        {
+          "title": "Order cards",
+          "done": false
+        }
+      ]
+    },
+    {
+      "expect": "waiting",
+      "title": "Plumber quote for kitchen sink",
+      "status": "waiting",
+      "waitingOn": "Rivera Plumbing",
+      "tags": [
+        "home"
+      ]
+    },
+    {
+      "expect": "waiting",
+      "title": "Reimbursement for conference travel",
+      "status": "waiting",
+      "waitingOn": "Finance team",
+      "due": "+5d",
+      "tags": [
+        "work",
+        "finance"
+      ],
+      "waitUntil": "-1d"
+    },
+    {
+      "expect": "waiting",
+      "title": "Hear back from school about field trip form",
+      "status": "waiting",
+      "waitingOn": "Ms. Patel",
+      "tags": [
+        "kids"
+      ],
+      "waitUntil": "today"
+    },
+    {
+      "expect": "waiting_later",
+      "title": "Warranty replacement for headphones",
+      "status": "waiting",
+      "waitingOn": "Sony support",
+      "description": "Case number 48213-B. They said 5-7 business days.",
+      "waitUntil": "+3d"
+    },
+    {
+      "expect": "waiting_later",
+      "title": "Quote from window cleaners",
+      "status": "waiting",
+      "waitingOn": "ClearView",
+      "waitUntil": "+1w",
+      "tags": [
+        "home"
+      ]
+    },
+    {
+      "expect": "waiting",
+      "title": "Contractor sign-off on deck permit",
+      "status": "waiting",
+      "waitingOn": "Dan (contractor)",
+      "waitUntil": "+7d",
+      "due": "today",
+      "tags": [
+        "home"
+      ],
+      "description": "Check-back date is a week out, but the due date is today, so it shows as needing follow-up anyway.",
+      "flagged": true
+    },
+    {
+      "expect": "ready",
+      "title": "Buy new watch band",
+      "tags": [
+        "errands"
+      ]
+    },
+    {
+      "expect": "ready",
+      "title": "Robot pin for kids gift",
+      "tags": [
+        "kids",
+        "errands"
+      ]
+    },
+    {
+      "expect": "ready",
+      "title": "Renew passport",
+      "due": "-3d",
+      "tags": [
+        "errands"
+      ],
+      "description": "Overdue on purpose: due date in the past, should render red.\n\n1. Get photo taken\n2. Fill out DS-82\n3. Mail with check",
+      "flagged": true
+    },
+    {
+      "expect": "ready",
+      "title": "Call the dentist to move cleaning",
+      "due": "today",
+      "tags": [
+        "health"
+      ]
+    },
+    {
+      "expect": "ready",
+      "title": "Return library books",
+      "due": "+1d",
+      "tags": [
+        "errands",
+        "kids"
+      ]
+    },
+    {
+      "expect": "ready",
+      "title": "Replace furnace filter",
+      "tags": [
+        "home"
+      ],
+      "description": "Size is 16x25x1. MERV 11 is fine.\n\n- Buy two\n- Write the date on the frame"
+    },
+    {
+      "expect": "ready",
+      "title": "Research 529 plan contribution limits",
+      "tags": [
+        "finance"
+      ],
+      "description": "Searchable-only word: zucchini. This word appears in no title, so a search hit proves descriptions are searched.",
+      "flagged": true
+    },
+    {
+      "expect": "ready",
+      "title": "Fix squeaky closet door",
+      "tags": [
+        "home"
+      ]
+    },
+    {
+      "expect": "ready",
+      "title": "Get car tires rotated",
+      "due": "+12d",
+      "tags": [
+        "car"
+      ]
+    },
+    {
+      "expect": "ready",
+      "title": "Back up the family photo library to the external drive and verify the copy actually opens before deleting anything from the phone",
+      "description": "Long title on purpose, to check truncation in the list view."
+    },
+    {
+      "expect": "ready",
+      "title": "Plan Saturday hike 🥾"
+    },
+    {
+      "expect": "ready",
+      "title": "Café reservation for anniversary — confirm time",
+      "tags": [
+        "someday"
+      ]
+    },
+    {
+      "expect": "ready",
+      "title": "Cancel unused streaming subscription",
+      "tags": [
+        "finance"
+      ],
+      "description": "- Check which one we haven't opened\n  - Probably the sports one\n- Cancel before the renewal date"
+    },
+    {
+      "expect": "ready",
+      "title": "Order replacement dishwasher rack wheels",
+      "tags": [
+        "home",
+        "errands"
+      ],
+      "subtasks": [
+        {
+          "title": "Find model number",
+          "done": false
+        },
+        {
+          "title": "Order from parts site",
+          "done": false
+        }
+      ]
+    },
+    {
+      "expect": "ready",
+      "title": "Read the HOA meeting minutes",
+      "start": "-2d",
+      "description": "Start date in the past: belongs in Ready, not Upcoming."
+    },
+    {
+      "expect": "ready",
+      "title": "Pick up prescription refill",
+      "start": "-1d",
+      "tags": [
+        "health",
+        "errands"
+      ],
+      "description": "Start date yesterday: Ready."
+    },
+    {
+      "expect": "ready",
+      "title": "Sign up for spring soccer",
+      "start": "today",
+      "tags": [
+        "kids"
+      ],
+      "description": "Start date is today: the boundary case. Belongs in Ready."
+    },
+    {
+      "expect": "ready",
+      "title": "Clean out garage shelves",
+      "tags": [
+        "home",
+        "someday"
+      ]
+    },
+    {
+      "expect": "ready",
+      "title": "Email Grandma the recital video",
+      "tags": [
+        "kids"
+      ]
+    },
+    {
+      "expect": "upcoming",
+      "title": "Book flights for spring break",
+      "start": "+1d",
+      "tags": [
+        "kids"
+      ],
+      "description": "Start date tomorrow: Upcoming today, Ready tomorrow (test with --today +1d)."
+    },
+    {
+      "expect": "upcoming",
+      "title": "File taxes",
+      "start": "+60d",
+      "due": "+150d",
+      "tags": [
+        "finance"
+      ],
+      "subtasks": [
+        {
+          "title": "Collect 1099s",
+          "done": false
+        },
+        {
+          "title": "Charitable receipts",
+          "done": false
+        },
+        {
+          "title": "Send to accountant",
+          "done": false
+        }
+      ]
+    },
+    {
+      "expect": "upcoming",
+      "title": "Winterize the sprinkler system",
+      "start": "+7d",
+      "due": "+14d",
+      "tags": [
+        "home"
+      ]
+    },
+    {
+      "expect": "upcoming",
+      "title": "Buy birthday present for Sam",
+      "start": "+3w",
+      "due": "+30d",
+      "tags": [
+        "kids",
+        "errands"
+      ]
+    },
+    {
+      "expect": "upcoming",
+      "title": "Check whether the car registration renewal notice arrived",
+      "start": "+2m",
+      "tags": [
+        "car"
+      ]
+    },
+    {
+      "expect": "ready",
+      "title": "Take out garbage",
+      "due": "+1d",
+      "tags": [
+        "home"
+      ],
+      "repeat": {
+        "freq": "weekly",
+        "interval": 1,
+        "mode": "schedule",
+        "startOffsetDays": 1
+      },
+      "description": "Weekly on the due date's weekday, visible from the day before. Start = due - 1 = today, so Ready now. Completing it moves due to +8d and start to +7d, so it drops into Upcoming."
+    },
+    {
+      "expect": "upcoming",
+      "title": "Pay the gardener",
+      "due": "+3d",
+      "tags": [
+        "home",
+        "finance"
+      ],
+      "repeat": {
+        "freq": "weekly",
+        "interval": 2,
+        "mode": "schedule",
+        "startOffsetDays": 1
+      },
+      "description": "Recurring with a start offset that hasn't arrived yet: start is +2d, so Upcoming."
+    },
+    {
+      "expect": "ready",
+      "title": "Make sure IRA and 401k contributions are on track",
+      "due": "-13d",
+      "tags": [
+        "finance"
+      ],
+      "repeat": {
+        "freq": "monthly",
+        "interval": 1,
+        "mode": "schedule"
+      },
+      "description": "Overdue recurring. Completing it should advance to the first matching day of the month after the old due date that is not already in the past."
+    },
+    {
+      "expect": "ready",
+      "title": "Finance quarterly action items",
+      "due": "-35d",
+      "tags": [
+        "finance"
+      ],
+      "repeat": {
+        "freq": "monthly",
+        "interval": 3,
+        "mode": "schedule"
+      },
+      "description": "Each quarter:\n\n- Review budget vs actuals\n- Rebalance if any fund is 5% off target\n- Update net worth sheet",
+      "subtasks": [
+        {
+          "title": "Budget review",
+          "done": true
+        },
+        {
+          "title": "Rebalance",
+          "done": false
+        },
+        {
+          "title": "Net worth sheet",
+          "done": false
+        }
+      ],
+      "flagged": true
+    },
+    {
+      "expect": "upcoming",
+      "title": "Get a haircut",
+      "due": "+20d",
+      "tags": [
+        "health"
+      ],
+      "repeat": {
+        "freq": "weekly",
+        "interval": 5,
+        "mode": "after_completion",
+        "startOffsetDays": 7
+      },
+      "description": "After-completion repeat: the next one is due 5 weeks after the day this is done, and shows up a week before that."
+    },
+    {
+      "expect": "upcoming",
+      "title": "Furnace maintenance check-up",
+      "due": "+245d",
+      "tags": [
+        "home"
+      ],
+      "repeat": {
+        "freq": "yearly",
+        "interval": 1,
+        "mode": "schedule",
+        "startOffsetDays": 21
+      }
+    },
+    {
+      "expect": "ready",
+      "title": "Water the plants",
+      "due": "today",
+      "tags": [
+        "home"
+      ],
+      "repeat": {
+        "freq": "daily",
+        "interval": 2,
+        "mode": "after_completion"
+      }
+    },
+    {
+      "expect": "upcoming",
+      "title": "Pay estimated quarterly taxes",
+      "due": "+60d",
+      "tags": [
+        "finance"
+      ],
+      "repeat": {
+        "mode": "dates",
+        "dates": [
+          "+60d",
+          "+150d",
+          "+240d",
+          "+330d"
+        ],
+        "startOffsetDays": 14
+      },
+      "description": "By Specific Dates: irregular due dates. After the last listed date is completed, the repeat ends."
+    },
+    {
+      "expect": "ready",
+      "title": "Stand-up notes",
+      "due": "today",
+      "tags": [
+        "work"
+      ],
+      "repeat": {
+        "freq": "weekly",
+        "interval": 1,
+        "byWeekday": [
+          "mon",
+          "tue",
+          "wed",
+          "thu",
+          "fri"
+        ],
+        "mode": "schedule"
+      }
+    },
+    {
+      "expect": "completed",
+      "title": "Pick up dry cleaning",
+      "completed": "-1d",
+      "tags": [
+        "errands"
+      ]
+    },
+    {
+      "expect": "completed",
+      "title": "Pay November credit card bill",
+      "completed": "-4d",
+      "due": "-2d",
+      "tags": [
+        "finance"
+      ]
+    },
+    {
+      "expect": "completed",
+      "title": "Order school photos",
+      "completed": "-12d",
+      "tags": [
+        "kids"
+      ]
+    },
+    {
+      "expect": "completed",
+      "title": "Oil change",
+      "completed": "-90d",
+      "tags": [
+        "car"
+      ],
+      "description": "Old completion, for checking that completed tasks never disappear on their own."
+    },
+    {
+      "expect": "completed",
+      "title": "Assemble bookshelf",
+      "completed": "-2d",
+      "subtasks": [
+        {
+          "title": "Find the allen key",
+          "done": true
+        },
+        {
+          "title": "Anchor to wall",
+          "done": true
+        }
+      ]
+    },
+    {
+      "expect": "trash",
+      "title": "Duplicate: buy watch band",
+      "deleted": "-1d"
+    },
+    {
+      "expect": "trash",
+      "title": "Look into standing desk",
+      "deleted": "-29d",
+      "tags": [
+        "someday"
+      ],
+      "description": "Deleted 29 days ago: still in Trash after a purge.",
+      "afterPurge": "kept"
+    },
+    {
+      "expect": "trash",
+      "afterPurge": "kept",
+      "title": "Compare robot vacuum models",
+      "deleted": "-30d",
+      "description": "Deleted exactly 30 days ago: the boundary. Still in Trash after a purge; removed the day after."
+    },
+    {
+      "expect": "trash",
+      "title": "Old idea: learn ukulele",
+      "deleted": "-31d",
+      "tags": [
+        "someday"
+      ],
+      "description": "Deleted 31 days ago: in Trash at seed time, removed permanently by the next purge-trash.",
+      "afterPurge": "removed"
+    }
+  ]
+}
