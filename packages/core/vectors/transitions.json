@@ -1,0 +1,18 @@
+{
+  "function": "setDueDate(task, dueDate) and resume(task) under the default policy",
+  "description": "Policy defaults (packages/core/src/policy.ts): moving the due date earlier than the start moves the start to match; Resume sends a waiting task to in_progress. expect lists the fields that must result; startMoved is null when the start date didn't move.",
+  "setDueDate": [
+    { "name": "earlier than start moves start", "task": { "startDate": "2026-11-20", "dueDate": "2026-11-25" }, "dueDate": "2026-11-19", "expect": { "startDate": "2026-11-19", "dueDate": "2026-11-19" }, "startMoved": { "from": "2026-11-20", "to": "2026-11-19" } },
+    { "name": "still after start leaves start alone", "task": { "startDate": "2026-11-20", "dueDate": "2026-11-25" }, "dueDate": "2026-11-22", "expect": { "startDate": "2026-11-20", "dueDate": "2026-11-22" }, "startMoved": null },
+    { "name": "equal to start is allowed", "task": { "startDate": "2026-11-20" }, "dueDate": "2026-11-20", "expect": { "startDate": "2026-11-20", "dueDate": "2026-11-20" }, "startMoved": null },
+    { "name": "clearing the due date", "task": { "startDate": "2026-11-20", "dueDate": "2026-11-25" }, "dueDate": null, "expect": { "startDate": "2026-11-20", "dueDate": null }, "startMoved": null },
+    { "name": "no start date", "task": {}, "dueDate": "2026-11-01", "expect": { "startDate": null, "dueDate": "2026-11-01" }, "startMoved": null }
+  ],
+  "resume": [
+    {
+      "name": "waiting task goes to in progress, waiting fields clear, start and flag kept",
+      "task": { "status": "waiting", "waitingOn": "Alex", "waitUntil": "2026-11-20", "startDate": "2026-11-10", "flagged": true },
+      "expect": { "status": "in_progress", "waitingOn": null, "waitUntil": null, "startDate": "2026-11-10", "flagged": true }
+    }
+  ]
+}

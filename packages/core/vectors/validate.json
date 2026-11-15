@@ -1,0 +1,16 @@
+{
+  "function": "validateTask(task)",
+  "description": "Checks every write. expect lists the fields with issues, in any order; empty means valid.",
+  "cases": [
+    { "name": "minimal valid task", "task": { "title": "Buy milk", "status": "open" }, "expect": [] },
+    { "name": "start equal to due", "task": { "title": "x", "startDate": "2026-11-20", "dueDate": "2026-11-20" }, "expect": [] },
+    { "name": "missing title", "task": { "status": "open" }, "expect": ["title"] },
+    { "name": "blank title", "task": { "title": "   " }, "expect": ["title"] },
+    { "name": "unknown status", "task": { "title": "x", "status": "done" }, "expect": ["status"] },
+    { "name": "start after due", "task": { "title": "x", "startDate": "2026-11-21", "dueDate": "2026-11-20" }, "expect": ["startDate"] },
+    { "name": "impossible date", "task": { "title": "x", "dueDate": "2026-02-30" }, "expect": ["dueDate"] },
+    { "name": "check-back may be after due", "task": { "title": "x", "status": "waiting", "waitUntil": "2026-12-01", "dueDate": "2026-11-20" }, "expect": [] },
+    { "name": "completedAt without completedOn", "task": { "title": "x", "completedAt": "2026-11-17T12:00:00Z" }, "expect": ["completedOn"] },
+    { "name": "deletedOn without deletedAt", "task": { "title": "x", "deletedOn": "2026-11-17" }, "expect": ["deletedOn"] }
+  ]
+}

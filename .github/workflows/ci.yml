@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  core:
+    name: Core tests and vectors
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - name: Core unit tests and JSON test vectors
+        run: npm run test -w @app/core
+      - name: Seed expectations at pinned dates (no database)
+        run: npm run test -w @app/cli
+      - name: Web placeholder builds
+        run: npm run build -w @app/web
+
+  database:
+    name: Migrations, RLS and seed checks (local Supabase)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 3.1.0
+      - run: npm ci
+      - name: Start local Supabase (database, auth, REST only)
+        run: supabase start -x realtime,storage-api,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
+      - name: "Migration check: apply every migration from scratch"
+        run: supabase db reset
+      - name: "Migration check: lint"
+        run: supabase db lint --level warning --fail-on warning
+      - name: Schema, RLS and sync-safety tests
+        run: npm run test:db
+      - name: Seed expectations through the CLI (Wednesday and Saturday)
+        run: npm run check:seed -- 2026-11-18 2026-11-21
+      - name: Board output at the pinned Wednesday
+        if: always()
+        run: |
+          npm run -s cli -- seed --reset --today 2026-11-18
+          npm run -s cli -- board --today 2026-11-18 --completed --trash

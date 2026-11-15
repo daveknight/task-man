@@ -1,0 +1,110 @@
+import { readFileSync } from 'node:fs';
+import {
+  buildBoard,
+  MAIN_VIEW_ID,
+  placementFor,
+  type Board,
+  type ISODate,
+  type Task,
+} from '@app/core';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { check, checkRows } from './db.ts';
+import { TASK_COLUMNS, taskFromRow, type TaskRow } from './rows.ts';
+import { planSeed, type SeedFile } from './seed-plan.ts';
+
+export interface ResetResult {
+  tasks: number;
+  tags: number;
+  tombstones: number;
+}
+
+/** Wipes every row the user owns. Positions, subtasks, tags links and completions cascade from tasks. */
+export async function reset(db: SupabaseClient, userId: string): Promise<ResetResult> {
+  const tasks = await db.from('tasks').delete({ count: 'exact' }).eq('user_id', userId);
+  if (tasks.error) throw new Error(`delete tasks: ${tasks.error.message}`);
+  const tags = await db.from('tags').delete({ count: 'exact' }).eq('user_id', userId);
+  if (tags.error) throw new Error(`delete tags: ${tags.error.message}`);
+  // Last, because deleting tasks and tags writes tombstones.
+  const tombstones = await db.from('tombstones').delete({ count: 'exact' }).eq('user_id', userId);
+  if (tombstones.error) throw new Error(`delete tombstones: ${tombstones.error.message}`);
+  return { tasks: tasks.count ?? 0, tags: tags.count ?? 0, tombstones: tombstones.count ?? 0 };
+}
+
+export interface SeedResult {
+  today: ISODate;
+  file: string;
+  reset?: ResetResult;
+  tasks: number;
+  positions: number;
+  skipped: { tags: number; subtasks: number; repeat: number };
+}
+
+export async function seed(
+  db: SupabaseClient,
+  userId: string,
+  options: { file: string; today: ISODate; reset: boolean },
+): Promise<SeedResult> {
+  const file = JSON.parse(readFileSync(options.file, 'utf8')) as SeedFile;
+  const plan = planSeed(file, options.today, { userId });
+  const resetResult = options.reset ? await reset(db, userId) : undefined;
+
+  check(await db.from('tasks').insert(plan.tasks), 'insert tasks');
+  if (plan.positions.length > 0) {
+    check(
+      await db
+        .from('task_positions')
+        .insert(plan.positions.map((p) => ({ ...p, user_id: userId, view_id: MAIN_VIEW_ID }))),
+      'insert positions',
+    );
+  }
+  return {
+    today: options.today,
+    file: options.file,
+    ...(resetResult ? { reset: resetResult } : {}),
+    tasks: plan.tasks.length,
+    positions: plan.positions.length,
+    skipped: plan.skipped,
+  };
+}
+
+export interface BoardTask extends Task {
+  placement: string;
+  sortKey: string | null;
+  hasDescription: boolean;
+  overdue: boolean;
+}
+
+export async function loadBoard(
+  db: SupabaseClient,
+  userId: string,
+  options: { today: ISODate; completed: boolean; trash: boolean },
+): Promise<Board<BoardTask>> {
+  const rows = checkRows(
+    await db.from('tasks').select(TASK_COLUMNS).eq('user_id', userId).returns<TaskRow[]>(),
+    'select tasks',
+  );
+  const positionRows = checkRows(
+    await db
+      .from('task_positions')
+      .select('task_id,sort_key')
+      .eq('user_id', userId)
+      .eq('view_id', MAIN_VIEW_ID)
+      .returns<{ task_id: string; sort_key: string }[]>(),
+    'select positions',
+  );
+  const positions = new Map(positionRows.map((p) => [p.task_id, p.sort_key]));
+  const tasks: BoardTask[] = rows.map((row) => {
+    const task = taskFromRow(row);
+    return {
+      ...task,
+      placement: placementFor(task, options.today),
+      sortKey: positions.get(task.id) ?? null,
+      hasDescription: (task.description ?? '').trim() !== '',
+      overdue: !!task.dueDate && task.dueDate < options.today && !task.completedAt,
+    };
+  });
+  return buildBoard(tasks, positions, options.today, {
+    showCompleted: options.completed,
+    showTrash: options.trash,
+  });
+}
