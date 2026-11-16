@@ -291,6 +291,7 @@ One table in `packages/tokens` maps each meaning to its icon on each platform, s
 | Waiting / check back | `Hourglass` | `hourglass` |
 | Start date | `SunHorizon` | `sunrise` |
 | In Progress / start now | `Play` | `play` |
+| Resume (Waiting to In Progress) | `PlayCircle` | `play.circle` |
 | Flag | `Flag` (Fill when on) | `flag` / `flag.fill` |
 | Repeats | `Repeat` | `repeat` |
 | Trash | `Trash` | `trash` |

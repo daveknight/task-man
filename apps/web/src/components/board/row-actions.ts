@@ -77,7 +77,7 @@ function startPresets(task: Task, today: ISODate): Preset[] {
 export function rowActionsFor(task: Task, today: ISODate, context: ActionContext = {}): RowActions {
   const placement = placementFor(task, today);
   const due: ActionGroup = { title: 'Due', icon: 'dueDate', presets: duePresets(task, today, context) };
-  const resume: ActionGroup = { title: 'Resume', icon: 'inProgress', presets: [] };
+  const resume: ActionGroup = { title: 'Resume', icon: 'resume', presets: [] };
   switch (placement) {
     case 'ready':
     case 'in_progress':

@@ -14,6 +14,7 @@ export const icons = {
   waiting: { phosphor: 'Hourglass', sfSymbol: 'hourglass' },
   startDate: { phosphor: 'SunHorizon', sfSymbol: 'sunrise' },
   inProgress: { phosphor: 'Play', sfSymbol: 'play' },
+  resume: { phosphor: 'PlayCircle', sfSymbol: 'play.circle' },
   flag: { phosphor: 'Flag', sfSymbol: 'flag', sfSymbolActive: 'flag.fill' },
   repeat: { phosphor: 'Repeat', sfSymbol: 'repeat' },
   trash: { phosphor: 'Trash', sfSymbol: 'trash' },

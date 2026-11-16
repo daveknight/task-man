@@ -117,7 +117,7 @@ export function TaskEditor({ task, today, onClose }: { task: Task; today: ISODat
             Extend wait
           </Button>
           <Button variant="outline" size="sm">
-            <Icon name="inProgress" data-icon="inline-start" />
+            <Icon name="resume" data-icon="inline-start" />
             Resume
           </Button>
         </div>
