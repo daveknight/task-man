@@ -33,7 +33,7 @@ function DateMeta({ icon, date, today, tone }: { icon: 'dueDate' | 'startDate' |
   return (
     <span className={cn('inline-flex items-center gap-1 text-footnote whitespace-nowrap', tone ?? 'text-muted-foreground')}>
       <Icon name={icon} className="size-3.5" />
-      {dayLabel(date, today)}
+      <span className="optical-center">{dayLabel(date, today)}</span>
     </span>
   );
 }
@@ -131,8 +131,8 @@ function MenuGroup({ group }: { group: ActionGroup }) {
         {group.presets.map((p) => (
           <ContextMenuItem key={p.label}>
             <Icon name={p.icon} />
-            <span className="flex-1">{p.label}</span>
-            {p.caption && <span className="ml-4 text-footnote text-muted-foreground">{p.caption}</span>}
+            <span className="optical-center flex-1">{p.label}</span>
+            {p.caption && <span className="optical-center ml-4 text-footnote text-muted-foreground">{p.caption}</span>}
           </ContextMenuItem>
         ))}
       </ContextMenuSubContent>
@@ -189,7 +189,7 @@ export function TaskRowContent({ task, today, context, onOpen, className, style,
         onClick={() => onOpen?.(task)}
         className="flex min-h-row min-w-0 flex-1 items-center gap-2 rounded-sm text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
       >
-        <span className={cn('min-w-0 flex-1 truncate text-body', task.completedAt && 'text-muted-foreground line-through')}>{task.title}</span>
+        <span className={cn('min-w-0 flex-1 truncate text-body optical-center', task.completedAt && 'text-muted-foreground line-through')}>{task.title}</span>
         <TrailingMeta task={task} today={today} />
       </button>
       {followUp && <FollowUpButtons actions={hoverActions ?? rowActionsFor(task, today, context)} />}

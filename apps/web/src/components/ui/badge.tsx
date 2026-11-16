@@ -1,6 +1,7 @@
 import { mergeProps } from "@base-ui/react/merge-props"
 import { useRender } from "@base-ui/react/use-render"
 import { cva, type VariantProps } from "class-variance-authority"
+import { opticalText } from "@/lib/optical-text"
 import { cn } from "cn"
 
 const badgeVariants = cva(
@@ -38,7 +39,7 @@ function Badge({
       {
         className: cn(badgeVariants({ variant }), className),
       },
-      props
+      { ...props, children: opticalText(props.children) }
     ),
     render,
     state: {

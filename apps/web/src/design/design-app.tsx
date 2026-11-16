@@ -170,7 +170,7 @@ function ResumePanel({ dark }: { dark?: boolean }) {
             {options.map(({ letter, phosphor, sf, icon: Candidate }) => (
               <div key={letter} className="flex min-h-row items-center gap-row-gap bg-card px-row-x" data-option={letter}>
                 <Checkbox aria-label="Complete" />
-                <span className="min-w-0 flex-1 truncate text-body">Plumber quote for kitchen sink</span>
+                <span className="min-w-0 flex-1 truncate text-body optical-center">Plumber quote for kitchen sink</span>
                 <span className="shrink-0 text-footnote text-muted-foreground">
                   <span className="font-semibold">{letter}</span> {phosphor} · {sf}
                 </span>

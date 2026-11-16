@@ -53,8 +53,8 @@ function SectionView({ section, today, expanded, actionContext, onOpenTask }: Om
     <Collapsible open={open} onOpenChange={setOpen} data-section={section.id} className="flex flex-col">
       <CollapsibleTrigger className="flex h-section-header items-center gap-1.5 self-start rounded-md px-row-x text-subhead font-semibold text-section-header outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
         <Caret open={open} />
-        {SECTION_TITLES[section.id]}
-        <span className="font-normal text-muted-foreground">{section.count}</span>
+        <span className="optical-center">{SECTION_TITLES[section.id]}</span>
+        <span className="optical-center font-normal text-muted-foreground">{section.count}</span>
       </CollapsibleTrigger>
       <CollapsibleContent>
         <RowList>
@@ -65,7 +65,7 @@ function SectionView({ section, today, expanded, actionContext, onOpenTask }: Om
                 <span className="flex size-checkbox items-center justify-center">
                   <Icon name="waiting" className="size-icon" />
                 </span>
-                <span className="flex-1">
+                <span className="optical-center flex-1">
                   {laterOpen ? 'Hide' : 'Show'} {later.length} waiting until later
                 </span>
                 <Caret open={laterOpen} />

@@ -37,8 +37,8 @@ function FieldRow({ icon, label, children, tone }: { icon: IconMeaning; label: s
   return (
     <div className="flex min-h-row items-center gap-row-gap px-row-x">
       <Icon name={icon} className="size-icon shrink-0 text-muted-foreground" />
-      <span className="flex-1 text-body">{label}</span>
-      <span className={cn('text-body text-muted-foreground', tone)}>{children}</span>
+      <span className="optical-center flex-1 text-body">{label}</span>
+      <span className={cn('optical-center text-body text-muted-foreground', tone)}>{children}</span>
     </div>
   );
 }

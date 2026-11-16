@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { Menu as MenuPrimitive } from "@base-ui/react/menu"
+import { opticalText } from "@/lib/optical-text"
 import { cn } from "cn"
 import { CaretRightIcon, CheckIcon } from "@phosphor-icons/react"
 
@@ -91,6 +92,7 @@ function DropdownMenuItem({
         className
       )}
       {...props}
+      children={opticalText(props.children)}
     />
   )
 }
@@ -117,7 +119,7 @@ function DropdownMenuSubTrigger({
       )}
       {...props}
     >
-      {children}
+      {opticalText(children)}
       <CaretRightIcon className="ml-auto" />
     </MenuPrimitive.SubmenuTrigger>
   )
@@ -173,7 +175,7 @@ function DropdownMenuCheckboxItem({
           />
         </MenuPrimitive.CheckboxItemIndicator>
       </span>
-      {children}
+      {opticalText(children)}
     </MenuPrimitive.CheckboxItem>
   )
 }
@@ -214,7 +216,7 @@ function DropdownMenuRadioItem({
           />
         </MenuPrimitive.RadioItemIndicator>
       </span>
-      {children}
+      {opticalText(children)}
     </MenuPrimitive.RadioItem>
   )
 }

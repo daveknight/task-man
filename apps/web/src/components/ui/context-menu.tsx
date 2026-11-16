@@ -1,5 +1,6 @@
 import * as React from "react"
 import { ContextMenu as ContextMenuPrimitive } from "@base-ui/react/context-menu"
+import { opticalText } from "@/lib/optical-text"
 import { cn } from "cn"
 import { CaretRightIcon, CheckIcon } from "@phosphor-icons/react"
 
@@ -102,6 +103,7 @@ function ContextMenuItem({
         className
       )}
       {...props}
+      children={opticalText(props.children)}
     />
   )
 }
@@ -130,7 +132,7 @@ function ContextMenuSubTrigger({
       )}
       {...props}
     >
-      {children}
+      {opticalText(children)}
       <CaretRightIcon className="ml-auto" />
     </ContextMenuPrimitive.SubmenuTrigger>
   )
@@ -175,7 +177,7 @@ function ContextMenuCheckboxItem({
           />
         </ContextMenuPrimitive.CheckboxItemIndicator>
       </span>
-      {children}
+      {opticalText(children)}
     </ContextMenuPrimitive.CheckboxItem>
   )
 }
@@ -215,7 +217,7 @@ function ContextMenuRadioItem({
           />
         </ContextMenuPrimitive.RadioItemIndicator>
       </span>
-      {children}
+      {opticalText(children)}
     </ContextMenuPrimitive.RadioItem>
   )
 }

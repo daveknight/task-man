@@ -8,7 +8,7 @@ export function PresetPanel({ group, className }: { group: ActionGroup; classNam
     <div className={cn('flex flex-col gap-2', className)} data-slot="preset-panel">
       <div className="flex items-center gap-1.5 px-1 text-footnote font-semibold text-muted-foreground">
         <Icon name={group.icon} className="size-icon" />
-        {group.title}
+        <span className="optical-center">{group.title}</span>
       </div>
       <div className="grid grid-cols-3 gap-1.5">
         {group.presets.map((preset) => (

@@ -1,5 +1,6 @@
 import { Button as ButtonPrimitive } from "@base-ui/react/button"
 import { cva, type VariantProps } from "class-variance-authority"
+import { opticalText } from "@/lib/optical-text"
 import { cn } from "cn"
 
 const buttonVariants = cva(
@@ -50,6 +51,7 @@ function Button({
       data-slot="button"
       className={cn(buttonVariants({ variant, size, className }))}
       {...props}
+      children={opticalText(props.children)}
     />
   )
 }
