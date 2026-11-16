@@ -29,6 +29,7 @@ export default defineConfig(({ command }) => {
       'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(supabase.url),
       'import.meta.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(supabase.anonKey),
     },
-    server: { host: '127.0.0.1', port: 5173 },
+    server: { host: '127.0.0.1', port: 5180, strictPort: true },
+    preview: { host: '127.0.0.1', port: 5181, strictPort: true },
   };
 });
