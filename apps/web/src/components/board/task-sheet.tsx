@@ -107,7 +107,7 @@ export function TaskEditor({ task, today, onClose }: { task: Task; today: ISODat
         defaultValue={task.title}
         aria-label="Title"
         rows={1}
-        className="min-h-0 resize-none rounded-none border-0 bg-transparent! px-0 py-0 text-title font-semibold shadow-none focus-visible:ring-0"
+        className="min-h-0 resize-none rounded-none border-0 bg-transparent! px-0 py-0 text-title font-semibold shadow-none focus-visible:ring-0 md:text-title"
       />
 
       {waiting === 'needs_follow_up' && (
@@ -144,7 +144,7 @@ export function TaskEditor({ task, today, onClose }: { task: Task; today: ISODat
         defaultValue={task.description ?? ''}
         placeholder="Description"
         aria-label="Description"
-        className="min-h-40 flex-1 resize-none rounded-xl border-0 bg-card text-body shadow-none ring-1 ring-border/60 dark:bg-card"
+        className="min-h-40 flex-1 resize-none rounded-xl border-0 bg-card text-body shadow-none ring-1 ring-border/60 md:text-body dark:bg-card"
       />
     </div>
   );
