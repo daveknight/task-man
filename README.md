@@ -7,8 +7,9 @@ Personal task manager for todos. "TaskMan" is a working name: it lives in `APP_N
 | Path | What |
 |---|---|
 | `packages/core` | UI-free shared rules (`sectionFor`, board order, dates, sort keys, transitions, validation) and the JSON test vectors in `vectors/` that the Swift port will reuse |
+| `packages/tokens` | Design tokens (light and dark colors from Apple's system palette, type scale, spacing, row heights) and the Phosphor/SF Symbols icon map. `npm run generate -w @app/tokens` writes `generated/tokens.css` and the Tailwind theme `generated/tailwind.css` |
 | `apps/cli` | Agent and seeding CLI (`seed`, `reset`, `board`), talks to local Supabase only |
-| `apps/web` | Vite + React placeholder: signs in as the dev user automatically and shows the board read-only |
+| `apps/web` | Vite + React with shadcn/ui on Base UI (components in `src/components/ui`, owned by us), Tailwind on the tokens, Phosphor icons. Signs in as the dev user and shows the board read-only; static Phase 1a design screens at `/design` in dev |
 | `supabase/` | Local Supabase config, migrations, and `seed.sql` (the dev user) |
 | `seed/` | Fixture tasks with hand-written expectations, and AI-capture examples |
 
@@ -23,6 +24,8 @@ npm run -s cli -- seed --reset --today 2026-11-18
 npm run -s cli -- board --today 2026-11-18  # add --json for machine-readable output
 npm run web                                 # http://127.0.0.1:5173/?today=2026-11-18
 ```
+
+Design screens (no database needed): `npm run web`, then open http://127.0.0.1:5173/design. They render `seed/tasks.json` at the pinned Wednesday (override with `?today=`). With the dev server running, `npm run screenshots -- --out <dir>` saves every screen in light and dark at desktop and iPhone sizes (uses the installed Google Chrome; set `CHROME_PATH` to use another).
 
 The dev user is `dev@example.com` / `dev-password` (local only). The web app signs in as it automatically in `vite dev`, so every query runs through row-level security exactly as in production.
 
@@ -42,13 +45,17 @@ board [--completed] [--trash]             the main view, grouped and ordered lik
 
 | Command | Needs Supabase | Checks |
 |---|---|---|
-| `npm test` | no | core vectors and unit tests; seed expectations at the pinned Wednesday (2026-11-18) and Saturday (2026-11-21) |
+| `npm test` | no | core vectors and unit tests; tokens (generated CSS is current, every declared text pair reaches 4.5:1 in light and dark); seed expectations at the pinned Wednesday (2026-11-18) and Saturday (2026-11-21) |
 | `npm run typecheck` | no | all packages |
 | `npm run db:reset && npm run db:lint` | yes | every migration applies from scratch; Supabase linter |
 | `npm run test:db` | yes | RLS on every table as real signed-in users, `user_id default auth.uid()`, trigger-set `updated_at`, start ≤ due, completion uniqueness, tombstones, byte-wise sort keys |
 | `npm run check:seed -- 2026-11-18 2026-11-21` | yes | seeds through the real CLI and compares `board --json` with every `expect` in `seed/tasks.json` |
 
 CI (`.github/workflows/ci.yml`) runs all of these.
+
+## Design
+
+shadcn/ui components are added with `npx shadcn@latest add <name>` from `apps/web` (`components.json` uses the Base UI base and Phosphor icons). Colors, sizes and spacing come only from `@app/tokens`: change `packages/tokens/src/tokens.ts`, run `npm run generate -w @app/tokens`, and commit the generated files. Text colors must be listed in `textPairs` so the contrast test covers them. The Appearance setting (System, Light, Dark) is in the board's menu and stored in `localStorage`.
 
 ## Product defaults that may change
 

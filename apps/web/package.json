@@ -2,25 +2,42 @@
   "name": "@app/web",
   "version": "0.0.0",
   "private": true,
-  "description": "Web app placeholder: signs in as the local dev user and lists the board read-only. The real UI is Phase 1a.",
+  "description": "Web app (React + Vite, shadcn/ui on Base UI, Tailwind on @app/tokens). Phase 1a design screens live under /design in dev.",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "typecheck": "tsc -p tsconfig.json"
+    "typecheck": "tsc -p tsconfig.json",
+    "screenshots": "tsx scripts/screenshots.ts"
   },
   "dependencies": {
+    "@app/cli": "*",
     "@app/core": "*",
+    "@app/tokens": "*",
+    "@base-ui/react": "^1.9.0",
+    "@phosphor-icons/react": "^2.1.10",
     "@supabase/supabase-js": "^2.119.0",
+    "@tailwindcss/vite": "^4.3.5",
+    "class-variance-authority": "^0.7.1",
+    "cmdk": "^1.1.1",
+    "cn": "^0.5.2",
+    "date-fns": "^4.4.0",
     "react": "^19.3.0",
-    "react-dom": "^19.3.0"
+    "react-day-picker": "^10.0.2",
+    "react-dom": "^19.3.0",
+    "shadcn": "^4.23.0",
+    "sonner": "^2.0.8",
+    "tailwindcss": "^4.3.5",
+    "tw-animate-css": "^1.4.0"
   },
   "devDependencies": {
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^6.0.0",
+    "playwright": "^1.65.1",
     "typescript": "^5.9.3",
-    "vite": "^8.0.0"
+    "vite": "^8.0.0",
+    "tsx": "^4.23.0"
   }
 }

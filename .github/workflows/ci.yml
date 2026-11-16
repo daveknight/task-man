@@ -23,9 +23,11 @@ jobs:
       - run: npm run typecheck
       - name: Core unit tests and JSON test vectors
         run: npm run test -w @app/core
+      - name: "Design tokens: generated CSS is current, text contrast is 4.5:1 in light and dark"
+        run: npm run test -w @app/tokens
       - name: Seed expectations at pinned dates (no database)
         run: npm run test -w @app/cli
-      - name: Web placeholder builds
+      - name: Web app builds
         run: npm run build -w @app/web
 
   database:

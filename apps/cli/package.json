@@ -4,6 +4,10 @@
   "private": true,
   "description": "Agent and seeding CLI. Talks to local Supabase only.",
   "type": "module",
+  "exports": {
+    "./seed-plan": "./src/seed-plan.ts",
+    "./rows": "./src/rows.ts"
+  },
   "scripts": {
     "cli": "tsx src/main.ts",
     "test": "vitest run --dir test",
