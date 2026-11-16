@@ -40,7 +40,6 @@
   --swipe-state: #0066CC;
   --swipe-delete: #D70015;
   --swipe-flag: #C93400;
-  --swipe-complete: #208338;
   --font-family-sans: -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
   --font-family-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   --font-weight-regular: 400;
@@ -66,13 +65,13 @@
   --line-height-title: 26px;
   --font-size-large-title: 26px;
   --line-height-large-title: 32px;
-  --size-row: 36px;
+  --size-row: 38px;
   --size-section-header: 32px;
   --size-toolbar: 48px;
   --size-control: 28px;
   --size-checkbox: 18px;
   --size-icon: 16px;
-  --size-swipe-button: 72px;
+  --size-swipe-button: 30px;
   --space-unit: 4px;
   --space-row-x: 12px;
   --space-row-gap: 10px;
@@ -120,7 +119,6 @@
   --swipe-state: #0064D2;
   --swipe-delete: #D9302A;
   --swipe-flag: #B25000;
-  --swipe-complete: #208338;
 }
 
 @media (pointer: coarse) {
@@ -139,13 +137,13 @@
     --line-height-title: 28px;
     --font-size-large-title: 34px;
     --line-height-large-title: 41px;
-    --size-row: 44px;
+    --size-row: 46px;
     --size-section-header: 44px;
     --size-toolbar: 52px;
     --size-control: 44px;
     --size-checkbox: 22px;
     --size-icon: 18px;
-    --size-swipe-button: 76px;
+    --size-swipe-button: 36px;
     --space-unit: 4px;
     --space-row-x: 16px;
     --space-row-gap: 12px;

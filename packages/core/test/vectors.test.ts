@@ -26,7 +26,6 @@ function taskFrom(fields: Partial<Task>, id = 'task'): Task {
     id,
     title: 'Task',
     status: 'open',
-    waitingOn: null,
     waitUntil: null,
     startDate: null,
     dueDate: null,

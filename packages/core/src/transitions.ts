@@ -21,5 +21,5 @@ export function setDueDate<T extends Task>(task: T, dueDate: ISODate | null, pol
 
 /** Resume: the blocker cleared. Waiting fields clear; the start date is unchanged. */
 export function resume<T extends Task>(task: T, policy: Policy = DEFAULT_POLICY): T {
-  return { ...task, status: policy.resumeStatus, waitingOn: null, waitUntil: null };
+  return { ...task, status: policy.resumeStatus, waitUntil: null };
 }

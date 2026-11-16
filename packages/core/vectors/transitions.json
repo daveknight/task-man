@@ -11,8 +11,8 @@
   "resume": [
     {
       "name": "waiting task goes to in progress, waiting fields clear, start and flag kept",
-      "task": { "status": "waiting", "waitingOn": "Alex", "waitUntil": "2026-11-20", "startDate": "2026-11-10", "flagged": true },
-      "expect": { "status": "in_progress", "waitingOn": null, "waitUntil": null, "startDate": "2026-11-10", "flagged": true }
+      "task": { "status": "waiting", "waitUntil": "2026-11-20", "startDate": "2026-11-10", "flagged": true },
+      "expect": { "status": "in_progress", "waitUntil": null, "startDate": "2026-11-10", "flagged": true }
     }
   ]
 }

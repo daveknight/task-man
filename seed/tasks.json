@@ -65,7 +65,6 @@
       "expect": "waiting",
       "title": "Plumber quote for kitchen sink",
       "status": "waiting",
-      "waitingOn": "Rivera Plumbing",
       "tags": [
         "home"
       ]
@@ -74,7 +73,6 @@
       "expect": "waiting",
       "title": "Reimbursement for conference travel",
       "status": "waiting",
-      "waitingOn": "Finance team",
       "due": "+5d",
       "tags": [
         "work",
@@ -86,7 +84,6 @@
       "expect": "waiting",
       "title": "Hear back from school about field trip form",
       "status": "waiting",
-      "waitingOn": "Ms. Patel",
       "tags": [
         "kids"
       ],
@@ -96,7 +93,6 @@
       "expect": "waiting_later",
       "title": "Warranty replacement for headphones",
       "status": "waiting",
-      "waitingOn": "Sony support",
       "description": "Case number 48213-B. They said 5-7 business days.",
       "waitUntil": "+3d"
     },
@@ -104,7 +100,6 @@
       "expect": "waiting_later",
       "title": "Quote from window cleaners",
       "status": "waiting",
-      "waitingOn": "ClearView",
       "waitUntil": "+1w",
       "tags": [
         "home"
@@ -114,7 +109,6 @@
       "expect": "waiting",
       "title": "Contractor sign-off on deck permit",
       "status": "waiting",
-      "waitingOn": "Dan (contractor)",
       "waitUntil": "+7d",
       "due": "today",
       "tags": [

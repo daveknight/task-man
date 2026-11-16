@@ -23,7 +23,6 @@ interface Row {
   title: string;
   description: string;
   status: Task['status'];
-  waiting_on: string | null;
   wait_until: string | null;
   flagged: boolean;
   start_date: string | null;
@@ -48,7 +47,6 @@ async function loadBoard(day: string): Promise<Board> {
     title: r.title,
     description: r.description,
     status: r.status,
-    waitingOn: r.waiting_on,
     waitUntil: r.wait_until,
     flagged: r.flagged,
     startDate: r.start_date,

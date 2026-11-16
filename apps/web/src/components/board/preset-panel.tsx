@@ -1,6 +1,5 @@
 import { cn } from '@/lib/utils';
 import { Icon } from '@/components/icon';
-import { Input } from '@/components/ui/input';
 import type { ActionGroup } from './row-actions';
 
 /** A grid of quick picks, like TickTick's date popover. Used in popovers and the swipe sheets. */
@@ -20,11 +19,9 @@ export function PresetPanel({ group, className }: { group: ActionGroup; classNam
           >
             <Icon name={preset.icon} className="size-icon text-foreground" />
             <span className="text-footnote font-medium leading-tight">{preset.label}</span>
-            {preset.caption && <span className="text-caption text-muted-foreground">{preset.caption}</span>}
           </button>
         ))}
       </div>
-      {group.waitingOn && <Input placeholder="Waiting on (optional)" aria-label="Waiting on" />}
     </div>
   );
 }

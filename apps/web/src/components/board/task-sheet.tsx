@@ -114,15 +114,11 @@ export function TaskEditor({ task, today, onClose }: { task: Task; today: ISODat
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm">
             <Icon name="waiting" data-icon="inline-start" />
-            Wait again
+            Extend wait
           </Button>
           <Button variant="outline" size="sm">
             <Icon name="inProgress" data-icon="inline-start" />
             Resume
-          </Button>
-          <Button variant="outline" size="sm">
-            <Icon name="complete" data-icon="inline-start" />
-            Done
           </Button>
         </div>
       )}
@@ -130,14 +126,7 @@ export function TaskEditor({ task, today, onClose }: { task: Task; today: ISODat
       <RowList className="ring-1 ring-border/60">
         <DateField icon="startDate" label="Start" date={task.startDate} today={today} />
         <DateField icon="dueDate" label="Due" date={task.dueDate} today={today} tone={overdue ? 'text-overdue' : undefined} />
-        {task.status === 'waiting' && (
-          <>
-            <FieldRow icon="waitingOn" label="Waiting on">
-              {task.waitingOn ?? 'Nobody set'}
-            </FieldRow>
-            <DateField icon="waiting" label="Check back" date={task.waitUntil} today={today} />
-          </>
-        )}
+        {task.status === 'waiting' && <DateField icon="waiting" label="Check back" date={task.waitUntil} today={today} />}
       </RowList>
 
       <Textarea

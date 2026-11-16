@@ -40,7 +40,6 @@ export const textSafe = {
   swipeOrange: { light: '#C93400', dark: '#B25000' },
   swipeBlue: { light: '#0066CC', dark: '#0064D2' },
   swipeRed: { light: '#D70015', dark: '#D9302A' },
-  swipeGreen: { light: '#208338', dark: '#208338' },
 } as const satisfies Record<string, ColorPair>;
 
 const white: ColorPair = { light: '#FFFFFF', dark: '#FFFFFF' };
@@ -90,7 +89,6 @@ export const colors = {
   'swipe-state': textSafe.swipeBlue,
   'swipe-delete': textSafe.swipeRed,
   'swipe-flag': textSafe.swipeOrange,
-  'swipe-complete': textSafe.swipeGreen,
 } as const satisfies Record<string, ColorPair>;
 
 export type ColorRole = keyof typeof colors;
@@ -121,7 +119,6 @@ export const textPairs: readonly [text: ColorRole, on: ColorRole][] = [
   ['swipe-foreground', 'swipe-state'],
   ['swipe-foreground', 'swipe-delete'],
   ['swipe-foreground', 'swipe-flag'],
-  ['swipe-foreground', 'swipe-complete'],
   ['sidebar-foreground', 'sidebar'],
   ['sidebar-primary-foreground', 'sidebar-primary'],
 ];
@@ -136,7 +133,6 @@ export const nativeRoles: readonly ColorRole[] = [
   'swipe-state',
   'swipe-delete',
   'swipe-flag',
-  'swipe-complete',
 ];
 
 /** A value for mouse and trackpad (`pointer: fine`) and one for touch screens (`pointer: coarse`). */
@@ -170,13 +166,14 @@ export const fontWeight = {
 
 /** Heights in px. Touch targets stay at 44 or more. */
 export const size = {
-  row: { fine: 36, coarse: 44 },
+  row: { fine: 38, coarse: 46 },
   'section-header': { fine: 32, coarse: 44 },
   toolbar: { fine: 48, coarse: 52 },
   control: { fine: 28, coarse: 44 },
   checkbox: { fine: 18, coarse: 22 },
   icon: { fine: 16, coarse: 18 },
-  'swipe-button': { fine: 72, coarse: 76 },
+  /** Icon buttons revealed by a swipe, inside the row. */
+  'swipe-button': { fine: 30, coarse: 36 },
 } as const satisfies Record<string, Density>;
 
 /** Spacing in px. `unit` drives Tailwind's numeric scale (p-2 = 2 units). */

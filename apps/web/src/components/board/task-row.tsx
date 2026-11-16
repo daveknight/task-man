@@ -1,5 +1,5 @@
 import { waitingStateFor, type ISODate, type Task } from '@app/core';
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { Icon } from '@/components/icon';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -15,7 +15,7 @@ import {
   ContextMenuTrigger,
 } from '@/components/ui/context-menu';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { dayLabel, shortDate } from '@/lib/day-label';
+import { dayLabel } from '@/lib/day-label';
 import { cn } from '@/lib/utils';
 import { PresetPanel } from './preset-panel';
 import { rowActionsFor, type ActionContext, type ActionGroup, type RowActions } from './row-actions';
@@ -26,9 +26,10 @@ export interface TaskRowProps {
   context?: ActionContext;
   onOpen?: (task: Task) => void;
   className?: string;
+  style?: CSSProperties;
 }
 
-function DateMeta({ icon, date, today, tone }: { icon: 'dueDate' | 'startDate'; date: ISODate; today: ISODate; tone?: string }) {
+function DateMeta({ icon, date, today, tone }: { icon: 'dueDate' | 'startDate' | 'waiting'; date: ISODate; today: ISODate; tone?: string }) {
   return (
     <span className={cn('inline-flex items-center gap-1 text-footnote whitespace-nowrap', tone ?? 'text-muted-foreground')}>
       <Icon name={icon} className="size-3.5" />
@@ -37,13 +38,22 @@ function DateMeta({ icon, date, today, tone }: { icon: 'dueDate' | 'startDate'; 
   );
 }
 
-/** Description, flag and dates at the end of the title line. */
-function TrailingMeta({ task, today, upcoming }: { task: Task; today: ISODate; upcoming: boolean }) {
+/** Follow-up badge, dates and flag at the end of the row. */
+function TrailingMeta({ task, today }: { task: Task; today: ISODate }) {
+  const waiting = !task.completedAt && !task.deletedAt && task.status === 'waiting' ? waitingStateFor(task, today) : null;
+  const followUpDue = waiting === 'needs_follow_up' && !!task.waitUntil && task.waitUntil <= today;
+  const upcoming = !!task.startDate && task.startDate > today;
   const overdue = !!task.dueDate && task.dueDate < today;
   const dueToday = task.dueDate === today;
   return (
     <span className="flex shrink-0 items-center gap-2">
-      {task.description && <Icon name="description" className="size-3.5 text-muted-foreground" aria-label="Has description" />}
+      {followUpDue && (
+        <Badge className="bg-follow-up-muted px-1.5 text-follow-up">
+          <Icon name="followUp" />
+          Follow up
+        </Badge>
+      )}
+      {waiting === 'later' && task.waitUntil && <DateMeta icon="waiting" date={task.waitUntil} today={today} />}
       {upcoming && task.startDate && <DateMeta icon="startDate" date={task.startDate} today={today} />}
       {task.dueDate && (
         <DateMeta icon="dueDate" date={task.dueDate} today={today} tone={overdue ? 'text-overdue font-medium' : dueToday ? 'text-link font-medium' : undefined} />
@@ -53,21 +63,13 @@ function TrailingMeta({ task, today, upcoming }: { task: Task; today: ISODate; u
   );
 }
 
-function FollowUpButtons() {
+/** Extend wait and Resume as icon buttons. Rows on phones leave them to the swipe actions and the sheet. */
+function FollowUpButtons({ actions }: { actions: RowActions }) {
   return (
-    <span className="flex shrink-0 items-center gap-1">
-      <Button variant="outline" size="xs">
-        <Icon name="waiting" data-icon="inline-start" />
-        Wait again
-      </Button>
-      <Button variant="outline" size="xs">
-        <Icon name="inProgress" data-icon="inline-start" />
-        Resume
-      </Button>
-      <Button variant="outline" size="xs">
-        <Icon name="complete" data-icon="inline-start" />
-        Done
-      </Button>
+    <span data-slot="follow-up-buttons" className="flex shrink-0 items-center gap-0.5 max-sm:hidden pointer-coarse:hidden">
+      {actions.state.map((g) => (
+        <GroupPopoverButton key={g.title} group={g} tone="text-link" />
+      ))}
     </span>
   );
 }
@@ -171,56 +173,26 @@ export function RowContextMenu({ task, actions, children }: { task: Task; action
   );
 }
 
-/** One task in a section: title only, with icons for description, flag and dates. */
-export function TaskRowContent({ task, today, onOpen, className, hoverActions }: TaskRowProps & { hoverActions?: RowActions }) {
-  const waiting = !task.completedAt && !task.deletedAt && task.status === 'waiting' ? waitingStateFor(task, today) : null;
-  const followUp = waiting === 'needs_follow_up';
-  const later = waiting === 'later';
-  const followUpDue = followUp && !!task.waitUntil && task.waitUntil <= today;
-  const upcoming = !!task.startDate && task.startDate > today;
-  const subtitle = [task.waitingOn, later && task.waitUntil ? shortDate(task.waitUntil, today) : null].filter(Boolean).join(' · ');
-
+/** One task in a section: the title, with icons for flag and dates. */
+export function TaskRowContent({ task, today, context, onOpen, className, style, hoverActions }: TaskRowProps & { hoverActions?: RowActions }) {
+  const followUp = !task.completedAt && !task.deletedAt && task.status === 'waiting' && waitingStateFor(task, today) === 'needs_follow_up';
   return (
     <div
       data-slot="task-row"
       data-task-id={task.id}
-      className={cn('group/row relative flex min-h-row items-start gap-row-gap bg-card px-row-x', className)}
+      className={cn('group/row relative flex min-h-row items-center gap-row-gap bg-card px-row-x', className)}
+      style={style}
     >
-      <span className="flex h-row items-center">
-        <Checkbox aria-label={`Complete ${task.title}`} checked={!!task.completedAt} />
-      </span>
-      <div className="flex min-w-0 flex-1 flex-col py-[calc((var(--size-row)-var(--line-height-body))/2)]">
-        <button
-          type="button"
-          onClick={() => onOpen?.(task)}
-          className="flex items-center gap-2 rounded-sm text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-        >
-          <span className={cn('min-w-0 flex-1 truncate text-body', task.completedAt && 'text-muted-foreground line-through')}>{task.title}</span>
-          <TrailingMeta task={task} today={today} upcoming={upcoming} />
-        </button>
-        {(followUp || later) && (followUpDue || subtitle) && (
-          <span className="mt-1 flex items-center gap-1.5 text-footnote text-muted-foreground">
-            {followUpDue && (
-              <Badge className="bg-follow-up-muted px-1.5 text-follow-up">
-                <Icon name="followUp" />
-                Follow up
-              </Badge>
-            )}
-            {subtitle && <Icon name={later ? 'waiting' : 'waitingOn'} className="size-3.5 shrink-0" />}
-            <span className="truncate">{subtitle}</span>
-          </span>
-        )}
-        {followUp && (
-          <span className="mt-2 flex sm:hidden">
-            <FollowUpButtons />
-          </span>
-        )}
-      </div>
-      {followUp && (
-        <span className="flex h-row items-center max-sm:hidden">
-          <FollowUpButtons />
-        </span>
-      )}
+      <Checkbox aria-label={`Complete ${task.title}`} checked={!!task.completedAt} />
+      <button
+        type="button"
+        onClick={() => onOpen?.(task)}
+        className="flex min-h-row min-w-0 flex-1 items-center gap-2 rounded-sm text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+      >
+        <span className={cn('min-w-0 flex-1 truncate text-body', task.completedAt && 'text-muted-foreground line-through')}>{task.title}</span>
+        <TrailingMeta task={task} today={today} />
+      </button>
+      {followUp && <FollowUpButtons actions={hoverActions ?? rowActionsFor(task, today, context)} />}
       {hoverActions && !followUp && <HoverActions actions={hoverActions} />}
     </div>
   );

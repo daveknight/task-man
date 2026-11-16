@@ -1,4 +1,5 @@
 import { placementFor, type ISODate, type Task } from '@app/core';
+import { ArrowCircleRight, ArrowUUpRight, Hourglass, Play, PlayCircle, type Icon as PhosphorIcon } from '@phosphor-icons/react';
 import { useMemo, useState, type ReactNode } from 'react';
 import { BoardView, RowList, SECTION_TITLES } from '@/components/board/board-view';
 import { PresetPanel } from '@/components/board/preset-panel';
@@ -18,6 +19,7 @@ export const DESIGN_SCREENS = {
   actions: 'Swipe buttons and quick-pick presets for every state',
   sheet: 'Task sheet (side sheet on desktop, bottom sheet on phones)',
   'sheet-waiting': 'Task sheet for a Waiting task that needs follow-up',
+  'resume-icons': 'Resume icon options',
 } as const;
 
 export type DesignScreen = keyof typeof DESIGN_SCREENS;
@@ -79,8 +81,7 @@ function ActionCase({ seed, task, today, note }: { seed: SeedBoard; task: Task; 
 
 function ActionsScreen({ seed, today }: { seed: SeedBoard; today: ISODate }) {
   const swipes: { reveal: SwipeReveal; title: string; task: Task }[] = [
-    { reveal: 'right', title: 'Short swipe right: Flag', task: seed.byTitle('Return library books') },
-    { reveal: 'complete', title: 'Full swipe right: Complete', task: seed.byTitle('Fix squeaky closet door') },
+    { reveal: 'right', title: 'Swipe right: Flag', task: seed.byTitle('Return library books') },
   ];
   return (
     <Page title="Row actions" today={today}>
@@ -101,6 +102,40 @@ function ActionsScreen({ seed, today }: { seed: SeedBoard; today: ISODate }) {
         <ActionCase seed={seed} today={today} task={seed.byTitle('Pay November credit card bill')} />
         <ActionCase seed={seed} today={today} task={seed.byTitle('Look into standing desk')} />
       </div>
+    </Page>
+  );
+}
+
+const RESUME_OPTIONS: { name: string; sf: string; icon: PhosphorIcon }[] = [
+  { name: 'Play', sf: 'play', icon: Play },
+  { name: 'PlayCircle', sf: 'play.circle', icon: PlayCircle },
+  { name: 'ArrowUUpRight', sf: 'arrow.uturn.forward', icon: ArrowUUpRight },
+  { name: 'ArrowCircleRight', sf: 'arrow.right.circle', icon: ArrowCircleRight },
+];
+
+/** Each Resume candidate beside Extend wait, as it would sit at the end of a follow-up row. */
+function ResumeIconsScreen({ today }: { today: ISODate }) {
+  return (
+    <Page title="Resume icon" today={today}>
+      <RowList>
+        {RESUME_OPTIONS.map(({ name, sf, icon: Candidate }, i) => (
+          <div key={name} className="flex min-h-row items-center gap-row-gap px-row-x py-2" data-option={name}>
+            <span className="w-6 text-footnote font-semibold text-muted-foreground">{String.fromCharCode(65 + i)}</span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-body">{name}</span>
+              <span className="block text-footnote text-muted-foreground">SF Symbol: {sf}</span>
+            </span>
+            <span className="flex items-center gap-0.5 text-link">
+              <span className="flex size-7 items-center justify-center rounded-md" title="Extend wait">
+                <Hourglass className="size-4" />
+              </span>
+              <span className="flex size-7 items-center justify-center rounded-md bg-muted" title="Resume">
+                <Candidate className="size-4" />
+              </span>
+            </span>
+          </div>
+        ))}
+      </RowList>
     </Page>
   );
 }
@@ -137,6 +172,8 @@ export function DesignApp({ screen }: { screen: string }) {
       return <ActionsScreen seed={seed} today={today} />;
     case 'sheet':
       return <BoardScreen seed={seed} today={today} sheetFor="Twitter litigation claim" />;
+    case 'resume-icons':
+      return <ResumeIconsScreen today={today} />;
     case 'sheet-waiting':
       return <BoardScreen seed={seed} today={today} sheetFor="Reimbursement for conference travel" />;
     default:

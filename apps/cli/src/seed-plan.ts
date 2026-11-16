@@ -29,7 +29,6 @@ export interface SeedTask {
   start?: string;
   due?: string;
   waitUntil?: string;
-  waitingOn?: string;
   flagged?: boolean;
   completed?: string;
   deleted?: string;
@@ -93,7 +92,6 @@ export function planSeed(file: SeedFile, today: ISODate, options: PlanOptions): 
       title: seed.title,
       description: seed.description ?? '',
       status: seed.status ?? 'open',
-      waiting_on: seed.waitingOn ?? null,
       wait_until: seed.waitUntil ? resolveDate(seed.waitUntil, today) : null,
       flagged: seed.flagged ?? false,
       start_date: start,

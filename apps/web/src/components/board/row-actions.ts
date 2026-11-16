@@ -11,12 +11,10 @@ export interface Preset {
 }
 
 export interface ActionGroup {
-  /** Button and menu label, e.g. "Due", "Wait…". */
+  /** Button and menu label, e.g. "Due", "Wait until". */
   title: string;
   icon: IconMeaning;
   presets: Preset[];
-  /** Waiting picks also take an optional "Waiting on". */
-  waitingOn?: boolean;
 }
 
 export interface RowActions {
@@ -50,13 +48,16 @@ function duePresets(task: Task, today: ISODate, context: ActionContext): Preset[
   return presets;
 }
 
-function waitPicks(today: ISODate, withNoDate: boolean): Preset[] {
+/** Wait until and Extend wait. Saturday is the coming one, left out on Fridays when it would repeat Tomorrow. */
+function waitPicks(today: ISODate): Preset[] {
+  const tomorrow = addDays(today, 1);
+  const saturday = nextWeekdayOnOrAfter(tomorrow, ['sat']);
   return [
-    at('1 day', 'waiting', addDays(today, 1), today),
-    at('3 days', 'waiting', addDays(today, 3), today),
+    at('Tomorrow', 'waiting', tomorrow, today),
+    ...(saturday === tomorrow ? [] : [at('Saturday', 'waiting', saturday, today)]),
     at('1 week', 'waiting', addDays(today, 7), today),
     { label: 'Pick date', icon: 'pickDate' },
-    ...(withNoDate ? [{ label: 'No date', icon: 'clear' } satisfies Preset] : []),
+    { label: 'No date', icon: 'clear' },
   ];
 }
 
@@ -83,14 +84,14 @@ export function rowActionsFor(task: Task, today: ISODate, context: ActionContext
       return {
         placement,
         date: due,
-        state: [{ title: 'Wait…', icon: 'waiting', presets: waitPicks(today, true), waitingOn: true }],
+        state: [{ title: 'Wait until', icon: 'waiting', presets: waitPicks(today) }],
         delete: 'Delete',
       };
     case 'waiting':
       return {
         placement,
         date: due,
-        state: [{ title: 'Wait again', icon: 'waiting', presets: waitPicks(today, false) }, resume],
+        state: [{ title: 'Extend wait', icon: 'waiting', presets: waitPicks(today) }, resume],
         delete: 'Delete',
       };
     case 'waiting_later':

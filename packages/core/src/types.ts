@@ -11,7 +11,6 @@ export interface Task {
   title: string;
   description?: string;
   status: Status;
-  waitingOn?: string | null;
   waitUntil?: ISODate | null;
   flagged?: boolean;
   startDate?: ISODate | null;
