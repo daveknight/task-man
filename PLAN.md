@@ -210,10 +210,13 @@ flowchart LR
   supa --> edge
   edge --> llm
   fixtures["Shared JSON test vectors"]
+  tokens["tokens: shared design tokens"]
   core --> web
   core --> cli
   fixtures --> core
   fixtures --> ios
+  tokens --> web
+  tokens --> ios
   web --> supa
   cli --> supa
   ios --> supa
@@ -221,7 +224,7 @@ flowchart LR
 
 - **Backend: Supabase Free.** One hosted project for real data. All development and agent testing runs on **local Supabase** (Docker, via the Supabase CLI) in the cloud environment, so tests never touch your real tasks or any paid plan.
 - **The login screen is deferred, but security isn't.** Row-level security (`user_id = auth.uid()`) is on from the first migration, and every table, including subtasks, tags, completions and positions, carries `user_id default auth.uid()`. Locally, the web app signs in automatically as a seeded development user, so you never see a login screen while we iterate, yet every query already runs exactly as it will in production. The real login screen (email and password, sign-ups disabled, long-lived sessions so the installed web app stays signed in, and password reset) arrives in Phase 1b, just before the app goes onto a public URL with your real tasks. Other sign-in methods are in the backlog.
-- **Web:** Vite + React + TypeScript, dnd-kit for drag-and-drop, TanStack Query, Tailwind. Hosted as a static site, either on DreamHost (already paid for) or a free static host.
+- **Web:** Vite + React + TypeScript, shadcn/ui components on Base UI, Tailwind, Phosphor icons, dnd-kit for drag-and-drop, TanStack Query. See [Design system](#design-system). Hosted as a static site, either on DreamHost (already paid for) or a free static host.
 - **Shared rules package (`core`):** pure TypeScript with no UI, holding section derivation, the next-occurrence math, sort keys, and relative-date parsing. Unit-tested with Vitest against **JSON test vectors** (input task + today, expected output). The Swift apps later port the same functions and run the same vectors, so all clients behave identically.
 - **Native (phase 3):** one SwiftUI multiplatform target for iOS and macOS, using `supabase-swift`, with a local SwiftData or GRDB cache so the app opens instantly and works offline. Edits made offline are queued and replayed later, and Realtime pushes changes from other devices.
 - **Sync safety, built into the schema from Phase 0** so the native phase doesn't need a migration of live data:
@@ -242,6 +245,60 @@ flowchart LR
 | 1 GB file storage, 50 MB per file | Matters only for attachments | Downscale photos before upload, and show storage usage in Settings |
 
 Fallbacks if Supabase ever stops working for this: custom PHP and MySQL on DreamHost (same schema; you'd build login, sync and storage yourself) or CloudKit (free, native only, no web).
+
+## Design system
+
+**shadcn/ui on the web, Apple's own components on iOS and macOS.** No single off-the-shelf system is both a good web app and native on Apple platforms. So each platform uses the best fit, and the two share design tokens and icon meanings rather than pixels. The web app should look at home next to the native apps: tight rows, the system font, Apple system colors, and real light and dark themes.
+
+### Shared tokens
+
+- One source of truth, `packages/tokens` (`@app/tokens`): semantic tokens for color (light and dark pairs), radius, spacing, type scale and row heights. Apps never use raw hex values or one-off sizes.
+- Color names follow shadcn's variables (`background`, `foreground`, `card`, `muted`, `muted-foreground`, `border`, `input`, `ring`, `primary`, `accent`, `destructive`, `sidebar-*`) plus app roles: `flag` (orange), `overdue` (red), `follow-up` (the orange Waiting badge), `section-header`, `swipe-date` (orange), `swipe-state` (blue) and `swipe-delete` (red).
+- Values start from Apple's system colors and grouped backgrounds (for example blue `#007AFF` / `#0A84FF`, orange `#FF9500` / `#FF9F0A`, red `#FF3B30` / `#FF453A` for light / dark), so the web app and the native apps read as one product.
+- The web app gets generated CSS variables for Tailwind and shadcn. From Phase 3 the same file generates a Swift theme for the few places native needs custom color (the flag, overdue dates, swipe buttons). Everywhere else native uses system colors directly.
+
+### Web (from Phase 1a)
+
+- **Components:** shadcn/ui with Base UI as the base (`shadcn init`'s default). Components are copied into `apps/web/src/components/ui` and owned by us, so restyling is editing files, not overriding a library. Add components only when a screen needs them.
+- **The Phase 1a set:** Collapsible (sections and "Show N waiting until later"), Checkbox, Popover (quick picks and swipe presets), Calendar (date pickers), Dropdown Menu and Context Menu (status menu, right-click actions), Sheet on wide screens and Drawer (bottom sheet) on narrow ones for the task sheet, Dialog, Input, Textarea, Toggle (flag), Badge, Tooltip, Separator, Scroll Area, Command (search) and Sonner (toasts with Undo). Swipe actions in mobile Safari and drag-and-drop (dnd-kit) are our own code, styled with the same tokens.
+- **Look and density:** the system font stack (`-apple-system, BlinkMacSystemFont, system-ui, sans-serif`), which shows SF Pro on Apple devices. Never bundle SF Pro font files: Apple's license doesn't allow it on the web. 13 to 14 px text and about 36 px rows with a mouse, at least 44 px touch targets on touch screens (`pointer: coarse`), round checkboxes, inset separators and grouped sections like iOS lists.
+- **Light and dark:** shadcn's `.dark` class on `<html>`, set from an Appearance setting (System, Light, Dark; default System, following `prefers-color-scheme`). The installed web app's `theme-color` and status bar follow it.
+- **Icons:** Phosphor (`@phosphor-icons/react`, MIT), the closest licensed match to SF Symbols. Regular weight by default, Fill for selected or active states. Lucide, shadcn's default, is replaced.
+- **Accessibility:** keyboard reachable everywhere (Base UI handles focus and menus), visible focus rings, and text contrast of at least 4.5:1 in both themes.
+
+### Native (Phase 3)
+
+- **SwiftUI system components first:** `List` with sections, `swipeActions`, `contextMenu`, `NavigationSplitView` sidebar on macOS and iPad, sheets with detents for the task sheet, `DatePicker`, `Menu`, toolbars and keyboard shortcuts. Standard components pick up Liquid Glass, Dynamic Type, accessibility and dark mode for free, so custom drawing is a last resort.
+- **SF Symbols** for every icon.
+- **The appearance follows the system.** The web app's Appearance setting doesn't sync to native.
+- The native apps follow Apple's layout and interaction conventions rather than copying the web app. They share the web app's behavior (sections, actions, presets) and token meanings, not its pixel layout.
+
+### Icon map
+
+One table in `packages/tokens` maps each meaning to its icon on each platform, so a meaning never changes icon between devices. For example:
+
+| Meaning | Phosphor (web) | SF Symbol (native) |
+|---|---|---|
+| Due date | `CalendarBlank` | `calendar` |
+| Waiting / check back | `Hourglass` | `hourglass` |
+| Start date | `SunHorizon` | `sunrise` |
+| In Progress / start now | `Play` | `play` |
+| Flag | `Flag` (Fill when on) | `flag` / `flag.fill` |
+| Has description | `TextAlignLeft` | `text.alignleft` |
+| Repeats | `Repeat` | `repeat` |
+| Trash | `Trash` | `trash` |
+| Capture | `Sparkle` | `sparkles` |
+
+### Figma
+
+- **Web screens:** the Obra shadcn/ui kit, Community edition (free; CC BY 4.0, so credit Obra Studio in the repo's design notes), with its color variables re-pointed to our tokens and the Phosphor plugin for icons.
+- **Native screens:** Apple's official iOS 27 and macOS 27 UI kits (free, from Apple Design Resources), with the SF Symbols app for icons.
+- **Before building each UI phase,** its new screens are designed in light and dark. The web kit is used from Phase 1a, and the Apple kits from Phase 3.
+- Token values are changed in `packages/tokens` first, then mirrored into the Figma variables, so code stays the source of truth.
+
+### Testing
+
+- Playwright runs the board and the task sheet in both color schemes, and checks the key screens with screenshot comparisons, so a token change can't silently break dark mode.
 
 ## Data model (Postgres)
 
@@ -297,25 +354,37 @@ Each phase ends with something you can use day to day and give feedback on befor
 - CI: core unit tests and test vectors, migration check, seed-expectation check at pinned dates.
 
 **Phase 1a: core board (web, local)**
+- **Design foundation first** (see [Design system](#design-system)):
+  - `packages/tokens` with light and dark values and the icon map.
+  - `shadcn init` on Base UI with the Apple-like theme, and Phosphor replacing Lucide.
+  - The Appearance setting (System, Light, Dark).
+  - The board, task sheet and swipe and quick-pick popovers designed in the Figma web kit, in light and dark, and agreed before building them.
 - The four sections with Upcoming collapsed, and the task sheet (title, description with list auto-format, start and due dates, status, flag).
 - Quick add, drag to reorder and drag across sections, done/undone with undo, Show completed, Trash with the 30-day purge, search over title and description.
-- The full CLI command set, Playwright end-to-end tests, responsive layout so it works in mobile Safari too.
+- The full CLI command set, Playwright end-to-end tests (including both color schemes), responsive layout so it works in mobile Safari too.
 - **Installable to the iPhone home screen** (a progressive web app): app icon, full-screen launch with no browser bars, safe-area padding for the notch and home indicator, and a cached app shell so it opens instantly. Offline, it shows the last-loaded board **read-only, with a banner**, so no edit is ever silently lost. Offline editing arrives with the native apps in Phase 3.
 - You try it against seed data in a browser preview.
 
 **Phase 1b: go live**
-- The real login screen, the hosted Supabase project, and deploying the web app.
+- The real login screen (built from the same shadcn components and tokens), the hosted Supabase project, and deploying the web app.
 - The backup repo with the nightly export and keep-alive job, and the restore round-trip test.
 - From here you use it daily on your phone and laptop.
 
 **Phase 2: richer tasks**
 - Subtasks, tags (with filtering in search), recurrence with all three modes and start offsets, plus the completion history. Repeat-picker presets like TickTick: daily, weekly on that weekday, monthly on that date, yearly, weekdays, and custom.
+- The repeat picker, tag chips and subtask rows are designed in the Figma web kit first, and new icons are added to the icon map.
 
 **Phase 2b: free-form capture**
 - The Capture box, the `parse-capture` Edge Function with Gemini first and Claude and ChatGPT behind the same interface, the review sheet, the plain-lines fallback, `capture_log`, the CLI `capture` commands and the example set. It comes after Phase 2 so the model can fill in tags, subtasks and repeats.
+- The Capture box and review sheet (cards with field chips) are designed in the Figma web kit first.
 
 **Phase 3: native iOS + macOS**
 - SwiftUI multiplatform app with the same rules (passes the shared test vectors), local cache and offline queue, realtime sync, native drag-and-drop, and a bottom-sheet editor like your screenshots.
+- **Built from Apple's system components:**
+  - The screens are designed first in Apple's iOS and macOS Figma kits, in light and dark.
+  - `packages/tokens` generates the Swift theme for the app-specific colors.
+  - SF Symbols come from the icon map.
+  - The app follows Apple's conventions (sidebar on Mac and iPad, swipe actions, context menus, sheets) rather than copying the web layout.
 - Distributed through TestFlight. Not needed: an App Store listing.
 
 **Phase 4: attachments**
