@@ -22,10 +22,10 @@ npm install
 npm run db:start                            # local Supabase in Docker; applies migrations and the dev user
 npm run -s cli -- seed --reset --today 2026-11-18
 npm run -s cli -- board --today 2026-11-18  # add --json for machine-readable output
-npm run web                                 # http://127.0.0.1:5180/?today=2026-11-18
+npm run web                                 # http://127.0.0.1:5179/?today=2026-11-18
 ```
 
-Design screens (no database needed): `npm run web`, then open http://127.0.0.1:5180/design. They render `seed/tasks.json` at the pinned Wednesday (override with `?today=`). With the dev server running, `npm run screenshots -- --out <dir>` saves every screen in light and dark at desktop and iPhone sizes (uses the installed Google Chrome; set `CHROME_PATH` to use another).
+Design screens (no database needed): `npm run web`, then open http://127.0.0.1:5179/design. They render `seed/tasks.json` at the pinned Wednesday (override with `?today=`). With the dev server running, `npm run screenshots -- --out <dir>` saves every screen in light and dark at desktop and iPhone sizes (uses the installed Google Chrome; set `CHROME_PATH` to use another).
 
 The dev user is `dev@example.com` / `dev-password` (local only). The web app signs in as it automatically in `vite dev`, so every query runs through row-level security exactly as in production.
 

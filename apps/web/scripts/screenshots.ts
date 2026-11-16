@@ -1,7 +1,7 @@
 /**
  * Screenshots of the design screens in light and dark, on desktop and an iPhone-sized viewport.
  * Needs the dev server (`npm run web`). Usage:
- *   npm run screenshots -w @app/web -- --out ../../screenshots [--base http://127.0.0.1:5180] [--only board,sheet]
+ *   npm run screenshots -w @app/web -- --out ../../screenshots [--base http://127.0.0.1:5179] [--only board,sheet]
  */
 import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -11,7 +11,7 @@ import { chromium, devices, type BrowserContextOptions, type Page } from 'playwr
 const { values } = parseArgs({
   options: {
     out: { type: 'string', default: 'screenshots' },
-    base: { type: 'string', default: 'http://127.0.0.1:5180' },
+    base: { type: 'string', default: 'http://127.0.0.1:5179' },
     only: { type: 'string' },
   },
 });
