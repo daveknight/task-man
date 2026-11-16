@@ -124,9 +124,12 @@ export function TaskEditor({ task, today, onClose }: { task: Task; today: ISODat
       )}
 
       <RowList className="ring-1 ring-border/60">
-        <DateField icon="startDate" label="Start" date={task.startDate} today={today} />
+        {task.status === 'waiting' ? (
+          <DateField icon="waiting" label="Check back" date={task.startDate} today={today} />
+        ) : (
+          <DateField icon="startDate" label="Start" date={task.startDate} today={today} />
+        )}
         <DateField icon="dueDate" label="Due" date={task.dueDate} today={today} tone={overdue ? 'text-overdue' : undefined} />
-        {task.status === 'waiting' && <DateField icon="waiting" label="Check back" date={task.waitUntil} today={today} />}
       </RowList>
 
       <Textarea

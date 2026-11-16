@@ -12,7 +12,7 @@
       "input": "Call the dentist tomorrow, I'm waiting on Alex for the deck quote, check back Friday, and every other Sunday water the plants. Oh and file taxes, start thinking about it in February, due April 15.",
       "expect": { "count": 4, "tasks": [
         { "titleIncludes": ["dentist"], "dueDate": "2026-11-19", "status": "open" },
-        { "titleIncludes": ["deck"], "status": "waiting", "waitUntil": "2026-11-20" },
+        { "titleIncludes": ["deck"], "status": "waiting", "startDate": "2026-11-20" },
         { "titleIncludes": ["water", "plants"], "repeat": { "mode": "schedule", "freq": "weekly", "interval": 2, "byWeekday": ["sun"] }, "dueDate": "2026-11-22" },
         { "titleIncludes": ["taxes"], "startDate": "2027-02-01", "dueDate": "2027-04-15", "tags": ["finance"] }
       ] }
@@ -56,7 +56,7 @@
     {
       "input": "Waiting to hear back from the school about the field trip form.",
       "expect": { "count": 1, "tasks": [ { "titleIncludes": ["field trip"], "status": "waiting", "tags": ["kids"] } ] },
-      "why": "No check-back date given, so waitUntil stays empty and the task shows as needing follow-up."
+      "why": "No check-back date given, so startDate (the check-back date) stays empty and the task shows as needing follow-up."
     }
   ]
 }

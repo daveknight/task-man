@@ -1,4 +1,4 @@
-import { placementFor, type ISODate, type Task } from '@app/core';
+import { changeStatus, placementFor, type ISODate, type Status, type Task } from '@app/core';
 import {
   ArrowBendUpLeft,
   ArrowUUpRight,
@@ -15,6 +15,7 @@ import { useMemo, useState, type ReactNode } from 'react';
 import { BoardView, RowList, SECTION_TITLES } from '@/components/board/board-view';
 import { PresetPanel } from '@/components/board/preset-panel';
 import { rowActionsFor } from '@/components/board/row-actions';
+import { StartDecisionPrompt } from '@/components/board/start-decision-prompt';
 import { SwipeRow, type SwipeReveal } from '@/components/board/swipe-row';
 import { TaskSheet } from '@/components/board/task-sheet';
 import { Toolbar } from '@/components/board/toolbar';
@@ -34,6 +35,9 @@ export const DESIGN_SCREENS = {
   sheet: 'Task sheet (side sheet on desktop, bottom sheet on phones)',
   'sheet-waiting': 'Task sheet for a Waiting task that needs follow-up',
   'resume-icons': 'Resume icon options',
+  'prompt-resume': 'Resume a Waiting task whose check-back is after its due date',
+  'prompt-leave-waiting': 'Drag a Waiting task with a future check-back to Ready',
+  'prompt-enter-waiting': 'Set an Upcoming task to Waiting',
 } as const;
 
 export type DesignScreen = keyof typeof DESIGN_SCREENS;
@@ -47,9 +51,31 @@ function Page({ title, today, menuOpen, children }: { title: string; today: ISOD
   );
 }
 
-function BoardScreen({ seed, today, expanded, menuOpen, sheetFor }: { seed: SeedBoard; today: ISODate; expanded?: boolean; menuOpen?: boolean; sheetFor?: string }) {
+interface PromptCase {
+  title: string;
+  to: Status;
+}
+
+function BoardScreen({
+  seed,
+  today,
+  expanded,
+  menuOpen,
+  sheetFor,
+  prompt,
+}: {
+  seed: SeedBoard;
+  today: ISODate;
+  expanded?: boolean;
+  menuOpen?: boolean;
+  sheetFor?: string;
+  prompt?: PromptCase;
+}) {
   const [sheetTask, setSheetTask] = useState<Task | null>(sheetFor ? seed.byTitle(sheetFor) : null);
   const [open, setOpen] = useState(!!sheetFor);
+  const [promptOpen, setPromptOpen] = useState(!!prompt);
+  const promptTask = prompt ? seed.byTitle(prompt.title) : null;
+  const decision = prompt && promptTask ? changeStatus(promptTask, prompt.to, today).decision : undefined;
   return (
     <Page title="Tasks" today={today} menuOpen={menuOpen}>
       <BoardView
@@ -63,6 +89,9 @@ function BoardScreen({ seed, today, expanded, menuOpen, sheetFor }: { seed: Seed
         }}
       />
       <TaskSheet task={sheetTask} today={today} open={open} onOpenChange={setOpen} />
+      {prompt && promptTask && decision && (
+        <StartDecisionPrompt task={promptTask} to={prompt.to} decision={decision} today={today} open={promptOpen} onOpenChange={setPromptOpen} />
+      )}
     </Page>
   );
 }
@@ -238,6 +267,12 @@ export function DesignApp({ screen }: { screen: string }) {
       return <BoardScreen seed={seed} today={today} sheetFor="Twitter litigation claim" />;
     case 'resume-icons':
       return <ResumeIconsScreen />;
+    case 'prompt-resume':
+      return <BoardScreen seed={seed} today={today} prompt={{ title: 'Contractor sign-off on deck permit', to: 'in_progress' }} />;
+    case 'prompt-leave-waiting':
+      return <BoardScreen seed={seed} today={today} expanded prompt={{ title: 'Warranty replacement for headphones', to: 'open' }} />;
+    case 'prompt-enter-waiting':
+      return <BoardScreen seed={seed} today={today} expanded prompt={{ title: 'Winterize the sprinkler system', to: 'waiting' }} />;
     case 'sheet-waiting':
       return <BoardScreen seed={seed} today={today} sheetFor="Reimbursement for conference travel" />;
     default:

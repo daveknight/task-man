@@ -9,7 +9,8 @@
     { "name": "unknown status", "task": { "title": "x", "status": "done" }, "expect": ["status"] },
     { "name": "start after due", "task": { "title": "x", "startDate": "2026-11-21", "dueDate": "2026-11-20" }, "expect": ["startDate"] },
     { "name": "impossible date", "task": { "title": "x", "dueDate": "2026-02-30" }, "expect": ["dueDate"] },
-    { "name": "check-back may be after due", "task": { "title": "x", "status": "waiting", "waitUntil": "2026-12-01", "dueDate": "2026-11-20" }, "expect": [] },
+    { "name": "waiting: check-back (start) may be after due", "task": { "title": "x", "status": "waiting", "startDate": "2026-12-01", "dueDate": "2026-11-20" }, "expect": [] },
+    { "name": "in progress: start after due is rejected", "task": { "title": "x", "status": "in_progress", "startDate": "2026-12-01", "dueDate": "2026-11-20" }, "expect": ["startDate"] },
     { "name": "completedAt without completedOn", "task": { "title": "x", "completedAt": "2026-11-17T12:00:00Z" }, "expect": ["completedOn"] },
     { "name": "deletedOn without deletedAt", "task": { "title": "x", "deletedOn": "2026-11-17" }, "expect": ["deletedOn"] }
   ]

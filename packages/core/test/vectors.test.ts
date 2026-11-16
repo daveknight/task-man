@@ -6,12 +6,16 @@ import {
   keyBetween,
   nextWeekdayOnOrAfter,
   resolveDate,
+  changeStatus,
   resume,
   sectionFor,
   setDueDate,
   validateTask,
+  waitUntil,
   waitingStateFor,
   weekdayOf,
+  type StartChoice,
+  type StartDecision,
   type Task,
   type Weekday,
 } from '../src/index.ts';
@@ -26,7 +30,6 @@ function taskFrom(fields: Partial<Task>, id = 'task'): Task {
     id,
     title: 'Task',
     status: 'open',
-    waitUntil: null,
     startDate: null,
     dueDate: null,
     completedAt: null,
@@ -127,7 +130,17 @@ describe('transitions.json', () => {
       expect: Partial<Task>;
       startMoved: { from: string; to: string } | null;
     }[];
-    resume: { name: string; task: Partial<Task>; expect: Partial<Task> }[];
+    waitUntil: { name: string; task: Partial<Task>; checkBack: string | null; expect: Partial<Task> }[];
+    changeStatus: {
+      name: string;
+      today: string;
+      task: Partial<Task>;
+      to: Task['status'];
+      choice?: StartChoice;
+      expect?: Partial<Task>;
+      expectDecision?: StartDecision;
+      expectError?: boolean;
+    }[];
   }>('transitions.json');
 
   it.each(vectors.setDueDate)('setDueDate: $name', ({ task, dueDate, expect: expected, startMoved }) => {
@@ -136,8 +149,22 @@ describe('transitions.json', () => {
     expect(result.startMoved ?? null).toEqual(startMoved);
   });
 
-  it.each(vectors.resume)('resume: $name', ({ task, expect: expected }) => {
-    expect(resume(taskFrom(task))).toMatchObject(expected);
+  it.each(vectors.waitUntil)('waitUntil: $name', ({ task, checkBack, expect: expected }) => {
+    expect(waitUntil(taskFrom(task), checkBack)).toMatchObject(expected);
+  });
+
+  it.each(vectors.changeStatus)('changeStatus: $name', ({ today, task, to, choice, expect: expected, expectDecision, expectError }) => {
+    const t = taskFrom(task);
+    if (expectDecision) {
+      expect(changeStatus(t, to, today)).toEqual({ decision: expectDecision });
+      return;
+    }
+    if (expectError) {
+      expect(() => changeStatus(t, to, today, choice)).toThrow();
+      return;
+    }
+    expect(changeStatus(t, to, today, choice).task).toMatchObject(expected!);
+    if (to === 'in_progress') expect(resume(t, today, choice)).toEqual(changeStatus(t, to, today, choice));
   });
 });
 

@@ -21,23 +21,28 @@ Every collapsible part remembers whether you last left it expanded.
 
 Waiting is a **status**, on the same picker as In Progress, because a task can't be both. A typical flow: you've made progress, and now someone else has to act before you can finish.
 
-- **Going in:** choose Waiting from the status menu, swipe, or drag into the Waiting section. A small popover, **Wait until**, offers quick picks: **Tomorrow, Saturday** (the coming one; hidden on Fridays, when it would repeat Tomorrow), **1 week, Pick date, No date**. There is no "waiting on" field: the title says who, and the check-back date is the only extra. Going into Waiting clears a future start date.
+- **Going in:** choose Waiting from the status menu, swipe, or drag into the Waiting section. A small popover, **Wait until**, offers quick picks: **Tomorrow, Saturday** (the coming one; hidden on Fridays, when it would repeat Tomorrow), **1 week, Pick date, No date**. There is no "waiting on" field: the title says who. The picked date is stored as the task's **start date**: while a task is Waiting, its start date *is* its check-back date (the task sheet labels the field "Check back"), and it may fall after the due date. Wait until picks aren't capped by the due date.
 - **Two sub-states inside the one Waiting section:**
   - **Needs follow-up (visible):** no check-back date, or the check-back date is today or earlier, or the due date is today or earlier. A task whose check-back date has arrived gets an orange **Follow up** badge at the end of the row. The badge is only a label, not a button; tapping it opens the task like the rest of the row.
   - **Waiting until later (tucked away):** the check-back date is in the future. These tasks sit behind a "Show 3 waiting until later" row at the bottom of the section, collapsed by default, each showing its check-back date with an hourglass ("Nov 21").
   - The section header counts both. If every waiting task is tucked away, the section shows just its header and the "Show N" row.
 - **Acting on a task that needs follow-up:** two actions, plus the checkbox, which completes it as usual:
   - **Extend wait:** the same picks as Wait until, counted from today, for when you nudged the person and need more time.
-  - **Resume:** the blocker cleared, so the task goes to In Progress and the check-back date is cleared.
+  - **Resume:** the blocker cleared, so the task goes to In Progress. A check-back date of today or earlier just stays as a past start date; a future one, or one after the due date, asks first (below).
   - On desktop they are icon-only buttons at the end of the row. Phone rows don't show them (the targets would be too small); they're in the swipe actions and the task sheet, which labels them.
-- Completing a recurring task clears its Waiting fields along with its subtasks.
-- Field: `wait_until date null`. Which sub-state a task is in is derived, never stored, like the sections.
+- Completing a recurring Waiting task ends the wait: the next occurrence is `open`, with its start date recomputed and its subtasks reset.
+- **Status changes never change dates silently.** When a status change would make the start date mean something else, the app asks (a dialog on desktop, a bottom sheet on phones) with the default answer first and highlighted:
+  - **Leaving Waiting** (Resume, the status menu, or dragging to Ready or In Progress) with a **future** check-back date: **Clear the check-back date** (default; the task moves now), **Start on that date** (it waits in Upcoming), or **Pick a start date**.
+  - **Leaving Waiting with a check-back date after the due date** (past or future): **Clear** (default) or **Pick a start date** on or before the due date. Keeping it isn't offered, since outside Waiting the start can't be after the due date.
+  - **Going into Waiting without picking a date** (the status menu) while the task has a **future start date**: **Check back on that date** (default), **No check-back date** (needs follow-up now), or **Pick a check-back date**. Wait until and Extend wait don't ask, since you've just picked the date.
+  - `core`'s `changeStatus(task, to, today, choice?)` decides this for every client. Without `choice` it returns `{ decision }` (the reason, the dates, the allowed answers and the default) instead of a task; called again with `choice` (`'clear'`, `'keep'` or `{ set: date }`) it returns the task. Non-interactive callers (CLI commands, AI capture, sync) must pass the choice up front; future CLI status commands take it as `--start clear|keep|<date>` and fail with the question when it's missing. The defaults live in `core`'s policy (`leaveWaitingDefault: 'clear'`, `enterWaitingDefault: 'keep'`).
+- No field of its own: the check-back date is `start_date`. Which sub-state a task is in is derived, never stored, like the sections.
 - In Phase 5, the check-back date can also send a notification.
 
 Not on the board by default: completed tasks (a "Show completed" toggle in the menu adds a collapsed Completed section at the bottom) and deleted tasks (a Trash screen in the menu).
 
 - The section is **derived, never stored**. One shared function, `sectionFor(task, today)`, decides it, so the web app, the native apps and the CLI can never disagree.
-- A future start date wins over status: such a task is in Upcoming. Moving a task into In Progress or Waiting clears a future start date.
+- A Waiting task is always in Waiting: its future start date (the check-back date) only tucks it under "waiting until later." For every other task, a future start date wins over status: it's in Upcoming. Moving an Upcoming task into In Progress is "Start now" and clears its future start date.
 - "Today" is the device's local calendar day. Tasks move from Upcoming to Ready when the day rolls over, with no background job.
 - Start and due dates are **days only** (Postgres `date`), with no times or time zones.
 - The due date is informational: shown in the row, red when overdue. Later on it will set the default for reminders.
@@ -122,7 +127,7 @@ repeat = {
 - The task sheet has a **Skip this occurrence** action, which advances the dates without recording a completion.
 - **Completing an occurrence** adds a row to `task_completions` (history), then in one transaction:
   - The due date advances using the table above.
-  - The start date becomes the new due date minus the offset (or empty with no offset), subtasks reset to not done, the status goes back to `open`, Waiting fields clear, and the stored board position clears. The flag stays.
+  - The start date becomes the new due date minus the offset (or empty with no offset), subtasks reset to not done, the status goes back to `open` and the stored board position clears. The flag stays.
   - If `ends` is reached, the task is completed for good instead.
 - Undo restores the previous dates and subtasks from the completion row. It's offered by the toast, and afterwards by `undone`/Mark not done only while the task hasn't been edited since that completion.
 - Deleting a recurring task deletes the whole series.
@@ -137,11 +142,11 @@ Speak or type a rambling note, and the app turns it into one or more proposed ta
 3. **Review:** a sheet lists each proposed task as a card: title, plus chips for every field it filled in (due Thu Nov 19, Waiting · check back Fri, repeats every 2 weeks on Sunday, start Feb 1, flag, tags, subtasks). You can tap a card to open it in the normal task sheet, untick tasks you don't want, or edit chips. The original text stays visible at the top. **Add 4 tasks** saves them; Cancel saves nothing.
 4. Saved tasks land like any new task (top of their section, or Upcoming if they have a future start date).
 
-**What the model is told:** today's date and weekday, your time zone, your existing tag names (so it reuses them rather than inventing near-duplicates), and the app's rules in plain terms: start date means "hide until," due date is the deadline, "waiting on someone" means Waiting status, and the three repeat types. It must answer with JSON matching a fixed schema:
+**What the model is told:** today's date and weekday, your time zone, your existing tag names (so it reuses them rather than inventing near-duplicates), and the app's rules in plain terms: start date means "hide until," due date is the deadline, "waiting on someone" means Waiting status (and for a Waiting task, startDate is the check-back date), and the three repeat types. It must answer with JSON matching a fixed schema:
 
 ```
 { tasks: [ { title, description?, startDate?, dueDate?, status: open|in_progress|waiting,
-             waitUntil?, flagged?, tags?: [..], subtasks?: [..], repeat?: {...same shape as tasks.repeat} } ],
+             flagged?, tags?: [..], subtasks?: [..], repeat?: {...same shape as tasks.repeat} } ],
   notes?: "anything it couldn't place, shown at the top of the review sheet" }
 ```
 
@@ -176,23 +181,25 @@ Speak or type a rambling note, and the app turns it into one or more proposed ta
 
 One table in `core`, covered by test vectors, decides what every change does to the other fields. The flag is never changed by a transition.
 
-| Change | Status | Waiting fields | Start date | Board position |
-|---|---|---|---|---|
-| Complete (non-recurring) | kept, so Mark not done returns it where it was | kept | kept | kept |
-| Complete (recurring) | `open` | cleared | recomputed | cleared |
-| Mark not done | as before completion | as before | as before | kept, else bottom of section |
-| Into Waiting | `waiting` | set | future start cleared | top of Waiting |
-| Extend wait | `waiting` | new check-back date | unchanged | kept |
-| Resume, or drag Waiting to In Progress | `in_progress` | cleared | unchanged | top of In Progress |
-| Drag to Ready | `open` | cleared | unchanged | where dropped |
-| Set a future start date | `open` | cleared | set | cleared (goes to Upcoming) |
-| Delete, then Restore | as before | as before | as before | kept, else bottom of section |
+| Change | Status | Start date (the check-back date while Waiting) | Board position |
+|---|---|---|---|
+| Complete (non-recurring) | kept, so Mark not done returns it where it was | kept | kept |
+| Complete (recurring) | `open` | recomputed | cleared |
+| Mark not done | as before completion | as before | kept, else bottom of section |
+| Wait until (into Waiting with a pick) | `waiting` | the picked date, or empty for No date | top of Waiting |
+| Into Waiting without a pick (status menu) | `waiting` | kept; asks first if it's in the future (default: keep it as the check-back date) | top of Waiting |
+| Extend wait | `waiting` | the new check-back date | kept |
+| Resume, or drag Waiting to In Progress | `in_progress` | kept if today or earlier; asks first if it's in the future or after the due date (default: clear) | top of In Progress |
+| Drag Waiting to Ready | `open` | same as Resume | where dropped |
+| Start now, or drag Upcoming to In Progress | `in_progress` | cleared | top of In Progress |
+| Set a future start date (not Waiting) | unchanged | set | cleared (goes to Upcoming) |
+| Delete, then Restore | as before | as before | kept, else bottom of section |
 
-- **The start date is always on or before the due date** when both are set. It's enforced in three places:
-  - **Pickers:** the start picker can't choose a day after the due date, and swipe presets that would break the rule (like "+1 week" on a task due in 3 days) are hidden.
-  - **Moving the due date earlier than the start date** moves the start date to the new due date, with a brief "Start moved to Nov 20" note and Undo.
-  - **Everywhere else:** `core` validates every write (CLI, AI capture, sync), and the database has a check constraint (`start_date <= due_date`) as the last line of defence. AI capture fixes a violation the same way and marks it on the card.
-- Recurring tasks satisfy this automatically, since `startOffsetDays` can't be negative. The Waiting check-back date is independent: it may fall after the due date, and the due date then brings the task to follow-up first.
+- **The start date is on or before the due date** when both are set, **except on Waiting tasks**, where the start date is the check-back date and may fall after the due date (the due date then brings the task to follow-up first). It's enforced in three places:
+  - **Pickers:** the start picker can't choose a day after the due date, and swipe presets that would break the rule (like "+1 week" on a task due in 3 days) are hidden. The check-back picks (Wait until, Extend wait, Check back) aren't capped.
+  - **Moving the due date earlier than the start date** moves the start date to the new due date, with a brief "Start moved to Nov 20" note and Undo. This doesn't apply to Waiting tasks: their check-back date stays put.
+  - **Everywhere else:** `core` validates every write (CLI, AI capture, sync), and the database has a check constraint (`status = 'waiting' or start_date <= due_date`) as the last line of defence. AI capture fixes a violation the same way and marks it on the card.
+- Recurring tasks satisfy this automatically, since `startOffsetDays` can't be negative.
 - Waiting's "Pick date" can't choose a past date (that's what Now is for).
 - The "waiting until later" group is sorted by check-back date, soonest first.
 - The board re-works out every section at local midnight and whenever the app comes back to the foreground, so tasks move between sections without a refresh.
@@ -304,8 +311,8 @@ One table in `packages/tokens` maps each meaning to its icon on each platform, s
 
 ```
 tasks(id uuid pk, user_id, title text, description text,
-      status text check in (open,in_progress,waiting), wait_until date, flagged bool default false,
-      start_date date, due_date date, check (start_date <= due_date), repeat jsonb,
+      status text check in (open,in_progress,waiting), flagged bool default false,
+      start_date date, due_date date, check (status = 'waiting' or start_date <= due_date), repeat jsonb,
       completed_at timestamptz, completed_on date, deleted_at timestamptz,
       created_at, updated_at, search tsvector generated)
 task_positions(user_id, view_id text, task_id, sort_key text, pk(view_id, task_id))

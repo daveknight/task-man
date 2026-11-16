@@ -7,7 +7,6 @@ export interface TaskRow {
   title: string;
   description: string;
   status: Status;
-  wait_until: ISODate | null;
   flagged: boolean;
   start_date: ISODate | null;
   due_date: ISODate | null;
@@ -21,7 +20,7 @@ export interface TaskRow {
 }
 
 export const TASK_COLUMNS =
-  'id,user_id,title,description,status,wait_until,flagged,start_date,due_date,repeat,completed_at,completed_on,deleted_at,deleted_on,created_at,updated_at';
+  'id,user_id,title,description,status,flagged,start_date,due_date,repeat,completed_at,completed_on,deleted_at,deleted_on,created_at,updated_at';
 
 export function taskFromRow(row: TaskRow): Task {
   return {
@@ -29,7 +28,6 @@ export function taskFromRow(row: TaskRow): Task {
     title: row.title,
     description: row.description,
     status: row.status,
-    waitUntil: row.wait_until,
     flagged: row.flagged,
     startDate: row.start_date,
     dueDate: row.due_date,

@@ -41,8 +41,8 @@ function DateMeta({ icon, date, today, tone }: { icon: 'dueDate' | 'startDate' |
 /** Follow-up badge, dates and flag at the end of the row. */
 function TrailingMeta({ task, today }: { task: Task; today: ISODate }) {
   const waiting = !task.completedAt && !task.deletedAt && task.status === 'waiting' ? waitingStateFor(task, today) : null;
-  const followUpDue = waiting === 'needs_follow_up' && !!task.waitUntil && task.waitUntil <= today;
-  const upcoming = !!task.startDate && task.startDate > today;
+  const followUpDue = waiting === 'needs_follow_up' && !!task.startDate && task.startDate <= today;
+  const upcoming = !waiting && !!task.startDate && task.startDate > today;
   const overdue = !!task.dueDate && task.dueDate < today;
   const dueToday = task.dueDate === today;
   return (
@@ -53,7 +53,7 @@ function TrailingMeta({ task, today }: { task: Task; today: ISODate }) {
           Follow up
         </Badge>
       )}
-      {waiting === 'later' && task.waitUntil && <DateMeta icon="waiting" date={task.waitUntil} today={today} />}
+      {waiting === 'later' && task.startDate && <DateMeta icon="waiting" date={task.startDate} today={today} />}
       {upcoming && task.startDate && <DateMeta icon="startDate" date={task.startDate} today={today} />}
       {task.dueDate && (
         <DateMeta icon="dueDate" date={task.dueDate} today={today} tone={overdue ? 'text-overdue font-medium' : dueToday ? 'text-link font-medium' : undefined} />
