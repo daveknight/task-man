@@ -1,0 +1,25 @@
+{
+  "name": "app-monorepo",
+  "private": true,
+  "description": "TaskMan (working name): a single-user task manager. See PLAN.md.",
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "cli": "npm run --silent -w @app/cli cli --",
+    "test": "npm run test -w @app/core && npm run test -w @app/cli",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "db:start": "supabase start",
+    "db:stop": "supabase stop",
+    "db:reset": "supabase db reset",
+    "db:lint": "supabase db lint --level warning --fail-on warning",
+    "test:db": "npm run test:db -w @app/cli",
+    "check:seed": "npm run check:seed -w @app/cli --",
+    "web": "npm run dev -w @app/web"
+  }
+}

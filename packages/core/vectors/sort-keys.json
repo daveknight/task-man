@@ -1,0 +1,40 @@
+{
+  "function": "keyBetween(a, b) and isValidSortKey(key)",
+  "description": "Deterministic fractional-index keys, base 62 digits 0-9A-Za-z, compared byte-wise. null means the start (a) or end (b) of the list. Real writes add a random suffix (newSortKey); its invariants are property-tested, not listed here.",
+  "keyBetween": [
+    { "a": null, "b": null, "expect": "a0" },
+    { "a": null, "b": "a0", "expect": "Zz" },
+    { "a": null, "b": "Zz", "expect": "Zy" },
+    { "a": "a0", "b": null, "expect": "a1" },
+    { "a": "a1", "b": null, "expect": "a2" },
+    { "a": "az", "b": null, "expect": "b00" },
+    { "a": "bzz", "b": null, "expect": "c000" },
+    { "a": "a0", "b": "a1", "expect": "a0V" },
+    { "a": "a1", "b": "a2", "expect": "a1V" },
+    { "a": "a0V", "b": "a1", "expect": "a0l" },
+    { "a": "Zz", "b": "a0", "expect": "ZzV" },
+    { "a": "Zz", "b": "a1", "expect": "a0" },
+    { "a": null, "b": "Y00", "expect": "Xzzz" },
+    { "a": "a0", "b": "a0V", "expect": "a0G" },
+    { "a": "a0", "b": "a0G", "expect": "a08" },
+    { "a": "b125", "b": "b129", "expect": "b127" },
+    { "a": "a0", "b": "a1V", "expect": "a1" },
+    { "a": "Zz", "b": "a01", "expect": "a0" },
+    { "a": null, "b": "a0V", "expect": "a0" },
+    { "a": null, "b": "b999", "expect": "b99" },
+    { "a": "a0", "b": "a0", "expectError": true },
+    { "a": "a1", "b": "a0", "expectError": true },
+    { "a": "a00", "b": null, "expectError": true },
+    { "a": null, "b": "a", "expectError": true }
+  ],
+  "isValidSortKey": [
+    { "key": "a0", "expect": true },
+    { "key": "a0V", "expect": true },
+    { "key": "Zz", "expect": true },
+    { "key": "a00", "expect": false },
+    { "key": "a", "expect": false },
+    { "key": "", "expect": false },
+    { "key": "a0-", "expect": false },
+    { "key": "A00000000000000000000000000", "expect": false }
+  ]
+}

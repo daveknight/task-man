@@ -1,0 +1,25 @@
+{
+  "name": "@app/cli",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Agent and seeding CLI. Talks to local Supabase only.",
+  "type": "module",
+  "scripts": {
+    "cli": "tsx src/main.ts",
+    "test": "vitest run --dir test",
+    "test:db": "vitest run --dir test-db --testTimeout=30000 --fileParallelism=false",
+    "check:seed": "tsx scripts/check-seed.ts",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@app/core": "*",
+    "@supabase/supabase-js": "^2.119.0",
+    "tsx": "^4.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "postgres": "^3.4.9",
+    "typescript": "^5.9.3",
+    "vitest": "^5.1.0"
+  }
+}

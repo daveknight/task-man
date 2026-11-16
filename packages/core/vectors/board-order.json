@@ -1,0 +1,81 @@
+{
+  "function": "buildBoard(tasks, positions, today, options)",
+  "description": "Grouping and order of the board. Each expect lists task ids per section in display order; waiting also lists 'later' (behind the 'Show N waiting until later' row). Omitted task fields are null, status defaults to 'open'. positions maps task id to sort key for view 'main'.",
+  "cases": [
+    {
+      "name": "every ordering rule",
+      "today": "2026-11-18",
+      "options": { "showCompleted": true, "showTrash": true },
+      "tasks": [
+        { "id": "r1" },
+        { "id": "r2" },
+        { "id": "r3", "startDate": "2026-11-10", "createdAt": "2026-11-01T00:00:00Z" },
+        { "id": "r4", "createdAt": "2026-11-01T00:00:00Z" },
+        { "id": "r5", "startDate": "2026-11-18", "createdAt": "2026-11-02T00:00:00Z" },
+        { "id": "r6", "createdAt": "2026-11-01T00:00:00Z" },
+        { "id": "r7" },
+        { "id": "r8", "createdAt": "2026-10-01T00:00:00Z" },
+        { "id": "u1", "startDate": "2026-12-01" },
+        { "id": "u2", "startDate": "2026-11-20", "createdAt": "2026-11-01T00:00:00Z" },
+        { "id": "u3", "startDate": "2026-11-20", "createdAt": "2026-11-03T00:00:00Z" },
+        { "id": "p1", "status": "in_progress" },
+        { "id": "p2", "status": "in_progress" },
+        { "id": "w1", "status": "waiting" },
+        { "id": "w2", "status": "waiting", "waitUntil": "2026-11-25" },
+        { "id": "w3", "status": "waiting", "waitUntil": "2026-11-20" },
+        { "id": "w4", "status": "waiting", "waitUntil": "2026-11-17" },
+        { "id": "w5", "status": "waiting", "waitUntil": "2026-11-30", "dueDate": "2026-11-18" },
+        { "id": "c1", "completedAt": "2026-11-10T12:00:00Z", "completedOn": "2026-11-10" },
+        { "id": "c2", "completedAt": "2026-11-17T12:00:00Z", "completedOn": "2026-11-17" },
+        { "id": "t1", "deletedAt": "2026-11-01T12:00:00Z", "deletedOn": "2026-11-01" },
+        { "id": "t2", "deletedAt": "2026-11-15T12:00:00Z", "deletedOn": "2026-11-15" }
+      ],
+      "positions": { "r1": "a2", "r2": "a1", "r7": "a1", "u1": "a0", "p2": "a5", "w1": "a3", "w4": "a0", "w5": "a4" },
+      "expect": {
+        "in_progress": ["p2", "p1"],
+        "waiting": ["w4", "w1", "w5"],
+        "waiting_later": ["w3", "w2"],
+        "ready": ["r2", "r7", "r1", "r3", "r5", "r8", "r4", "r6"],
+        "upcoming": ["u2", "u3", "u1"],
+        "completed": ["c2", "c1"],
+        "trash": ["t2", "t1"]
+      }
+    },
+    {
+      "name": "completed and trash are hidden by default; empty sections still appear",
+      "today": "2026-11-18",
+      "options": {},
+      "tasks": [
+        { "id": "a" },
+        { "id": "b", "completedAt": "2026-11-17T12:00:00Z", "completedOn": "2026-11-17" },
+        { "id": "c", "deletedAt": "2026-11-17T12:00:00Z", "deletedOn": "2026-11-17" }
+      ],
+      "positions": {},
+      "expect": {
+        "in_progress": [],
+        "waiting": [],
+        "waiting_later": [],
+        "ready": ["a"],
+        "upcoming": []
+      }
+    },
+    {
+      "name": "a start date arriving moves the task to the bottom of Ready",
+      "today": "2026-11-19",
+      "options": {},
+      "tasks": [
+        { "id": "x", "startDate": "2026-11-19", "createdAt": "2026-11-01T00:00:00Z" },
+        { "id": "y" },
+        { "id": "z" }
+      ],
+      "positions": { "y": "a1", "z": "a0" },
+      "expect": {
+        "in_progress": [],
+        "waiting": [],
+        "waiting_later": [],
+        "ready": ["z", "y", "x"],
+        "upcoming": []
+      }
+    }
+  ]
+}

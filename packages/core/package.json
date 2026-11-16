@@ -1,0 +1,19 @@
+{
+  "name": "@app/core",
+  "version": "0.0.0",
+  "private": true,
+  "description": "UI-free shared rules: sections, board order, dates, sort keys. Driven by the JSON test vectors in vectors/.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.9.3",
+    "vitest": "^5.1.0"
+  }
+}

@@ -1,0 +1,54 @@
+import { APP_NAME, weekdayOf, type Board, type ISODate, type Section } from '@app/core';
+import type { BoardTask } from './commands.ts';
+
+const SECTION_TITLES: Record<Section, string> = {
+  in_progress: 'In Progress',
+  waiting: 'Waiting',
+  ready: 'Ready',
+  upcoming: 'Upcoming',
+  completed: 'Completed',
+  trash: 'Trash',
+};
+
+const WEEKDAY_NAMES = { mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri', sat: 'Sat', sun: 'Sun' } as const;
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+export function shortDate(date: ISODate, today: ISODate): string {
+  const [y, m, d] = date.split('-').map(Number) as [number, number, number];
+  const label = `${MONTHS[m - 1]} ${d}`;
+  return date.slice(0, 4) === today.slice(0, 4) ? label : `${label} ${y}`;
+}
+
+function details(task: BoardTask, today: ISODate): string {
+  const parts: string[] = [];
+  if (task.waitingOn) parts.push(`waiting on ${task.waitingOn}`);
+  if (task.waitUntil && task.placement.startsWith('waiting')) parts.push(`check back ${shortDate(task.waitUntil, today)}`);
+  if (task.startDate && task.placement === 'upcoming') parts.push(`starts ${shortDate(task.startDate, today)}`);
+  if (task.dueDate) parts.push(`due ${shortDate(task.dueDate, today)}${task.overdue ? ' (overdue)' : task.dueDate === today ? ' (today)' : ''}`);
+  if (task.completedOn) parts.push(`done ${shortDate(task.completedOn, today)}`);
+  if (task.deletedOn) parts.push(`deleted ${shortDate(task.deletedOn, today)}`);
+  return parts.join(' · ');
+}
+
+function line(task: BoardTask, today: ISODate, indent: string): string {
+  const flag = task.flagged ? '⚑ ' : '';
+  const note = task.hasDescription ? ' ≡' : '';
+  const info = details(task, today);
+  return `${indent}${task.id.slice(0, 8)}  ${flag}${task.title}${note}${info ? `  — ${info}` : ''}`;
+}
+
+export function formatBoard(board: Board<BoardTask>): string {
+  const { today } = board;
+  const out = [`${APP_NAME} · ${WEEKDAY_NAMES[weekdayOf(today)]} ${today}`, ''];
+  for (const section of board.sections) {
+    const collapsed = section.collapsedByDefault ? ' · collapsed by default' : '';
+    out.push(`${SECTION_TITLES[section.id]} (${section.count})${collapsed}`);
+    for (const task of section.tasks) out.push(line(task, today, '  '));
+    if (section.later && section.later.length > 0) {
+      out.push(`  Show ${section.later.length} waiting until later`);
+      for (const task of section.later) out.push(line(task, today, '    '));
+    }
+    out.push('');
+  }
+  return out.join('\n');
+}
