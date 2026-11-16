@@ -1,5 +1,16 @@
 import { placementFor, type ISODate, type Task } from '@app/core';
-import { ArrowCircleRight, ArrowUUpRight, Hourglass, Play, PlayCircle, type Icon as PhosphorIcon } from '@phosphor-icons/react';
+import {
+  ArrowBendUpLeft,
+  ArrowUUpRight,
+  Hourglass,
+  Lightning,
+  LockOpen,
+  Play,
+  PlayCircle,
+  Tray,
+  TrayArrowDown,
+  type Icon as PhosphorIcon,
+} from '@phosphor-icons/react';
 import { useMemo, useState, type ReactNode } from 'react';
 import { BoardView, RowList, SECTION_TITLES } from '@/components/board/board-view';
 import { PresetPanel } from '@/components/board/preset-panel';
@@ -7,7 +18,10 @@ import { rowActionsFor } from '@/components/board/row-actions';
 import { SwipeRow, type SwipeReveal } from '@/components/board/swipe-row';
 import { TaskSheet } from '@/components/board/task-sheet';
 import { Toolbar } from '@/components/board/toolbar';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { longDate } from '@/lib/day-label';
+import { cn } from '@/lib/utils';
 import { designToday, seedBoard, type SeedBoard } from './seed-board';
 
 export const DESIGN_SCREENS = {
@@ -106,37 +120,87 @@ function ActionsScreen({ seed, today }: { seed: SeedBoard; today: ISODate }) {
   );
 }
 
-const RESUME_OPTIONS: { name: string; sf: string; icon: PhosphorIcon }[] = [
-  { name: 'Play', sf: 'play', icon: Play },
-  { name: 'PlayCircle', sf: 'play.circle', icon: PlayCircle },
-  { name: 'ArrowUUpRight', sf: 'arrow.uturn.forward', icon: ArrowUUpRight },
-  { name: 'ArrowCircleRight', sf: 'arrow.right.circle', icon: ArrowCircleRight },
+interface ResumeOption {
+  letter: string;
+  phosphor: string;
+  sf: string;
+  icon: PhosphorIcon;
+}
+
+/** Grouped by metaphor; the letters match the sign-off doc. */
+const RESUME_GROUPS: { metaphor: string; options: ResumeOption[] }[] = [
+  {
+    metaphor: 'Resume / play',
+    options: [
+      { letter: 'A', phosphor: 'Play', sf: 'play', icon: Play },
+      { letter: 'B', phosphor: 'PlayCircle', sf: 'play.circle', icon: PlayCircle },
+    ],
+  },
+  {
+    metaphor: 'Activate / unblock',
+    options: [
+      { letter: 'C', phosphor: 'Lightning', sf: 'bolt', icon: Lightning },
+      { letter: 'D', phosphor: 'LockOpen', sf: 'lock.open', icon: LockOpen },
+    ],
+  },
+  {
+    metaphor: 'Move back / return',
+    options: [
+      { letter: 'E', phosphor: 'ArrowUUpRight', sf: 'arrow.uturn.forward', icon: ArrowUUpRight },
+      { letter: 'F', phosphor: 'ArrowBendUpLeft', sf: 'arrow.turn.up.left', icon: ArrowBendUpLeft },
+    ],
+  },
+  {
+    metaphor: 'Inbox / tray',
+    options: [
+      { letter: 'G', phosphor: 'Tray', sf: 'tray', icon: Tray },
+      { letter: 'H', phosphor: 'TrayArrowDown', sf: 'tray.and.arrow.down', icon: TrayArrowDown },
+    ],
+  },
 ];
 
-/** Each Resume candidate beside Extend wait, as it would sit at the end of a follow-up row. */
-function ResumeIconsScreen({ today }: { today: ISODate }) {
+function ResumePanel({ dark }: { dark?: boolean }) {
   return (
-    <Page title="Resume icon" today={today}>
-      <RowList>
-        {RESUME_OPTIONS.map(({ name, sf, icon: Candidate }, i) => (
-          <div key={name} className="flex min-h-row items-center gap-row-gap px-row-x py-2" data-option={name}>
-            <span className="w-6 text-footnote font-semibold text-muted-foreground">{String.fromCharCode(65 + i)}</span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-body">{name}</span>
-              <span className="block text-footnote text-muted-foreground">SF Symbol: {sf}</span>
-            </span>
-            <span className="flex items-center gap-0.5 text-link">
-              <span className="flex size-7 items-center justify-center rounded-md" title="Extend wait">
-                <Hourglass className="size-4" />
-              </span>
-              <span className="flex size-7 items-center justify-center rounded-md bg-muted" title="Resume">
-                <Candidate className="size-4" />
-              </span>
-            </span>
-          </div>
-        ))}
-      </RowList>
-    </Page>
+    <section className={cn('flex-1 rounded-xl bg-background p-3 text-foreground', dark && 'dark')} data-theme={dark ? 'dark' : 'light'}>
+      <h2 className="px-row-x pb-1 text-footnote font-semibold text-muted-foreground">{dark ? 'Dark' : 'Light'}</h2>
+      {RESUME_GROUPS.map(({ metaphor, options }) => (
+        <div key={metaphor} className="pt-2">
+          <h3 className="px-row-x pb-1 text-footnote font-semibold text-section-header">{metaphor}</h3>
+          <RowList>
+            {options.map(({ letter, phosphor, sf, icon: Candidate }) => (
+              <div key={letter} className="flex min-h-row items-center gap-row-gap bg-card px-row-x" data-option={letter}>
+                <Checkbox aria-label="Complete" />
+                <span className="min-w-0 flex-1 truncate text-body">Plumber quote for kitchen sink</span>
+                <span className="shrink-0 text-footnote text-muted-foreground">
+                  <span className="font-semibold">{letter}</span> {phosphor} · {sf}
+                </span>
+                <span className="flex shrink-0 items-center gap-0.5 text-link">
+                  <Button variant="ghost" size="icon-sm" aria-label="Extend wait" className="text-link">
+                    <Hourglass />
+                  </Button>
+                  <Button variant="ghost" size="icon-sm" aria-label={`Option ${letter}`} className="bg-muted text-link">
+                    <Candidate />
+                  </Button>
+                </span>
+              </div>
+            ))}
+          </RowList>
+        </div>
+      ))}
+    </section>
+  );
+}
+
+/** Every Resume candidate at row size beside Extend wait, light and dark side by side. */
+function ResumeIconsScreen() {
+  return (
+    <main className="mx-auto flex min-h-dvh max-w-6xl flex-col gap-3 bg-background px-row-x py-4">
+      <h1 className="text-title font-bold">Resume icon options</h1>
+      <div className="flex gap-4">
+        <ResumePanel />
+        <ResumePanel dark />
+      </div>
+    </main>
   );
 }
 
@@ -173,7 +237,7 @@ export function DesignApp({ screen }: { screen: string }) {
     case 'sheet':
       return <BoardScreen seed={seed} today={today} sheetFor="Twitter litigation claim" />;
     case 'resume-icons':
-      return <ResumeIconsScreen today={today} />;
+      return <ResumeIconsScreen />;
     case 'sheet-waiting':
       return <BoardScreen seed={seed} today={today} sheetFor="Reimbursement for conference travel" />;
     default:

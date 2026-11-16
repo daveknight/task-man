@@ -27,6 +27,8 @@ interface Shot {
   screen: string;
   devices?: Device[];
   fullPage?: boolean;
+  /** For screens that show both themes themselves: one capture, named without the scheme. */
+  bothThemes?: boolean;
   act?: (page: Page, device: Device) => Promise<void>;
 }
 
@@ -55,7 +57,7 @@ const SHOTS: Shot[] = [
   { screen: 'actions', fullPage: true },
   { screen: 'sheet' },
   { screen: 'sheet-waiting' },
-  { screen: 'resume-icons', devices: ['desktop'] },
+  { screen: 'resume-icons', devices: ['desktop'], fullPage: true, bothThemes: true },
 ];
 
 const out = resolve(values.out!);
@@ -67,7 +69,7 @@ const written: string[] = [];
 
 for (const shot of SHOTS.filter((s) => !only || only.includes(s.screen))) {
   for (const device of shot.devices ?? (['desktop', 'iphone'] as Device[])) {
-    for (const colorScheme of ['light', 'dark'] as const) {
+    for (const colorScheme of shot.bothThemes ? (['light'] as const) : (['light', 'dark'] as const)) {
       const context = await browser.newContext({ ...DEVICES[device], colorScheme });
       const page = await context.newPage();
       await page.goto(`${values.base}/design/${shot.screen}`);
@@ -75,7 +77,7 @@ for (const shot of SHOTS.filter((s) => !only || only.includes(s.screen))) {
       await page.waitForTimeout(300);
       await shot.act?.(page, device);
       await page.waitForTimeout(500);
-      const file = resolve(out, `${shot.screen}-${device}-${colorScheme}.png`);
+      const file = resolve(out, `${shot.screen}-${device}${shot.bothThemes ? '' : `-${colorScheme}`}.png`);
       await page.screenshot({ path: file, fullPage: shot.fullPage ?? false });
       written.push(file);
       await context.close();
