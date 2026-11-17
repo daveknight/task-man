@@ -1,5 +1,4 @@
 import {
-  addDays,
   applyDateEffect,
   changeStatus,
   complete,
@@ -8,6 +7,7 @@ import {
   setDueDate,
   softDelete,
   startPresets,
+  upcomingDropPresets,
   waitPresets,
   waitUntil,
   type ActionGroup,
@@ -138,8 +138,13 @@ export function BoardActionsProvider({
       },
       showPresets: (task, group, pick) => setPending({ kind: 'presets', task, group, ...(pick ? { pick } : {}) }),
       setStatus,
-      pickStart: (task, drop) =>
-        setPending({ kind: 'start', task, to: task.status === 'open' ? null : 'open', upcoming: true, ...(task.dueDate ? { max: task.dueDate } : {}), drop }),
+      pickStart: (task, drop) => {
+        if (upcomingDropPresets(task, today).length === 0) {
+          toast(`“${task.title}” is due ${task.dueDate === today ? 'today' : 'already'}, so it can't start later.`);
+          return;
+        }
+        setPending({ kind: 'start', task, to: task.status === 'open' ? null : 'open', upcoming: true, ...(task.dueDate ? { max: task.dueDate } : {}), drop });
+      },
       setField: (task, field, date) => {
         if (field === 'due') {
           const result = setDueDate(task, date);
@@ -259,17 +264,11 @@ function StartPane({
 }) {
   const { task, to, upcoming, max, drop } = pending;
   const capped = { ...task, dueDate: max ?? null, status: 'open' as const };
-  // Into Upcoming means a future start; leaving Waiting may start today.
-  const min = upcoming ? addDays(today, 1) : today;
-  const tomorrow = addDays(today, 1);
-  const presets: Preset[] = [
-    ...(upcoming && (!max || tomorrow <= max)
-      ? [{ id: 'tomorrow', label: 'Tomorrow', icon: 'startDate', effect: { kind: 'set', field: 'start', date: tomorrow } } satisfies Preset]
-      : []),
-    ...startPresets(capped, today)
-      .filter((p) => p.id !== 'clear' && (!upcoming || p.id !== 'today'))
-      .map((p) => (p.effect.kind === 'pick' ? { ...p, effect: { ...p.effect, min } } : p)),
-  ];
+  const presets: Preset[] = upcoming
+    ? upcomingDropPresets(task, today)
+    : startPresets(capped, today)
+        .filter((p) => p.id !== 'clear')
+        .map((p) => (p.effect.kind === 'pick' ? { ...p, effect: { ...p.effect, min: today } } : p));
   const choose = (date: ISODate) => {
     onClose();
     if (upcoming) {

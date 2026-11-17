@@ -1,5 +1,5 @@
 import { actionsFor, waitingStateFor, type ActionContext, type ActionGroup, type ISODate, type Preset, type RowActions, type Task } from '@app/core';
-import type { CSSProperties, ReactNode } from 'react';
+import { useState, type CSSProperties, type ReactElement, type ReactNode } from 'react';
 import { Icon } from '@/components/icon';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -58,6 +58,30 @@ function TrailingMeta({ task, today }: { task: Task; today: ISODate }) {
   );
 }
 
+/** A group's quick picks in a popover, which closes once one is picked. */
+export function PresetPopover({ task, group, align, trigger, children }: { task: Task; group: ActionGroup; align: 'start' | 'end'; trigger: ReactElement; children: ReactNode }) {
+  const actions = useBoardActions();
+  const [open, setOpen] = useState(false);
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger render={trigger}>{children}</PopoverTrigger>
+      <PopoverContent align={align} className="w-80">
+        <PresetPanel
+          group={group}
+          onPreset={(p) => {
+            setOpen(false);
+            actions?.preset(task, p);
+          }}
+          onPickDate={(p, date) => {
+            setOpen(false);
+            actions?.preset(task, p, date);
+          }}
+        />
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 /** A group's button: a popover of quick picks, or the action itself when it has none. */
 function GroupButton({ task, group, tone, actions }: { task: Task; group: ActionGroup; tone: string; actions: BoardActions | null }) {
   if (group.presets.length === 0) {
@@ -68,18 +92,9 @@ function GroupButton({ task, group, tone, actions }: { task: Task; group: Action
     );
   }
   return (
-    <Popover>
-      <PopoverTrigger render={<Button variant="ghost" size="icon-sm" aria-label={group.title} title={group.title} className={tone} />}>
-        <Icon name={group.icon} />
-      </PopoverTrigger>
-      <PopoverContent align="end" className="w-80">
-        <PresetPanel
-          group={group}
-          onPreset={(p) => actions?.preset(task, p)}
-          onPickDate={(p, date) => actions?.preset(task, p, date)}
-        />
-      </PopoverContent>
-    </Popover>
+    <PresetPopover task={task} group={group} align="end" trigger={<Button variant="ghost" size="icon-sm" aria-label={group.title} title={group.title} className={tone} />}>
+      <Icon name={group.icon} />
+    </PresetPopover>
   );
 }
 

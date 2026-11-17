@@ -71,11 +71,9 @@ const nextMonday = (today: ISODate) => nextWeekdayOnOrAfter(addDays(today, 1), [
 function duePresets(task: Task, today: ISODate, context: ActionContext): Preset[] {
   const tomorrow = addDays(today, 1);
   const presets: Preset[] = [];
-  // Counts from the old due date but never lands in the past, so an overdue task moves to tomorrow.
-  if (task.dueDate && task.dueDate < today) {
-    const next = addDays(task.dueDate, 1);
-    presets.push(set('plus1d', '+1 day', 'dueDate', 'due', next > tomorrow ? next : tomorrow));
-  }
+  // A day after the current due date. Left out when that would be tomorrow or earlier (due today or
+  // overdue): the Tomorrow tile covers it, and the due date never moves to a past day.
+  if (task.dueDate && task.dueDate > today) presets.push(set('plus1d', '+1 day', 'dueDate', 'due', addDays(task.dueDate, 1)));
   presets.push(
     set('today', 'Today', 'dueDate', 'due', today),
     set('tomorrow', 'Tomorrow', 'dueDate', 'due', tomorrow),
@@ -105,6 +103,23 @@ export function waitPresets(today: ISODate): Preset[] {
 }
 
 /** Start presets count from today; ones that would put the start after the due date are hidden. */
+/**
+ * Dropping a task into Upcoming: a start date from tomorrow on, never after the due date. The task
+ * becomes Open with that start. Empty when the task is due today or earlier, so the drop is refused.
+ */
+export function upcomingDropPresets(task: Task, today: ISODate): Preset[] {
+  const fits = (date: ISODate) => !task.dueDate || date <= task.dueDate;
+  const tomorrow = addDays(today, 1);
+  if (!fits(tomorrow)) return [];
+  const presets = [
+    set('tomorrow', 'Tomorrow', 'startDate', 'start', tomorrow),
+    set('week', '+1 week', 'startDate', 'start', addDays(today, 7)),
+    set('twoWeeks', '+2 weeks', 'startDate', 'start', addDays(today, 14)),
+  ].filter((p) => p.effect.kind === 'set' && p.effect.date !== null && fits(p.effect.date));
+  presets.push({ id: 'pick', label: 'Pick date', icon: 'pickDate', effect: { kind: 'pick', field: 'start', min: tomorrow, ...(task.dueDate ? { max: task.dueDate } : {}) } });
+  return presets;
+}
+
 export function startPresets(task: Task, today: ISODate): Preset[] {
   const fits = (date: ISODate) => !task.dueDate || date <= task.dueDate;
   const presets: Preset[] = [];

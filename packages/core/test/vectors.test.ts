@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   actionsFor,
+  upcomingDropPresets,
   planDrop,
   positionEffect,
   shouldPurge,
@@ -202,6 +203,14 @@ describe('actions.json', () => {
       state: a.state.map(groupSummary),
       delete: a.delete.id,
     }).toEqual(expected);
+  });
+});
+
+describe('actions.json upcomingDrop', () => {
+  const { upcomingDrop } = load<{ upcomingDrop: { name: string; today: string; task: Partial<Task>; expect: string[] }[] }>('actions.json');
+
+  it.each(upcomingDrop)('$name', ({ today, task, expect: expected }) => {
+    expect(upcomingDropPresets(taskFrom(task), today).map(presetSummary)).toEqual(expected);
   });
 });
 

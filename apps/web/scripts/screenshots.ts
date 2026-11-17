@@ -49,7 +49,7 @@ const SHOTS: Shot[] = [
     screen: 'context-menu',
     devices: ['desktop'],
     act: async (page) => {
-      await row(page, 'Renew passport').click({ button: 'right' });
+      await row(page, 'Get car tires rotated').click({ button: 'right' });
       await page.getByRole('menuitem', { name: 'Due' }).hover();
       await page.getByRole('menuitem', { name: /^\+1 day/ }).waitFor();
     },

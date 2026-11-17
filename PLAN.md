@@ -49,7 +49,7 @@ Not on the board by default: completed tasks (a "Show completed" toggle in the m
 
 ### Ordering and drag-and-drop
 
-- You can drag to reorder within a section. Dragging between In Progress, Waiting and Ready changes the status. Dropping into Waiting opens the Wait until picker. Dropping into Upcoming opens the start-date picker (Tomorrow, +1 week, Next month, Pick date; a Waiting or In Progress task becomes Open). Dropping onto a collapsed section isn't allowed. Empty In Progress, Waiting and Ready sections stay hidden, and appear as drop targets only while dragging.
+- You can drag to reorder within a section. Dragging between In Progress, Waiting and Ready changes the status. Dropping into Waiting opens the Wait until picker. Dropping into Upcoming opens the start-date picker (Tomorrow, +1 week, +2 weeks, Pick date, from tomorrow and never after the due date; a Waiting or In Progress task becomes Open). A task due today or earlier can't start later, so that drop is refused with a note. Dropping onto a collapsed section isn't allowed. Empty In Progress, Waiting and Ready sections stay hidden, and appear as drop targets only while dragging.
 - Order is stored **per view**: a `task_positions(view_id, task_id, sort_key)` table with fractional-index string keys, so one move writes one row. The board is `view_id = 'main'`, and future filtered views get their own order for free.
 - New tasks go to the top of Ready (or of the section they land in).
 - **Tasks arriving on their own go to the bottom of Ready.** That covers a start date arriving, and the next occurrence of a recurring task when it has no start date or its start date is today or earlier. A next occurrence with a future start date goes to Upcoming instead.
@@ -74,7 +74,7 @@ One shared function in `core`, `actionsFor(task, today)`, picks the actions from
 | Trash | none | **Restore** (Delete becomes **Delete forever**) |
 
 - A recurring task adds **Skip this occurrence** to its date presets.
-- An overdue task adds **+1 day** as the first due preset. It never moves the due date to another past day: on an overdue task it lands on tomorrow.
+- A task due after today adds **+1 day** (a day after its due date) as the first due preset. It's left out when the task is due today or overdue, where it would equal Tomorrow, so a due date never moves to another past day.
 - When a task's state changes the presets, the button's icon changes too (calendar, hourglass for waiting, sunrise for start), so you can tell what it will do before tapping.
 - These come with Phase 1a (swipe in mobile Safari, right-click and hover on desktop) and carry over to the native apps in Phase 3.
 

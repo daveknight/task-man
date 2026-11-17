@@ -39,11 +39,18 @@ test('complete with undo', async ({ page }) => {
   await expect.poll(() => showTask('Buy new watch band').task.completedAt).toBeNull();
 });
 
-test('+1 day on an overdue task lands on tomorrow', async ({ page }) => {
+test('+1 day moves a later due date by a day; overdue tasks get Tomorrow instead', async ({ page }) => {
   await row(page, 'Renew passport').hover();
   await row(page, 'Renew passport').getByRole('button', { name: 'Due' }).click();
-  await page.locator('[data-preset=plus1d]').click();
+  await expect(page.locator('[data-preset=plus1d]')).toHaveCount(0);
+  await page.locator('[data-preset=tomorrow]').click();
   await expect.poll(() => showTask('Renew passport').task.dueDate).toBe('2026-11-19');
+  await expect(page.locator('[data-slot=preset-panel]')).toHaveCount(0);
+
+  await row(page, 'Get car tires rotated').hover();
+  await row(page, 'Get car tires rotated').getByRole('button', { name: 'Due' }).click();
+  await page.locator('[data-preset=plus1d]').click();
+  await expect.poll(() => showTask('Get car tires rotated').task.dueDate).toBe('2026-12-01');
 });
 
 test('status change to Waiting asks for a check-back date, No date by default', async ({ page }) => {
@@ -90,7 +97,7 @@ test('drag from Waiting into Upcoming asks for a start date and makes the task O
   await drag(page, 'Hear back from school about field trip form', { section: 'upcoming' });
   const pane = page.locator('[data-slot=start-pane]');
   await expect(pane).toBeVisible();
-  await expect(pane.locator('[data-preset=today]')).toHaveCount(0);
+  expect(await pane.locator('[data-preset]').evaluateAll((els) => els.map((e) => e.getAttribute('data-preset')))).toEqual(['tomorrow', 'week', 'twoWeeks', 'pick']);
   await pane.locator('[data-preset=tomorrow]').click();
   await expect.poll(() => showTask('Hear back from school about field trip form')).toMatchObject({
     placement: 'upcoming',

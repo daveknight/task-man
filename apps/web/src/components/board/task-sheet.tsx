@@ -22,7 +22,8 @@ import { useMediaQuery } from '@/lib/use-media-query';
 import { cn } from '@/lib/utils';
 import { useBoardActions } from './board-actions';
 import { RowList } from './board-view';
-import { DatePicker, PresetPanel } from './preset-panel';
+import { DatePicker } from './preset-panel';
+import { PresetPopover } from './task-row';
 import { WIDE_QUERY } from './surface';
 
 /** At this width and up the sheet is a permanent second pane beside the board. */
@@ -251,15 +252,10 @@ export function TaskEditor({ task, today, onClose }: { task: Task; today: ISODat
         <div className="flex flex-wrap gap-2" data-slot="waiting-actions">
           {rowActions.state.map((g) =>
             g.presets.length ? (
-              <Popover key={g.id}>
-                <PopoverTrigger render={<Button variant="outline" size="sm" />}>
-                  <Icon name={g.icon} data-icon="inline-start" />
-                  {g.title}
-                </PopoverTrigger>
-                <PopoverContent align="start" className="w-80">
-                  <PresetPanel group={g} onPreset={(p) => actions?.preset(task, p)} onPickDate={(p, date) => actions?.preset(task, p, date)} />
-                </PopoverContent>
-              </Popover>
+              <PresetPopover key={g.id} task={task} group={g} align="start" trigger={<Button variant="outline" size="sm" />}>
+                <Icon name={g.icon} data-icon="inline-start" />
+                {g.title}
+              </PresetPopover>
             ) : (
               <Button key={g.id} variant="outline" size="sm" onClick={() => actions?.group(task, g)}>
                 <Icon name={g.icon} data-icon="inline-start" />
