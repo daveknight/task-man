@@ -1,6 +1,6 @@
 import { addDays, addMonths, nextWeekdayOnOrAfter, placementFor, type ISODate, type Placement, type Task } from '@app/core';
 import type { IconMeaning } from '@app/tokens';
-import { longDate } from '@/lib/day-label';
+import { dayLabel, longDate } from '@/lib/day-label';
 
 export interface Preset {
   label: string;
@@ -8,6 +8,8 @@ export interface Preset {
   /** The day it lands on, shown under the label. */
   caption?: string;
   destructive?: boolean;
+  /** The highlighted answer when the picks are a question (going into Waiting). */
+  default?: boolean;
 }
 
 export interface ActionGroup {
@@ -36,7 +38,6 @@ const nextMonday = (today: ISODate) => nextWeekdayOnOrAfter(addDays(today, 1), [
 
 function duePresets(task: Task, today: ISODate, context: ActionContext): Preset[] {
   const presets: Preset[] = [];
-  if (task.dueDate && task.dueDate < today) presets.push(at('+1 day', 'dueDate', addDays(task.dueDate, 1), today));
   presets.push(
     at('Today', 'dueDate', today, today),
     at('Tomorrow', 'dueDate', addDays(today, 1), today),
@@ -49,7 +50,7 @@ function duePresets(task: Task, today: ISODate, context: ActionContext): Preset[
 }
 
 /** Wait until and Extend wait. Saturday is the coming one, left out on Fridays when it would repeat Tomorrow. */
-function waitPicks(today: ISODate): Preset[] {
+export function waitPicks(today: ISODate): Preset[] {
   const tomorrow = addDays(today, 1);
   const saturday = nextWeekdayOnOrAfter(tomorrow, ['sat']);
   return [
@@ -59,6 +60,17 @@ function waitPicks(today: ISODate): Preset[] {
     { label: 'Pick date', icon: 'pickDate' },
     { label: 'No date', icon: 'clear' },
   ];
+}
+
+/**
+ * Asked whenever a task goes into Waiting (status menu, drag, Wait until): the Wait until picks, with
+ * No date highlighted, plus keeping a future start date as the check-back date.
+ */
+export function enterWaitingGroup(task: Task, today: ISODate): ActionGroup {
+  const picks = waitPicks(today).map((p) => (p.label === 'No date' ? { ...p, default: true } : p));
+  const keep: Preset[] =
+    task.startDate && task.startDate > today ? [{ label: `Keep ${dayLabel(task.startDate, today)}`, icon: 'startDate', caption: longDate(task.startDate, today) }] : [];
+  return { title: 'Check back', icon: 'waiting', presets: [...keep, ...picks] };
 }
 
 /** Start presets that would put the start after the due date are hidden. */
@@ -77,7 +89,7 @@ function startPresets(task: Task, today: ISODate): Preset[] {
 export function rowActionsFor(task: Task, today: ISODate, context: ActionContext = {}): RowActions {
   const placement = placementFor(task, today);
   const due: ActionGroup = { title: 'Due', icon: 'dueDate', presets: duePresets(task, today, context) };
-  const resume: ActionGroup = { title: 'Resume', icon: 'resume', presets: [] };
+  const resume: ActionGroup = { title: 'Move to In Progress', icon: 'resume', presets: [] };
   switch (placement) {
     case 'ready':
     case 'in_progress':

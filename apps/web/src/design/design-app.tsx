@@ -15,9 +15,9 @@ import { useMemo, useState, type ReactNode } from 'react';
 import { BoardView, RowList, SECTION_TITLES } from '@/components/board/board-view';
 import { PresetPanel } from '@/components/board/preset-panel';
 import { rowActionsFor } from '@/components/board/row-actions';
-import { StartDecisionPrompt } from '@/components/board/start-decision-prompt';
+import { EnterWaitingPrompt, StartDecisionPrompt } from '@/components/board/start-decision-prompt';
 import { SwipeRow, type SwipeReveal } from '@/components/board/swipe-row';
-import { TaskSheet } from '@/components/board/task-sheet';
+import { TaskSplitView } from '@/components/board/task-sheet';
 import { Toolbar } from '@/components/board/toolbar';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -32,12 +32,12 @@ export const DESIGN_SCREENS = {
   hover: 'Desktop hover buttons on a row',
   'context-menu': 'Right-click menu with due-date presets',
   actions: 'Swipe buttons and quick-pick presets for every state',
-  sheet: 'Task sheet (side sheet on desktop, bottom sheet on phones)',
-  'sheet-waiting': 'Task sheet for a Waiting task that needs follow-up',
+  sheet: 'Task detail (a pane beside the board on desktop, over it in narrow windows, a bottom sheet on phones)',
+  'sheet-waiting': 'Task detail for a Waiting task that needs follow-up',
   'resume-icons': 'Resume icon options',
-  'prompt-resume': 'Resume a Waiting task whose check-back is after its due date',
+  'prompt-resume': 'Move a Waiting task to In Progress whose check-back is after its due date',
   'prompt-leave-waiting': 'Drag a Waiting task with a future check-back to Ready',
-  'prompt-enter-waiting': 'Set an Upcoming task to Waiting',
+  'prompt-enter-waiting': 'Set an Upcoming task to Waiting: when to check back',
 } as const;
 
 export type DesignScreen = keyof typeof DESIGN_SCREENS;
@@ -75,24 +75,29 @@ function BoardScreen({
   const [open, setOpen] = useState(!!sheetFor);
   const [promptOpen, setPromptOpen] = useState(!!prompt);
   const promptTask = prompt ? seed.byTitle(prompt.title) : null;
-  const decision = prompt && promptTask ? changeStatus(promptTask, prompt.to, today).decision : undefined;
+  const decision = prompt && promptTask && prompt.to !== 'waiting' ? changeStatus(promptTask, prompt.to, today).decision : undefined;
   return (
-    <Page title="Tasks" today={today} menuOpen={menuOpen}>
-      <BoardView
-        board={seed.board}
-        today={today}
-        expanded={expanded ? { upcoming: true, waiting_later: true } : undefined}
-        actionContext={(task) => ({ recurring: seed.recurring(task) })}
-        onOpenTask={(task) => {
-          setSheetTask(task);
-          setOpen(true);
-        }}
-      />
-      <TaskSheet task={sheetTask} today={today} open={open} onOpenChange={setOpen} />
-      {prompt && promptTask && decision && (
-        <StartDecisionPrompt task={promptTask} to={prompt.to} decision={decision} today={today} open={promptOpen} onOpenChange={setPromptOpen} />
-      )}
-    </Page>
+    <TaskSplitView task={sheetTask} today={today} open={open} onOpenChange={setOpen}>
+      <Page title="Tasks" today={today} menuOpen={menuOpen}>
+        <BoardView
+          board={seed.board}
+          today={today}
+          expanded={expanded ? { upcoming: true, waiting_later: true } : undefined}
+          actionContext={(task) => ({ recurring: seed.recurring(task) })}
+          selectedId={open ? sheetTask?.id : undefined}
+          onOpenTask={(task) => {
+            setSheetTask(task);
+            setOpen(true);
+          }}
+        />
+        {prompt && promptTask && decision && (
+          <StartDecisionPrompt task={promptTask} to={prompt.to} decision={decision} today={today} open={promptOpen} onOpenChange={setPromptOpen} />
+        )}
+        {prompt?.to === 'waiting' && promptTask && (
+          <EnterWaitingPrompt task={promptTask} today={today} open={promptOpen} onOpenChange={setPromptOpen} />
+        )}
+      </Page>
+    </TaskSplitView>
   );
 }
 

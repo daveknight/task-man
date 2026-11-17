@@ -42,7 +42,7 @@
     {
       "name": "into Waiting with a future start needs a choice",
       "today": "2026-11-18", "task": { "status": "open", "startDate": "2026-11-25", "dueDate": "2026-12-02" }, "to": "waiting",
-      "expectDecision": { "reason": "entering_waiting_future_start", "startDate": "2026-11-25", "dueDate": "2026-12-02", "options": ["clear", "keep", "set"], "default": "keep" }
+      "expectDecision": { "reason": "entering_waiting_future_start", "startDate": "2026-11-25", "dueDate": "2026-12-02", "options": ["clear", "keep", "set"], "default": "clear" }
     },
     { "name": "into Waiting, keep the start as the check-back", "today": "2026-11-18", "task": { "status": "open", "startDate": "2026-11-25" }, "to": "waiting", "choice": "keep", "expect": { "status": "waiting", "startDate": "2026-11-25" } },
     { "name": "into Waiting, clear it (needs follow-up now)", "today": "2026-11-18", "task": { "status": "open", "startDate": "2026-11-25" }, "to": "waiting", "choice": "clear", "expect": { "status": "waiting", "startDate": null } },
