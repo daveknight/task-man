@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { buildBoard, placementFor, weekdayOf, type Task } from '@app/core';
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_SEED_FILE } from '../src/config.ts';
-import { taskFromRow, type TaskRow } from '../src/rows.ts';
+import { taskFromRow, type TaskRow } from '@app/data';
 import { planSeed, type SeedFile } from '../src/seed-plan.ts';
 
 const file = JSON.parse(readFileSync(DEFAULT_SEED_FILE, 'utf8')) as SeedFile;

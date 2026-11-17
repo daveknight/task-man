@@ -14,6 +14,7 @@
   "dependencies": {
     "@app/cli": "*",
     "@app/core": "*",
+    "@app/data": "*",
     "@app/tokens": "*",
     "@base-ui/react": "^1.9.0",
     "@phosphor-icons/react": "^2.1.10",

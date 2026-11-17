@@ -1,6 +1,12 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
+  actionsFor,
+  planDrop,
+  positionEffect,
+  shouldPurge,
+  type ActionGroup,
+  type Preset,
   buildBoard,
   isValidSortKey,
   keyBetween,
@@ -165,6 +171,72 @@ describe('transitions.json', () => {
     }
     expect(changeStatus(t, to, today, choice).task).toMatchObject(expected!);
     if (to === 'in_progress') expect(resume(t, today, choice)).toEqual(changeStatus(t, to, today, choice));
+  });
+});
+
+function presetSummary(p: Preset): string {
+  const e = p.effect;
+  if (e.kind === 'skip') return 'skip';
+  if (e.kind === 'set') return `${p.id}:${e.field}=${e.date ?? 'null'}`;
+  return `${p.id}:pick ${e.field}${e.min ? ` >=${e.min}` : ''}${e.max ? ` <=${e.max}` : ''}`;
+}
+
+function groupSummary(g: ActionGroup): string[] {
+  if (g.presets.length === 0) {
+    const e = g.effect!;
+    return [`${g.id} -> ${e.kind === 'status' ? `status:${e.to}` : e.kind}`];
+  }
+  return [g.id, ...g.presets.map(presetSummary)];
+}
+
+describe('actions.json', () => {
+  const { cases } = load<{
+    cases: { name: string; today: string; context?: { recurring?: boolean }; task: Partial<Task>; expect: unknown }[];
+  }>('actions.json');
+
+  it.each(cases)('$name', ({ today, context, task, expect: expected }) => {
+    const a = actionsFor(taskFrom(task), today, context);
+    expect({
+      placement: a.placement,
+      date: a.date ? groupSummary(a.date) : null,
+      state: a.state.map(groupSummary),
+      delete: a.delete.id,
+    }).toEqual(expected);
+  });
+});
+
+describe('positions.json', () => {
+  const vectors = load<{
+    positionEffect: { name: string; today: string; before: Partial<Task>; after: Partial<Task>; expect: string }[];
+    planDrop: { name: string; order: string[]; positions: Record<string, string>; moving: string; index: number; expect: { writes: string[]; order: string[] } }[];
+    shouldPurge: { name: string; today: string; task: Partial<Task>; expect: boolean }[];
+  }>('positions.json');
+
+  it.each(vectors.positionEffect)('positionEffect: $name', ({ today, before, after, expect: expected }) => {
+    expect(positionEffect(taskFrom(before), taskFrom(after), today)).toBe(expected);
+  });
+
+  it.each(vectors.planDrop)('planDrop: $name', ({ order, positions, moving, index, expect: expected }) => {
+    const map = new Map(Object.entries(positions));
+    const writes = planDrop(
+      order.map((id) => ({ id })),
+      map,
+      moving,
+      index,
+      keyBetween,
+    );
+    expect(writes.map((w) => w.taskId)).toEqual(expected.writes);
+    for (const w of writes) map.set(w.taskId, w.sortKey);
+    const board = buildBoard(
+      [...order, moving].map((id, i) => taskFrom({ createdAt: `2026-11-01T00:00:0${i}Z` }, id)),
+      map,
+      '2026-11-18',
+    );
+    expect(board.sections.find((s) => s.id === 'ready')!.tasks.map((t) => t.id)).toEqual(expected.order);
+  });
+
+  it.each(vectors.shouldPurge)('shouldPurge: $name', ({ today, task, expect: expected }) => {
+    expect(shouldPurge(taskFrom(task), today)).toBe(expected);
   });
 });
 

@@ -1,0 +1,89 @@
+{
+  "function": "actionsFor(task, today, context)",
+  "description": "The row actions (swipe, right-click, hover) for each state. Presets are written as 'id:field=date' (sets the field; 'null' clears it), 'id:pick field' with optional '>=min' and '<=max', or 'skip'. A group without presets is written as 'id -> effect' ('status:in_progress', 'undone', 'restore'). Start, check-back and wait presets count from today; '+1 day' on an overdue task never lands before tomorrow. 2026-11-18 is a Wednesday; 2026-11-20 is a Friday.",
+  "cases": [
+    {
+      "name": "ready, overdue and recurring: +1 day first (lands tomorrow), Skip, Clear",
+      "today": "2026-11-18", "context": { "recurring": true }, "task": { "dueDate": "2026-11-15" },
+      "expect": {
+        "placement": "ready",
+        "date": ["due", "plus1d:due=2026-11-19", "today:due=2026-11-18", "tomorrow:due=2026-11-19", "nextMonday:due=2026-11-23", "pick:pick due", "skip", "clear:due=null"],
+        "state": [["waitUntil", "tomorrow:checkBack=2026-11-19", "saturday:checkBack=2026-11-21", "week:checkBack=2026-11-25", "pick:pick checkBack >=2026-11-18", "noDate:checkBack=null"]],
+        "delete": "delete"
+      }
+    },
+    {
+      "name": "in progress, no due date: no +1 day, no Clear",
+      "today": "2026-11-18", "task": { "status": "in_progress" },
+      "expect": {
+        "placement": "in_progress",
+        "date": ["due", "today:due=2026-11-18", "tomorrow:due=2026-11-19", "nextMonday:due=2026-11-23", "pick:pick due"],
+        "state": [["waitUntil", "tomorrow:checkBack=2026-11-19", "saturday:checkBack=2026-11-21", "week:checkBack=2026-11-25", "pick:pick checkBack >=2026-11-18", "noDate:checkBack=null"]],
+        "delete": "delete"
+      }
+    },
+    {
+      "name": "on a Friday, Saturday is left out (it would repeat Tomorrow)",
+      "today": "2026-11-20", "task": { "dueDate": "2026-11-25" },
+      "expect": {
+        "placement": "ready",
+        "date": ["due", "today:due=2026-11-20", "tomorrow:due=2026-11-21", "nextMonday:due=2026-11-23", "pick:pick due", "clear:due=null"],
+        "state": [["waitUntil", "tomorrow:checkBack=2026-11-21", "week:checkBack=2026-11-27", "pick:pick checkBack >=2026-11-20", "noDate:checkBack=null"]],
+        "delete": "delete"
+      }
+    },
+    {
+      "name": "waiting, needs follow-up: Extend wait and Move to In Progress",
+      "today": "2026-11-18", "task": { "status": "waiting", "startDate": "2026-11-17" },
+      "expect": {
+        "placement": "waiting",
+        "date": ["due", "today:due=2026-11-18", "tomorrow:due=2026-11-19", "nextMonday:due=2026-11-23", "pick:pick due"],
+        "state": [
+          ["extendWait", "tomorrow:checkBack=2026-11-19", "saturday:checkBack=2026-11-21", "week:checkBack=2026-11-25", "pick:pick checkBack >=2026-11-18", "noDate:checkBack=null"],
+          ["moveToInProgress -> status:in_progress"]
+        ],
+        "delete": "delete"
+      }
+    },
+    {
+      "name": "waiting until later: Check back presets from today, Now",
+      "today": "2026-11-18", "task": { "status": "waiting", "startDate": "2026-11-21", "dueDate": "2026-12-01" },
+      "expect": {
+        "placement": "waiting_later",
+        "date": ["checkBack", "tomorrow:checkBack=2026-11-19", "plus3d:checkBack=2026-11-21", "week:checkBack=2026-11-25", "pick:pick checkBack >=2026-11-18", "now:checkBack=2026-11-18"],
+        "state": [["moveToInProgress -> status:in_progress"]],
+        "delete": "delete"
+      }
+    },
+    {
+      "name": "upcoming, due soon: presets after the due date are hidden, the picker stops at it",
+      "today": "2026-11-18", "task": { "startDate": "2026-11-25", "dueDate": "2026-12-02" },
+      "expect": {
+        "placement": "upcoming",
+        "date": ["start", "today:start=2026-11-18", "week:start=2026-11-25", "pick:pick start <=2026-12-02", "clear:start=null"],
+        "state": [["startNow -> status:in_progress"]],
+        "delete": "delete"
+      }
+    },
+    {
+      "name": "upcoming, no due date: all start presets, from today",
+      "today": "2026-11-18", "task": { "startDate": "2027-01-10" },
+      "expect": {
+        "placement": "upcoming",
+        "date": ["start", "today:start=2026-11-18", "week:start=2026-11-25", "month:start=2026-12-18", "pick:pick start", "clear:start=null"],
+        "state": [["startNow -> status:in_progress"]],
+        "delete": "delete"
+      }
+    },
+    {
+      "name": "completed: Mark not done, no date button",
+      "today": "2026-11-18", "task": { "completedAt": "2026-11-17T12:00:00Z", "completedOn": "2026-11-17" },
+      "expect": { "placement": "completed", "date": null, "state": [["markNotDone -> undone"]], "delete": "delete" }
+    },
+    {
+      "name": "trash: Restore, and Delete becomes Delete forever",
+      "today": "2026-11-18", "task": { "deletedAt": "2026-11-17T12:00:00Z", "deletedOn": "2026-11-17" },
+      "expect": { "placement": "trash", "date": null, "state": [["restore -> restore"]], "delete": "deleteForever" }
+    }
+  ]
+}
