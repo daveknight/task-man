@@ -11,6 +11,7 @@ import { useSnapshot, useTaskWrites, type TaskWrites } from './data/board-data.t
 import { longDate } from './lib/day-label.ts';
 import { usePersistedBoolean } from './lib/persisted.ts';
 import { useToday } from './lib/today.ts';
+import { useOnline } from './lib/online.ts';
 import { useMediaQuery } from './lib/use-media-query.ts';
 import { supabaseConfigured } from './supabase.ts';
 
@@ -54,6 +55,7 @@ export function App() {
   const snapshot = useSnapshot();
   const writes = useTaskWrites(today);
   const twoPane = useMediaQuery(TWO_PANE_QUERY);
+  const online = useOnline();
   const [view, setView] = useState<'board' | 'trash'>('board');
   const [showCompleted, setShowCompleted] = usePersistedBoolean('board:showCompleted', false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -91,7 +93,7 @@ export function App() {
 
   const error = !supabaseConfigured
     ? 'Local Supabase is not running. Start it with `npm run db:start`, then restart the dev server.'
-    : snapshot.error
+    : snapshot.error && !data
       ? snapshot.error.message
       : null;
   const empty = shown && shown.sections.every((s) => s.count === 0);
@@ -108,18 +110,25 @@ export function App() {
               subtitle={longDate(today, today)}
               onSearch={() => setSearching(true)}
               onAdd={() => setAdding(true)}
+              addDisabled={!online}
               menu={{ showCompleted, onShowCompletedChange: setShowCompleted, onTrash: () => setView('trash') }}
             />
           )}
           <div className="pt-2">
+            {!online && (
+              <p className="mb-3 flex items-center gap-2 rounded-xl bg-muted px-row-x py-2 text-footnote text-muted-foreground" role="status" data-slot="offline-banner">
+                <Icon name="offline" className="size-4 shrink-0" />
+                Offline. This is the board as last loaded; changes are paused until you're back online.
+              </p>
+            )}
             {error && <p className="px-row-x text-destructive">{error}</p>}
-            {view === 'board' && adding && <QuickAdd writes={writes} onClose={() => setAdding(false)} />}
+            {view === 'board' && adding && online && <QuickAdd writes={writes} onClose={() => setAdding(false)} />}
             {empty && (
               <p className="px-row-x py-8 text-center text-muted-foreground" data-slot="empty">
                 {view === 'trash' ? 'Trash is empty' : 'No tasks yet. Add one with +.'}
               </p>
             )}
-            {shown && data && <BoardView board={shown} today={today} positions={data.positions} selectedId={twoPane || sheetOpen ? selectedId : null} />}
+            {shown && data && <BoardView board={shown} today={today} positions={online ? data.positions : undefined} selectedId={twoPane || sheetOpen ? selectedId : null} />}
           </div>
         </main>
         {twoPane && <TaskPane task={selected} today={today} onClose={() => setSelectedId(null)} />}

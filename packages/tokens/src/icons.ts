@@ -35,6 +35,7 @@ export const icons = {
   expand: { phosphor: 'CaretRight', sfSymbol: 'chevron.right' },
   collapse: { phosphor: 'CaretDown', sfSymbol: 'chevron.down' },
   close: { phosphor: 'X', sfSymbol: 'xmark' },
+  offline: { phosphor: 'WifiSlash', sfSymbol: 'wifi.slash' },
 } as const satisfies Record<string, IconSpec>;
 
 export type IconMeaning = keyof typeof icons;

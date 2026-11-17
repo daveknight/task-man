@@ -3,6 +3,8 @@ import { fileURLToPath } from 'node:url';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
+import { VitePWA } from 'vite-plugin-pwa';
+import { APP_NAME } from '@app/core';
 
 const repoRoot = fileURLToPath(new URL('../../', import.meta.url));
 
@@ -20,10 +22,39 @@ function localSupabase(): { url: string; anonKey: string } {
   }
 }
 
-export default defineConfig(({ command }) => {
-  const supabase = command === 'serve' ? localSupabase() : { url: process.env.VITE_SUPABASE_URL ?? '', anonKey: process.env.VITE_SUPABASE_ANON_KEY ?? '' };
+export default defineConfig(({ command, mode }) => {
+  const supabase = command === 'serve' || mode === 'localpreview' ? localSupabase() : { url: process.env.VITE_SUPABASE_URL ?? '', anonKey: process.env.VITE_SUPABASE_ANON_KEY ?? '' };
   return {
-    plugins: [react(), tailwindcss()],
+    plugins: [
+      react(),
+      tailwindcss(),
+      // The installable app: a manifest and a service worker that caches the app shell, so it
+      // opens instantly and, offline, shows the last-loaded board read-only.
+      VitePWA({
+        registerType: 'autoUpdate',
+        includeAssets: ['icon.svg', 'apple-touch-icon.png'],
+        manifest: {
+          name: APP_NAME,
+          short_name: APP_NAME,
+          description: 'Personal task manager',
+          start_url: '/',
+          scope: '/',
+          display: 'standalone',
+          background_color: '#F2F2F7',
+          theme_color: '#F2F2F7',
+          icons: [
+            { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+            { src: '/icon-512.png', sizes: '512x512', type: 'image/png' },
+            { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+          ],
+        },
+        workbox: {
+          globPatterns: ['**/*.{js,css,html,svg,png}'],
+          navigateFallback: '/index.html',
+          maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
+        },
+      }),
+    ],
     resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
     define: {
       'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(supabase.url),

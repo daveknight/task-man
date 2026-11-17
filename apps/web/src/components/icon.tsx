@@ -22,6 +22,7 @@ import {
   Sun,
   SunHorizon,
   Trash,
+  WifiSlash,
   X,
   XCircle,
   type IconProps as PhosphorProps,
@@ -53,6 +54,7 @@ const PHOSPHOR = {
   Sun,
   SunHorizon,
   Trash,
+  WifiSlash,
   X,
   XCircle,
 } satisfies Record<PhosphorName, PhosphorIcon>;

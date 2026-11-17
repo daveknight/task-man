@@ -18,6 +18,7 @@ import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
 import { Toggle } from '@/components/ui/toggle';
 import { longDate } from '@/lib/day-label';
+import { useOnline } from '@/lib/online';
 import { useMediaQuery } from '@/lib/use-media-query';
 import { cn } from '@/lib/utils';
 import { useBoardActions } from './board-actions';
@@ -151,6 +152,7 @@ function useDraft(value: string, save: (value: string) => void) {
 /** Everything in the sheet: header actions, title, the Waiting actions, dates and the description. */
 export function TaskEditor({ task, today, onClose }: { task: Task; today: ISODate; onClose?: () => void }) {
   const actions = useBoardActions();
+  const online = useOnline();
   const rowActions = actionsFor(task, today);
   const waiting = rowActions.placement === 'waiting' || rowActions.placement === 'waiting_later';
   const inTrash = !!task.deletedAt;
@@ -235,6 +237,7 @@ export function TaskEditor({ task, today, onClose }: { task: Task; today: ISODat
       <Textarea
         {...title}
         aria-label="Title"
+        readOnly={!online}
         rows={1}
         onKeyDown={(e) => {
           if (e.key === 'Enter') {
@@ -288,6 +291,7 @@ export function TaskEditor({ task, today, onClose }: { task: Task; today: ISODat
         onKeyDown={onDescriptionKey}
         placeholder="Description"
         aria-label="Description"
+        readOnly={!online}
         className="min-h-40 flex-1 resize-none rounded-xl border-0 bg-card text-body shadow-none ring-1 ring-border/60 md:text-body dark:bg-card"
       />
     </div>
