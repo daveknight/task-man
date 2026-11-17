@@ -95,7 +95,7 @@ export function buildBoard<T extends Task>(
   const needsFollowUp = groups.waiting.filter((t) => waitingStateFor(t, today) === 'needs_follow_up').sort(manual);
   const later = groups.waiting
     .filter((t) => waitingStateFor(t, today) === 'later')
-    .sort((a, b) => compareStrings(a.waitUntil, b.waitUntil) || manual(a, b));
+    .sort((a, b) => compareStrings(a.startDate, b.startDate) || manual(a, b));
 
   const sections: BoardSection<T>[] = [
     { id: 'in_progress', collapsedByDefault: false, tasks: groups.in_progress.sort(manual), count: groups.in_progress.length },

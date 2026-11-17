@@ -1,0 +1,33 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@app/tokens/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply font-sans antialiased;
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    @apply bg-background text-foreground text-body;
+  }
+}
+
+/*
+ * Centers a single line of text on its visual middle (halfway between the cap-height and x-height
+ * centers) instead of its line box, whose position depends on each font's ascent and descent.
+ * The padding restores the full line height around the trimmed cap box, so layout sizes don't
+ * change and descenders stay inside `truncate`'s clip box.
+ */
+@utility optical-center {
+  @supports (text-box: trim-both cap alphabetic) {
+    text-box: trim-both cap alphabetic;
+    padding-block: calc((1lh - 1cap) / 2);
+    translate: 0 calc((1ex - 1cap) / 4);
+  }
+}

@@ -5,20 +5,12 @@ import {
   localDate,
   MAIN_VIEW_ID,
   type Board,
-  type Section,
   type Task,
 } from '@app/core';
 import { useEffect, useState } from 'react';
+import { BoardView } from './components/board/board-view.tsx';
+import { Toolbar } from './components/board/toolbar.tsx';
 import { ensureDevSession, supabase, supabaseConfigured } from './supabase.ts';
-
-const TITLES: Record<Section, string> = {
-  in_progress: 'In Progress',
-  waiting: 'Waiting',
-  ready: 'Ready',
-  upcoming: 'Upcoming',
-  completed: 'Completed',
-  trash: 'Trash',
-};
 
 /** Dev-only `?today=YYYY-MM-DD`, matching the CLI's --today. */
 function today(): string {
@@ -31,8 +23,6 @@ interface Row {
   title: string;
   description: string;
   status: Task['status'];
-  waiting_on: string | null;
-  wait_until: string | null;
   flagged: boolean;
   start_date: string | null;
   due_date: string | null;
@@ -56,8 +46,6 @@ async function loadBoard(day: string): Promise<Board> {
     title: r.title,
     description: r.description,
     status: r.status,
-    waitingOn: r.waiting_on,
-    waitUntil: r.wait_until,
     flagged: r.flagged,
     startDate: r.start_date,
     dueDate: r.due_date,
@@ -68,18 +56,6 @@ async function loadBoard(day: string): Promise<Board> {
     createdAt: r.created_at,
   }));
   return buildBoard(list, new Map(positions.data.map((p) => [p.task_id, p.sort_key])), day);
-}
-
-function TaskRow({ task, day }: { task: Task; day: string }) {
-  const overdue = task.dueDate && task.dueDate < day;
-  return (
-    <li>
-      {task.flagged && <span className="flag">⚑ </span>}
-      {task.title}
-      {task.waitingOn && <span className="meta"> · {task.waitingOn}</span>}
-      {task.dueDate && <span className={overdue ? 'meta overdue' : 'meta'}> · due {task.dueDate}</span>}
-    </li>
-  );
 }
 
 export function App() {
@@ -104,37 +80,18 @@ export function App() {
   }, [day]);
 
   return (
-    <main>
-      <header>
-        <h1>{APP_NAME}</h1>
-        <p className="meta">
-          Phase 0 placeholder · {day}
-          {user && <> · signed in as {user}</>}
-        </p>
-      </header>
-      {error && <p className="error">{error}</p>}
-      {board?.sections.map((section) => (
-        <details key={section.id} open={!section.collapsedByDefault} data-section={section.id}>
-          <summary>
-            {TITLES[section.id]} <span className="meta">({section.count})</span>
-          </summary>
-          <ul>
-            {section.tasks.map((t) => (
-              <TaskRow key={t.id} task={t} day={day} />
-            ))}
-          </ul>
-          {section.later && section.later.length > 0 && (
-            <details className="later">
-              <summary>Show {section.later.length} waiting until later</summary>
-              <ul>
-                {section.later.map((t) => (
-                  <TaskRow key={t.id} task={t} day={day} />
-                ))}
-              </ul>
-            </details>
-          )}
-        </details>
-      ))}
+    <main className="mx-auto flex min-h-dvh max-w-2xl flex-col px-row-x pb-[max(2rem,env(safe-area-inset-bottom))]">
+      <Toolbar
+        title={APP_NAME}
+        subtitle={
+          <>
+            Read-only · {day}
+            {user && <> · {user}</>}
+          </>
+        }
+      />
+      {error && <p className="px-row-x text-destructive">{error}</p>}
+      {board && <BoardView board={board} today={day} />}
     </main>
   );
 }

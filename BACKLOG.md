@@ -61,4 +61,3 @@ Email and password is the only method until the app is working end to end.
 ## Waiting
 
 - **Blocked by another task:** a task waits on another task and returns to Ready automatically when that task is completed.
-- A "people" list for the "waiting on" field, so you can search "everything I'm waiting on from Alex."

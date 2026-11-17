@@ -1,0 +1,23 @@
+{
+  "name": "@app/tokens",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Design tokens (colors in light and dark, type, spacing, row heights) and the icon map. The single source for web CSS variables and, from Phase 3, the Swift theme.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./tokens.css": "./generated/tokens.css",
+    "./tailwind.css": "./generated/tailwind.css"
+  },
+  "scripts": {
+    "generate": "tsx src/generate/main.ts",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.23.0",
+    "typescript": "^5.9.3",
+    "vitest": "^5.1.0"
+  }
+}

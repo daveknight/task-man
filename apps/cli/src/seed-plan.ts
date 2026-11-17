@@ -28,8 +28,6 @@ export interface SeedTask {
   status?: Status;
   start?: string;
   due?: string;
-  waitUntil?: string;
-  waitingOn?: string;
   flagged?: boolean;
   completed?: string;
   deleted?: string;
@@ -93,8 +91,6 @@ export function planSeed(file: SeedFile, today: ISODate, options: PlanOptions): 
       title: seed.title,
       description: seed.description ?? '',
       status: seed.status ?? 'open',
-      waiting_on: seed.waitingOn ?? null,
-      wait_until: seed.waitUntil ? resolveDate(seed.waitUntil, today) : null,
       flagged: seed.flagged ?? false,
       start_date: start,
       due_date: due,
@@ -111,7 +107,6 @@ export function planSeed(file: SeedFile, today: ISODate, options: PlanOptions): 
       status: row.status,
       startDate: row.start_date,
       dueDate: row.due_date,
-      waitUntil: row.wait_until,
       completedAt: row.completed_at,
       completedOn: row.completed_on,
       deletedAt: row.deleted_at,
@@ -127,8 +122,8 @@ export function planSeed(file: SeedFile, today: ISODate, options: PlanOptions): 
 
     tasks.push(row);
     // A future start date means no stored position: Upcoming sorts by start date,
-    // and the task lands at the bottom of Ready when its day comes.
-    if (!(start && start > today)) positioned.push(row.id);
+    // and the task lands at the bottom of Ready when its day comes. Waiting tasks keep theirs.
+    if (!(start && start > today && row.status !== 'waiting')) positioned.push(row.id);
   });
 
   const keys = sortKeysAfter(positioned.length);

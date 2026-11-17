@@ -8,7 +8,7 @@ Language-neutral JSON cases for the shared rules. The TypeScript `core` runs the
 | `board-order.json` | `buildBoard` (grouping and order) |
 | `dates.json` | `resolveDate`, `weekdayOf`, `nextWeekdayOnOrAfter` |
 | `sort-keys.json` | `keyBetween`, `isValidSortKey` |
-| `transitions.json` | `setDueDate`, `resume` (under the default policy) |
+| `transitions.json` | `setDueDate`, `waitUntil`, `changeStatus` / `resume` (under the default policy) |
 | `validate.json` | `validateTask` |
 
 Conventions:
