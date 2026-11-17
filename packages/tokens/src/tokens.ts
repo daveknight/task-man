@@ -29,19 +29,6 @@ export const apple = {
   separator: { light: '#C6C6C8', dark: '#38383A' },
 } as const satisfies Record<string, ColorPair>;
 
-/**
- * Web-only values where an Apple color would put text below 4.5:1.
- * Each is the closest Apple-adjacent value that passes (apple.com's own blues among them).
- */
-export const textSafe = {
-  secondaryLabel: { light: '#6E6E73', dark: '#98989D' },
-  buttonBlue: { light: '#0071E3', dark: '#0071E3' },
-  linkBlue: { light: '#0066CC', dark: '#409CFF' },
-  swipeOrange: { light: '#C93400', dark: '#B25000' },
-  swipeBlue: { light: '#0066CC', dark: '#0064D2' },
-  swipeRed: { light: '#D70015', dark: '#D9302A' },
-} as const satisfies Record<string, ColorPair>;
-
 const white: ColorPair = { light: '#FFFFFF', dark: '#FFFFFF' };
 
 /** Semantic colors. Names follow shadcn/ui's CSS variables, plus the app's own roles. */
@@ -52,74 +39,78 @@ export const colors = {
   'card-foreground': apple.label,
   popover: { light: '#FFFFFF', dark: '#2C2C2E' },
   'popover-foreground': apple.label,
-  primary: textSafe.buttonBlue,
+  primary: apple.blue,
   'primary-foreground': white,
   secondary: apple.gray5,
   'secondary-foreground': apple.label,
   muted: apple.tertiaryGroupedBackground,
-  'muted-foreground': textSafe.secondaryLabel,
+  'muted-foreground': apple.gray,
   accent: { light: '#E5E5EA', dark: '#3A3A3C' },
   'accent-foreground': apple.label,
-  destructive: apple.redHighContrast,
+  destructive: apple.red,
   border: apple.separator,
   input: { light: '#C6C6C8', dark: '#48484A' },
   ring: apple.blue,
-  link: textSafe.linkBlue,
+  link: apple.blue,
   sidebar: { light: '#F2F2F7', dark: '#1C1C1E' },
   'sidebar-foreground': apple.label,
-  'sidebar-primary': textSafe.buttonBlue,
+  'sidebar-primary': apple.blue,
   'sidebar-primary-foreground': white,
   'sidebar-accent': { light: '#E5E5EA', dark: '#2C2C2E' },
   'sidebar-accent-foreground': apple.label,
   'sidebar-border': apple.separator,
   'sidebar-ring': apple.blue,
 
-  /** The flag icon. Icon only, so the exact Apple orange. */
   flag: apple.orange,
   /** Overdue due-date text. */
-  overdue: { light: apple.redHighContrast.light, dark: apple.red.dark },
-  /** The Waiting "Follow up" badge text and icon, on `follow-up-muted`. */
-  'follow-up': { light: apple.orangeHighContrast.light, dark: apple.orange.dark },
-  'follow-up-muted': { light: '#FFF4E5', dark: '#3A2A12' },
+  overdue: apple.red,
   'section-header': { light: '#3C3C43', dark: '#EBEBF5' },
   /** Round checkbox ring when unchecked. */
   checkbox: { light: '#C7C7CC', dark: '#636366' },
   'swipe-foreground': white,
-  'swipe-date': textSafe.swipeOrange,
-  'swipe-state': textSafe.swipeBlue,
-  'swipe-delete': textSafe.swipeRed,
-  'swipe-flag': textSafe.swipeOrange,
+  'swipe-date': apple.orange,
+  'swipe-state': apple.blue,
+  'swipe-delete': apple.red,
+  'swipe-flag': apple.orange,
 } as const satisfies Record<string, ColorPair>;
 
 export type ColorRole = keyof typeof colors;
+
+type Pair = readonly [text: ColorRole, on: ColorRole];
 
 /**
  * Text drawn on a background, checked at 4.5:1 in both appearances by the tests.
  * Add a pair whenever a screen puts one role's text on another role's fill.
  */
-export const textPairs: readonly [text: ColorRole, on: ColorRole][] = [
+export const textPairs: readonly Pair[] = [
   ['foreground', 'background'],
   ['card-foreground', 'card'],
   ['popover-foreground', 'popover'],
+  ['secondary-foreground', 'secondary'],
+  ['accent-foreground', 'accent'],
+  ['section-header', 'background'],
+  ['sidebar-foreground', 'sidebar'],
+];
+
+/**
+ * Pairs that use exact Apple colors and are exempt from 4.5:1 by decision (Phase 1a sign-off).
+ * The tests list their ratios but don't fail on them.
+ */
+export const appleColorPairs: readonly Pair[] = [
   ['muted-foreground', 'card'],
   ['muted-foreground', 'background'],
   ['muted-foreground', 'muted'],
   ['muted-foreground', 'popover'],
   ['primary-foreground', 'primary'],
-  ['secondary-foreground', 'secondary'],
-  ['accent-foreground', 'accent'],
   ['destructive', 'card'],
   ['destructive', 'popover'],
   ['link', 'card'],
   ['link', 'popover'],
   ['overdue', 'card'],
-  ['follow-up', 'follow-up-muted'],
-  ['section-header', 'background'],
   ['swipe-foreground', 'swipe-date'],
   ['swipe-foreground', 'swipe-state'],
   ['swipe-foreground', 'swipe-delete'],
   ['swipe-foreground', 'swipe-flag'],
-  ['sidebar-foreground', 'sidebar'],
   ['sidebar-primary-foreground', 'sidebar-primary'],
 ];
 
@@ -127,8 +118,6 @@ export const textPairs: readonly [text: ColorRole, on: ColorRole][] = [
 export const nativeRoles: readonly ColorRole[] = [
   'flag',
   'overdue',
-  'follow-up',
-  'follow-up-muted',
   'swipe-date',
   'swipe-state',
   'swipe-delete',

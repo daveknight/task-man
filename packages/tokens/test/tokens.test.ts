@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { targets } from '../src/generate/targets.ts';
-import { colors, contrastRatio, icons, nativeRoles, textPairs, tokens } from '../src/index.ts';
+import { appleColorPairs, colors, contrastRatio, icons, nativeRoles, textPairs, tokens } from '../src/index.ts';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 
@@ -27,6 +27,11 @@ describe('colors', () => {
       .filter((p) => p.ratio < 4.5)
       .map((p) => `${p.text} on ${p.on}: ${p.ratio.toFixed(2)}`);
     expect(failures).toEqual([]);
+  });
+
+  it('exempts Apple-color pairs explicitly, never a pair that is also checked', () => {
+    const checked = new Set(textPairs.map((p) => p.join(' on ')));
+    for (const pair of appleColorPairs) expect(checked.has(pair.join(' on ')), pair.join(' on ')).toBe(false);
   });
 
   it('native roles exist', () => {

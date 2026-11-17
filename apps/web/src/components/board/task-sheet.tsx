@@ -118,7 +118,7 @@ export function TaskEditor({ task, today, onClose }: { task: Task; today: ISODat
           </Button>
           <Button variant="outline" size="sm">
             <Icon name="resume" data-icon="inline-start" />
-            Resume
+            Move to In Progress
           </Button>
         </div>
       )}
@@ -142,8 +142,45 @@ export function TaskEditor({ task, today, onClose }: { task: Task; today: ISODat
   );
 }
 
+interface TaskDetailProps {
+  task: Task | null;
+  today: ISODate;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+/** Wide enough for the board and a detail pane side by side. */
+export const SPLIT_QUERY = '(min-width: 1024px)';
+
+/**
+ * The board with the open task beside it, like TickTick on the Mac. Narrower windows open the task
+ * over the board instead: a side sheet down to tablet width, then a bottom sheet.
+ */
+export function TaskSplitView({ children, ...detail }: TaskDetailProps & { children: ReactNode }) {
+  const split = useMediaQuery(SPLIT_QUERY);
+  if (!split) {
+    return (
+      <>
+        {children}
+        <TaskSheet {...detail} />
+      </>
+    );
+  }
+  const { task, today, open, onOpenChange } = detail;
+  return (
+    <div className="flex min-h-dvh" data-slot="task-split-view">
+      <div className="min-w-0 flex-1">{children}</div>
+      {open && task && (
+        <aside className="sticky top-0 flex h-dvh w-[25rem] shrink-0 flex-col border-l border-border bg-background" data-slot="task-pane" aria-label={task.title}>
+          <TaskEditor task={task} today={today} onClose={() => onOpenChange(false)} />
+        </aside>
+      )}
+    </div>
+  );
+}
+
 /** A side sheet on wide screens and a bottom sheet (drawer) on narrow ones. */
-export function TaskSheet({ task, today, open, onOpenChange }: { task: Task | null; today: ISODate; open: boolean; onOpenChange: (open: boolean) => void }) {
+export function TaskSheet({ task, today, open, onOpenChange }: TaskDetailProps) {
   const wide = useMediaQuery('(min-width: 768px)');
   if (!task) return null;
   if (wide) {

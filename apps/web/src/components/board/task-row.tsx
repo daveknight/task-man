@@ -1,7 +1,6 @@
 import { waitingStateFor, type ISODate, type Task } from '@app/core';
 import type { CSSProperties, ReactNode } from 'react';
 import { Icon } from '@/components/icon';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -25,6 +24,8 @@ export interface TaskRowProps {
   today: ISODate;
   context?: ActionContext;
   onOpen?: (task: Task) => void;
+  /** Open in the detail pane. */
+  selected?: boolean;
   className?: string;
   style?: CSSProperties;
 }
@@ -38,21 +39,14 @@ function DateMeta({ icon, date, today, tone }: { icon: 'dueDate' | 'startDate' |
   );
 }
 
-/** Follow-up badge, dates and flag at the end of the row. */
+/** Dates and flag at the end of the row. */
 function TrailingMeta({ task, today }: { task: Task; today: ISODate }) {
   const waiting = !task.completedAt && !task.deletedAt && task.status === 'waiting' ? waitingStateFor(task, today) : null;
-  const followUpDue = waiting === 'needs_follow_up' && !!task.startDate && task.startDate <= today;
   const upcoming = !waiting && !!task.startDate && task.startDate > today;
   const overdue = !!task.dueDate && task.dueDate < today;
   const dueToday = task.dueDate === today;
   return (
     <span className="flex shrink-0 items-center gap-2">
-      {followUpDue && (
-        <Badge className="bg-follow-up-muted px-1.5 text-follow-up">
-          <Icon name="followUp" />
-          Follow up
-        </Badge>
-      )}
       {waiting === 'later' && task.startDate && <DateMeta icon="waiting" date={task.startDate} today={today} />}
       {upcoming && task.startDate && <DateMeta icon="startDate" date={task.startDate} today={today} />}
       {task.dueDate && (
@@ -63,7 +57,7 @@ function TrailingMeta({ task, today }: { task: Task; today: ISODate }) {
   );
 }
 
-/** Extend wait and Resume as icon buttons. Rows on phones leave them to the swipe actions and the sheet. */
+/** Extend wait and Move to In Progress as icon buttons. Rows on phones leave them to the swipe actions and the sheet. */
 function FollowUpButtons({ actions }: { actions: RowActions }) {
   return (
     <span data-slot="follow-up-buttons" className="flex shrink-0 items-center gap-0.5 max-sm:hidden pointer-coarse:hidden">
@@ -101,7 +95,7 @@ function HoverActions({ actions }: { actions: RowActions }) {
       data-slot="row-hover-actions"
       className="absolute inset-y-0 right-row-x hidden items-center gap-0.5 bg-card pl-2 group-hover/row:flex group-focus-within/row:flex pointer-coarse:hidden!"
     >
-      {actions.date && <GroupPopoverButton group={actions.date} tone="text-follow-up" />}
+      {actions.date && <GroupPopoverButton group={actions.date} tone="text-swipe-date" />}
       {actions.state.map((g) => (
         <GroupPopoverButton key={g.title} group={g} tone="text-link" />
       ))}
@@ -174,13 +168,14 @@ export function RowContextMenu({ task, actions, children }: { task: Task; action
 }
 
 /** One task in a section: the title, with icons for flag and dates. */
-export function TaskRowContent({ task, today, context, onOpen, className, style, hoverActions }: TaskRowProps & { hoverActions?: RowActions }) {
+export function TaskRowContent({ task, today, context, onOpen, selected, className, style, hoverActions }: TaskRowProps & { hoverActions?: RowActions }) {
   const followUp = !task.completedAt && !task.deletedAt && task.status === 'waiting' && waitingStateFor(task, today) === 'needs_follow_up';
   return (
     <div
       data-slot="task-row"
       data-task-id={task.id}
-      className={cn('group/row relative flex min-h-row items-center gap-row-gap bg-card px-row-x', className)}
+      data-selected={selected || undefined}
+      className={cn('group/row relative flex min-h-row items-center gap-row-gap bg-card px-row-x data-selected:bg-accent', className)}
       style={style}
     >
       <Checkbox aria-label={`Complete ${task.title}`} checked={!!task.completedAt} />

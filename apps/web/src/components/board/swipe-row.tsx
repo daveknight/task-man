@@ -25,7 +25,7 @@ function SwipeButton({ icon, label, className, active }: { icon: IconMeaning; la
   );
 }
 
-/** A row held open mid-swipe. Swipe left shows date, state (two for a follow-up: Extend wait and Resume) and Delete; swipe right toggles the flag. */
+/** A row held open mid-swipe. Swipe left shows date, state (two for a follow-up: Extend wait and Move to In Progress) and Delete; swipe right toggles the flag. */
 export function SwipeRow({ reveal, ...props }: TaskRowProps & { reveal: SwipeReveal }) {
   const actions = rowActionsFor(props.task, props.today, props.context);
   const buttons = reveal === 'right' ? 1 : (actions.date ? 1 : 0) + actions.state.length + 1;

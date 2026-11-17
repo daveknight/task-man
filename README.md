@@ -45,7 +45,7 @@ board [--completed] [--trash]             the main view, grouped and ordered lik
 
 | Command | Needs Supabase | Checks |
 |---|---|---|
-| `npm test` | no | core vectors and unit tests; tokens (generated CSS is current, every declared text pair reaches 4.5:1 in light and dark); seed expectations at the pinned Wednesday (2026-11-18) and Saturday (2026-11-21) |
+| `npm test` | no | core vectors and unit tests; tokens (generated CSS is current, body-text pairs reach 4.5:1 in light and dark, and the exact-Apple-color pairs are listed as exempt); seed expectations at the pinned Wednesday (2026-11-18) and Saturday (2026-11-21) |
 | `npm run typecheck` | no | all packages |
 | `npm run db:reset && npm run db:lint` | yes | every migration applies from scratch; Supabase linter |
 | `npm run test:db` | yes | RLS on every table as real signed-in users, `user_id default auth.uid()`, trigger-set `updated_at`, start ≤ due, completion uniqueness, tombstones, byte-wise sort keys |
@@ -61,8 +61,9 @@ shadcn/ui components are added with `npx shadcn@latest add <name>` from `apps/we
 
 `packages/core/src/policy.ts` holds them, pinned by `vectors/transitions.json`:
 
-- Resume sends a waiting task to In Progress (`resumeStatus`).
+- Move to In Progress (`resume`) sends a waiting task to In Progress (`resumeStatus`).
 - Moving the due date earlier than the start date moves the start date to match (`dueBeforeStart`).
+- Leaving Waiting with a future check-back date suggests clearing it (`leaveWaitingDefault`); going into Waiting suggests no check-back date (`enterWaitingDefault`).
 
 ## Environment notes (cloud agents)
 

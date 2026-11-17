@@ -16,10 +16,12 @@ const { values } = parseArgs({
   },
 });
 
-type Device = 'desktop' | 'iphone';
+/** `narrow` is a desktop window too narrow for the detail pane beside the board. */
+type Device = 'desktop' | 'narrow' | 'iphone';
 const { defaultBrowserType: _, ...iphone } = devices['iPhone 15 Pro']!;
 const DEVICES: Record<Device, BrowserContextOptions> = {
   desktop: { viewport: { width: 1280, height: 860 }, deviceScaleFactor: 2 },
+  narrow: { viewport: { width: 900, height: 860 }, deviceScaleFactor: 2 },
   iphone,
 };
 
@@ -51,11 +53,11 @@ const SHOTS: Shot[] = [
     act: async (page) => {
       await row(page, 'Renew passport').click({ button: 'right' });
       await page.getByRole('menuitem', { name: 'Due' }).hover();
-      await page.getByRole('menuitem', { name: /^\+1 day/ }).waitFor();
+      await page.getByRole('menuitem', { name: /^Tomorrow/ }).waitFor();
     },
   },
   { screen: 'actions', fullPage: true },
-  { screen: 'sheet' },
+  { screen: 'sheet', devices: ['desktop', 'narrow', 'iphone'] },
   { screen: 'sheet-waiting' },
   { screen: 'resume-icons', devices: ['desktop'], fullPage: true, bothThemes: true },
   { screen: 'prompt-resume' },

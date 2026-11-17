@@ -41,13 +41,15 @@ export interface BoardViewProps {
   expanded?: Partial<Record<Section | 'waiting_later', boolean>>;
   actionContext?: (task: Task) => ActionContext;
   onOpenTask?: (task: Task) => void;
+  /** The task open in the detail pane, highlighted in the list. */
+  selectedId?: string;
 }
 
-function SectionView({ section, today, expanded, actionContext, onOpenTask }: Omit<BoardViewProps, 'board'> & { section: BoardSection }) {
+function SectionView({ section, today, expanded, actionContext, onOpenTask, selectedId }: Omit<BoardViewProps, 'board'> & { section: BoardSection }) {
   const [open, setOpen] = useState(expanded?.[section.id] ?? !section.collapsedByDefault);
   const [laterOpen, setLaterOpen] = useState(expanded?.waiting_later ?? false);
   const later = section.later ?? [];
-  const row = (task: Task) => <TaskRow key={task.id} task={task} today={today} context={actionContext?.(task)} onOpen={onOpenTask} />;
+  const row = (task: Task) => <TaskRow key={task.id} task={task} today={today} context={actionContext?.(task)} onOpen={onOpenTask} selected={task.id === selectedId} />;
 
   return (
     <Collapsible open={open} onOpenChange={setOpen} data-section={section.id} className="flex flex-col">
