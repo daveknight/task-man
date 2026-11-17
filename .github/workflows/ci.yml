@@ -53,6 +53,15 @@ jobs:
         run: npm run test:db
       - name: Seed expectations through the CLI (Wednesday and Saturday)
         run: npm run check:seed -- 2026-11-18 2026-11-21
+      - name: "Web app end to end: the board against local Supabase, light, dark and phone"
+        run: npm run e2e -w @app/web
+      - name: Upload the Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report
+          retention-days: 7
       - name: Board output at the pinned Wednesday
         if: always()
         run: |

@@ -2,15 +2,14 @@ import type { ISODate, StartDecision, Status, Task } from '@app/core';
 import type { IconMeaning } from '@app/tokens';
 import { Icon } from '@/components/icon';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { longDate } from '@/lib/day-label';
 import { useMediaQuery } from '@/lib/use-media-query';
 import { cn } from '@/lib/utils';
+import { Surface, WIDE_QUERY } from './surface';
 
-const STATUS_LABELS: Record<Status, string> = { open: 'Ready', in_progress: 'In Progress', waiting: 'Waiting' };
+export const STATUS_LABELS: Record<Status, string> = { open: 'Ready', in_progress: 'In Progress', waiting: 'Waiting' };
 
-type Answer = StartDecision['options'][number];
+export type Answer = StartDecision['options'][number];
 
 interface Option {
   answer: Answer;
@@ -41,8 +40,7 @@ function copyFor(task: Task, to: Status, decision: StartDecision, today: ISODate
         ? `It's set to check back ${start}, after its due date (${longDate(decision.dueDate!, today)}). Outside Waiting, the start date can't be after the due date.`
         : `It's set to check back ${start}. Outside Waiting, that would be its start date.`;
   const ordered = [decision.default, ...decision.options.filter((o) => o !== decision.default)].map((a) => options[a]);
-  const title = to === 'in_progress' && task.status === 'waiting' ? `Resume “${task.title}”?` : `Move “${task.title}” to ${target}?`;
-  return { title, description, options: ordered };
+  return { title: `Move “${task.title}” to ${target}?`, description, options: ordered };
 }
 
 function OptionList({ options, onChoose, onCancel, touch }: { options: Option[]; onChoose?: (a: Answer) => void; onCancel: () => void; touch?: boolean }) {
@@ -54,6 +52,7 @@ function OptionList({ options, onChoose, onCancel, touch }: { options: Option[];
           variant={i === 0 ? 'default' : 'outline'}
           className={cn('h-auto justify-start gap-3 px-3 py-2 text-left whitespace-normal', touch && 'min-h-control py-3')}
           data-default={i === 0 || undefined}
+          data-answer={o.answer}
           onClick={() => onChoose?.(o.answer)}
         >
           <Icon name={o.icon} className="size-icon shrink-0" />
@@ -91,34 +90,11 @@ export function StartDecisionPrompt({
   onOpenChange: (open: boolean) => void;
   onChoose?: (answer: Answer) => void;
 }) {
-  const wide = useMediaQuery('(min-width: 768px)');
+  const wide = useMediaQuery(WIDE_QUERY);
   const { title, description, options } = copyFor(task, to, decision, today);
-  const cancel = () => onOpenChange(false);
-
-  if (wide) {
-    return (
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent showCloseButton={false} className="gap-4 sm:max-w-sm" data-slot="start-decision-prompt">
-          <DialogHeader>
-            <DialogTitle className="text-headline font-semibold">{title}</DialogTitle>
-            <DialogDescription className="text-body">{description}</DialogDescription>
-          </DialogHeader>
-          <OptionList options={options} onChoose={onChoose} onCancel={cancel} />
-        </DialogContent>
-      </Dialog>
-    );
-  }
   return (
-    <Drawer open={open} onOpenChange={onOpenChange} showSwipeHandle>
-      <DrawerContent className="bg-background" data-slot="start-decision-prompt">
-        <DrawerHeader className="gap-1 pb-3 text-left group-data-[swipe-axis=y]/drawer-popup:text-left">
-          <DrawerTitle className="text-headline font-semibold">{title}</DrawerTitle>
-          <DrawerDescription className="text-body">{description}</DrawerDescription>
-        </DrawerHeader>
-        <div className="px-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
-          <OptionList options={options} onChoose={onChoose} onCancel={cancel} touch />
-        </div>
-      </DrawerContent>
-    </Drawer>
+    <Surface open={open} onOpenChange={onOpenChange} title={title} description={description} slot="start-decision-prompt">
+      <OptionList options={options} onChoose={onChoose} onCancel={() => onOpenChange(false)} touch={!wide} />
+    </Surface>
   );
 }
