@@ -71,6 +71,7 @@ export function Toolbar({
   onBack,
   onSearch,
   onAdd,
+  addDisabled,
   menu,
 }: {
   title: string;
@@ -80,6 +81,7 @@ export function Toolbar({
   onBack?: () => void;
   onSearch?: () => void;
   onAdd?: () => void;
+  addDisabled?: boolean;
   menu?: Omit<BoardMenuProps, 'defaultOpen'>;
 }) {
   return (
@@ -98,7 +100,7 @@ export function Toolbar({
             <Button variant="ghost" size="icon" aria-label="Search" className="pointer-coarse:size-control" onClick={onSearch}>
               <Icon name="search" className="size-5" />
             </Button>
-            <Button variant="ghost" size="icon" aria-label="Add task" className="text-link pointer-coarse:size-control" onClick={onAdd}>
+            <Button variant="ghost" size="icon" aria-label="Add task" className="text-link pointer-coarse:size-control" disabled={addDisabled} onClick={onAdd}>
               <Icon name="add" weight="bold" className="size-5" />
             </Button>
             <BoardMenu defaultOpen={menuOpen} {...menu} />

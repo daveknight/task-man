@@ -28,6 +28,8 @@ npm run web                                 # http://127.0.0.1:5179/?today=2026-
 
 Design screens (no database needed): `npm run web`, then open http://127.0.0.1:5179/design. They render `seed/tasks.json` at the pinned Wednesday (override with `?today=`). With the dev server running, `npm run screenshots -- --out <dir>` saves every screen in light and dark at desktop and iPhone sizes (uses the installed Google Chrome; set `CHROME_PATH` to use another).
 
+To try the installable app (manifest, service worker, offline read-only mode), stop the dev server and run `npm run preview:local -w @app/web`: a production build against local Supabase, signed in as the dev user, on the same port. Offline, it opens with the last-loaded board and a banner, and nothing can be changed until it's back online. The app icon is `apps/web/public/icon.svg`; after changing it, `npm run icons -w @app/web` renders the PNG sizes.
+
 The dev user is `dev@example.com` / `dev-password` (local only). The web app signs in as it automatically in `vite dev`, so every query runs through row-level security exactly as in production.
 
 ## CLI

@@ -40,7 +40,7 @@ export interface ChangeOptions {
 
 /**
  * Writes through `@app/data` with an optimistic update: the board changes at once, and a failed
- * write rolls back with an error toast.
+ * write rolls back with an error toast. Offline, nothing is written: the board is read-only.
  */
 export function useTaskWrites(today: ISODate) {
   const client = useQueryClient();
@@ -49,6 +49,10 @@ export function useTaskWrites(today: ISODate) {
 
   const run = useCallback(
     async (optimistic: Snapshot, write: (s: Scope) => Promise<unknown>) => {
+      if (!navigator.onLine) {
+        toast("You're offline. Changes are paused until you're back online.");
+        throw new Error('offline');
+      }
       const previous = current();
       await client.cancelQueries({ queryKey: SNAPSHOT_KEY });
       client.setQueryData(SNAPSHOT_KEY, optimistic);

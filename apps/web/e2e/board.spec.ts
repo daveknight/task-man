@@ -173,3 +173,15 @@ test('search, then delete and restore from Trash', async ({ page }) => {
   await row(page, 'Renew passport').getByRole('button', { name: 'Restore' }).click();
   await expect.poll(() => showTask('Renew passport').task.deletedAt).toBeNull();
 });
+
+test('offline: read-only with a banner, nothing is written', async ({ page, context }) => {
+  await context.setOffline(true);
+  await expect(page.locator('[data-slot=offline-banner]')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Add task' })).toBeDisabled();
+  await page.getByRole('checkbox', { name: 'Complete Buy new watch band' }).click();
+  await expect(page.getByText("You're offline. Changes are paused until you're back online.")).toBeVisible();
+  await expect(row(page, 'Buy new watch band')).toBeVisible();
+  await context.setOffline(false);
+  await expect(page.locator('[data-slot=offline-banner]')).toHaveCount(0);
+  expect(showTask('Buy new watch band').task.completedAt).toBeNull();
+});
