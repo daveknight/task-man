@@ -1,0 +1,20 @@
+{
+  "name": "@app/data",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Reads and writes tasks in Supabase for the CLI and the web app, using the rules in @app/core.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@app/core": "*",
+    "@supabase/supabase-js": "^2.119.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}

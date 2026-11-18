@@ -1,4 +1,4 @@
-import { APP_NAME, weekdayOf, type Board, type ISODate, type Section } from '@app/core';
+import { APP_NAME, weekdayOf, type Board, type ISODate, type Section, type Task } from '@app/core';
 import type { BoardTask } from './commands.ts';
 
 const SECTION_TITLES: Record<Section, string> = {
@@ -34,6 +34,28 @@ function line(task: BoardTask, today: ISODate, indent: string): string {
   const note = task.hasDescription ? ' ≡' : '';
   const info = details(task, today);
   return `${indent}${task.id.slice(0, 8)}  ${flag}${task.title}${note}${info ? `  — ${info}` : ''}`;
+}
+
+const PLACEMENT_TITLES: Record<string, string> = {
+  ...SECTION_TITLES,
+  waiting: 'Waiting (needs follow-up)',
+  waiting_later: 'Waiting until later',
+  deleted_forever: 'deleted forever',
+};
+
+/** One task with where it now shows: `abcd1234  Title  — due Nov 20 · [Ready]`. */
+export function formatTask({ task, placement }: { task: Task; placement: string }, today: ISODate): string {
+  const info = details(
+    {
+      ...task,
+      placement,
+      sortKey: null,
+      hasDescription: (task.description ?? '').trim() !== '',
+      overdue: !!task.dueDate && task.dueDate < today && !task.completedAt,
+    },
+    today,
+  );
+  return `${task.id.slice(0, 8)}  ${task.flagged ? '⚑ ' : ''}${task.title}${info ? `  — ${info}` : ''}  [${PLACEMENT_TITLES[placement] ?? placement}]`;
 }
 
 export function formatBoard(board: Board<BoardTask>): string {

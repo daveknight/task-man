@@ -5,7 +5,7 @@ import type { Status } from './types.ts';
  * client; the matching test vectors pin the current choice.
  */
 export interface Policy {
-  /** Where Resume sends a waiting task. */
+  /** Where "Move to In Progress" (formerly Resume) sends a waiting task. */
   resumeStatus: Exclude<Status, 'waiting'>;
   /**
    * What happens when the due date is moved earlier than the start date:
@@ -26,5 +26,5 @@ export const DEFAULT_POLICY: Policy = {
   resumeStatus: 'in_progress',
   dueBeforeStart: 'move_start',
   leaveWaitingDefault: 'clear',
-  enterWaitingDefault: 'keep',
+  enterWaitingDefault: 'clear',
 };

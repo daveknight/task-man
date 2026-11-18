@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { targets } from '../src/generate/targets.ts';
-import { colors, contrastRatio, icons, nativeRoles, textPairs, tokens } from '../src/index.ts';
+import { colors, contrastRatio, exactAppleFloor, exactApplePairs, icons, nativeRoles, textPairs, tokens } from '../src/index.ts';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 
@@ -27,6 +27,14 @@ describe('colors', () => {
       .filter((p) => p.ratio < 4.5)
       .map((p) => `${p.text} on ${p.on}: ${p.ratio.toFixed(2)}`);
     expect(failures).toEqual([]);
+  });
+
+  it('exact-Apple pairs are below 4.5:1 in at least one appearance, and never below the floor', () => {
+    for (const [text, on] of exactApplePairs) {
+      const ratios = (['light', 'dark'] as const).map((s) => contrastRatio(colors[text][s], colors[on][s]));
+      expect(Math.min(...ratios), `${text} on ${on}: move it to textPairs`).toBeLessThan(4.5);
+      expect(Math.min(...ratios), `${text} on ${on}`).toBeGreaterThanOrEqual(exactAppleFloor);
+    }
   });
 
   it('native roles exist', () => {

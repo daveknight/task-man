@@ -1,7 +1,6 @@
-import { waitingStateFor, type ISODate, type Task } from '@app/core';
-import type { CSSProperties, ReactNode } from 'react';
+import { actionsFor, waitingStateFor, type ActionContext, type ActionGroup, type ISODate, type Preset, type RowActions, type Task } from '@app/core';
+import { useState, type CSSProperties, type ReactElement, type ReactNode } from 'react';
 import { Icon } from '@/components/icon';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -15,18 +14,20 @@ import {
   ContextMenuTrigger,
 } from '@/components/ui/context-menu';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { dayLabel } from '@/lib/day-label';
+import { dayLabel, longDate } from '@/lib/day-label';
+import { useMediaQuery } from '@/lib/use-media-query';
 import { cn } from '@/lib/utils';
+import { useBoardActions, type BoardActions } from './board-actions';
 import { PresetPanel } from './preset-panel';
-import { rowActionsFor, type ActionContext, type ActionGroup, type RowActions } from './row-actions';
+import { SwipeableRow } from './swipe-row';
 
 export interface TaskRowProps {
   task: Task;
   today: ISODate;
   context?: ActionContext;
-  onOpen?: (task: Task) => void;
   className?: string;
   style?: CSSProperties;
+  selected?: boolean;
 }
 
 function DateMeta({ icon, date, today, tone }: { icon: 'dueDate' | 'startDate' | 'waiting'; date: ISODate; today: ISODate; tone?: string }) {
@@ -38,21 +39,15 @@ function DateMeta({ icon, date, today, tone }: { icon: 'dueDate' | 'startDate' |
   );
 }
 
-/** Follow-up badge, dates and flag at the end of the row. */
+/** Dates and flag at the end of the row. A task waiting until later shows its check-back date with an hourglass. */
 function TrailingMeta({ task, today }: { task: Task; today: ISODate }) {
   const waiting = !task.completedAt && !task.deletedAt && task.status === 'waiting' ? waitingStateFor(task, today) : null;
-  const followUpDue = waiting === 'needs_follow_up' && !!task.startDate && task.startDate <= today;
-  const upcoming = !waiting && !!task.startDate && task.startDate > today;
-  const overdue = !!task.dueDate && task.dueDate < today;
-  const dueToday = task.dueDate === today;
+  const upcoming = !waiting && !task.completedAt && !task.deletedAt && !!task.startDate && task.startDate > today;
+  const open = !task.completedAt && !task.deletedAt;
+  const overdue = open && !!task.dueDate && task.dueDate < today;
+  const dueToday = open && task.dueDate === today;
   return (
     <span className="flex shrink-0 items-center gap-2">
-      {followUpDue && (
-        <Badge className="bg-follow-up-muted px-1.5 text-follow-up">
-          <Icon name="followUp" />
-          Follow up
-        </Badge>
-      )}
       {waiting === 'later' && task.startDate && <DateMeta icon="waiting" date={task.startDate} today={today} />}
       {upcoming && task.startDate && <DateMeta icon="startDate" date={task.startDate} today={today} />}
       {task.dueDate && (
@@ -63,59 +58,90 @@ function TrailingMeta({ task, today }: { task: Task; today: ISODate }) {
   );
 }
 
-/** Extend wait and Resume as icon buttons. Rows on phones leave them to the swipe actions and the sheet. */
-function FollowUpButtons({ actions }: { actions: RowActions }) {
+/** A group's quick picks in a popover, which closes once one is picked. */
+export function PresetPopover({ task, group, align, trigger, children }: { task: Task; group: ActionGroup; align: 'start' | 'end'; trigger: ReactElement; children: ReactNode }) {
+  const actions = useBoardActions();
+  const [open, setOpen] = useState(false);
   return (
-    <span data-slot="follow-up-buttons" className="flex shrink-0 items-center gap-0.5 max-sm:hidden pointer-coarse:hidden">
-      {actions.state.map((g) => (
-        <GroupPopoverButton key={g.title} group={g} tone="text-link" />
-      ))}
-    </span>
-  );
-}
-
-function GroupPopoverButton({ group, tone }: { group: ActionGroup; tone: string }) {
-  if (group.presets.length === 0) {
-    return (
-      <Button variant="ghost" size="icon-sm" aria-label={group.title} title={group.title} className={tone}>
-        <Icon name={group.icon} />
-      </Button>
-    );
-  }
-  return (
-    <Popover>
-      <PopoverTrigger render={<Button variant="ghost" size="icon-sm" aria-label={group.title} title={group.title} className={tone} />}>
-        <Icon name={group.icon} />
-      </PopoverTrigger>
-      <PopoverContent align="end" className="w-80">
-        <PresetPanel group={group} />
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger render={trigger}>{children}</PopoverTrigger>
+      <PopoverContent align={align} className="w-80">
+        <PresetPanel
+          group={group}
+          onPreset={(p) => {
+            setOpen(false);
+            actions?.preset(task, p);
+          }}
+          onPickDate={(p, date) => {
+            setOpen(false);
+            actions?.preset(task, p, date);
+          }}
+        />
       </PopoverContent>
     </Popover>
   );
 }
 
+/** A group's button: a popover of quick picks, or the action itself when it has none. */
+function GroupButton({ task, group, tone, actions }: { task: Task; group: ActionGroup; tone: string; actions: BoardActions | null }) {
+  if (group.presets.length === 0) {
+    return (
+      <Button variant="ghost" size="icon-sm" aria-label={group.title} title={group.title} className={tone} onClick={() => actions?.group(task, group)}>
+        <Icon name={group.icon} />
+      </Button>
+    );
+  }
+  return (
+    <PresetPopover task={task} group={group} align="end" trigger={<Button variant="ghost" size="icon-sm" aria-label={group.title} title={group.title} className={tone} />}>
+      <Icon name={group.icon} />
+    </PresetPopover>
+  );
+}
+
+/** Extend wait and Move to In Progress as icon buttons. Rows on phones leave them to the swipe actions and the sheet. */
+function FollowUpButtons({ task, actions, rowActions }: { task: Task; actions: BoardActions | null; rowActions: RowActions }) {
+  return (
+    <span data-slot="follow-up-buttons" className="flex shrink-0 items-center gap-0.5 max-sm:hidden pointer-coarse:hidden">
+      {rowActions.state.map((g) => (
+        <GroupButton key={g.id} task={task} group={g} tone="text-link" actions={actions} />
+      ))}
+    </span>
+  );
+}
+
 /** Desktop hover buttons: the same date and state groups as the swipe buttons. */
-function HoverActions({ actions }: { actions: RowActions }) {
+function HoverActions({ task, actions, rowActions }: { task: Task; actions: BoardActions | null; rowActions: RowActions }) {
   return (
     <span
       data-slot="row-hover-actions"
-      className="absolute inset-y-0 right-row-x hidden items-center gap-0.5 bg-card pl-2 group-hover/row:flex group-focus-within/row:flex pointer-coarse:hidden!"
+      className="absolute inset-y-0 right-row-x hidden items-center gap-0.5 bg-card pl-2 group-hover/row:flex group-focus-within/row:flex has-data-popup-open:flex pointer-coarse:hidden!"
     >
-      {actions.date && <GroupPopoverButton group={actions.date} tone="text-follow-up" />}
-      {actions.state.map((g) => (
-        <GroupPopoverButton key={g.title} group={g} tone="text-link" />
+      {rowActions.date && <GroupButton task={task} group={rowActions.date} tone="text-flag" actions={actions} />}
+      {rowActions.state.map((g) => (
+        <GroupButton key={g.id} task={task} group={g} tone="text-link" actions={actions} />
       ))}
-      <Button variant="ghost" size="icon-sm" aria-label={actions.delete} title={actions.delete} className="text-destructive">
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        aria-label={rowActions.delete.title}
+        title={rowActions.delete.title}
+        className="text-destructive"
+        onClick={() => (rowActions.delete.id === 'delete' ? actions?.remove(task) : actions?.removeForever(task))}
+      >
         <Icon name="trash" />
       </Button>
     </span>
   );
 }
 
-function MenuGroup({ group }: { group: ActionGroup }) {
+function presetCaption(p: Preset, today: ISODate): string | null {
+  return p.effect.kind === 'set' && p.effect.date ? longDate(p.effect.date, today) : null;
+}
+
+function MenuGroup({ task, group, actions, today }: { task: Task; group: ActionGroup; actions: BoardActions | null; today: ISODate }) {
   if (group.presets.length === 0) {
     return (
-      <ContextMenuItem>
+      <ContextMenuItem onClick={() => actions?.group(task, group)}>
         <Icon name={group.icon} />
         {group.title}
       </ContextMenuItem>
@@ -128,82 +154,113 @@ function MenuGroup({ group }: { group: ActionGroup }) {
         {group.title}
       </ContextMenuSubTrigger>
       <ContextMenuSubContent>
-        {group.presets.map((p) => (
-          <ContextMenuItem key={p.label}>
-            <Icon name={p.icon} />
-            <span className="optical-center flex-1">{p.label}</span>
-            {p.caption && <span className="optical-center ml-4 text-footnote text-muted-foreground">{p.caption}</span>}
-          </ContextMenuItem>
-        ))}
+        {group.presets.map((p) => {
+          const caption = presetCaption(p, today);
+          return (
+            <ContextMenuItem
+              key={p.id}
+              onClick={() => (p.effect.kind === 'pick' ? actions?.showPresets(task, group, p) : actions?.preset(task, p))}
+            >
+              <Icon name={p.icon} />
+              <span className="optical-center flex-1">{p.label}</span>
+              {caption && <span className="optical-center ml-4 text-footnote text-muted-foreground">{caption}</span>}
+            </ContextMenuItem>
+          );
+        })}
       </ContextMenuSubContent>
     </ContextMenuSub>
   );
 }
 
-export function RowContextMenu({ task, actions, children }: { task: Task; actions: RowActions; children: ReactNode }) {
-  const done = actions.placement === 'completed' || actions.placement === 'trash';
+export function RowContextMenu({ task, rowActions, today, children }: { task: Task; rowActions: RowActions; today: ISODate; children: ReactNode }) {
+  const actions = useBoardActions();
+  const active = rowActions.placement !== 'completed' && rowActions.placement !== 'trash';
   return (
     <ContextMenu>
       <ContextMenuTrigger render={<div />}>{children}</ContextMenuTrigger>
       <ContextMenuContent className="min-w-52">
-        {!done && (
+        {active && (
           <>
-            <ContextMenuItem>
+            <ContextMenuItem onClick={() => actions?.complete(task)}>
               <Icon name="complete" />
               Complete
             </ContextMenuItem>
-            <ContextMenuItem>
+            <ContextMenuItem onClick={() => actions?.toggleFlag(task)}>
               <Icon name="flag" active={!!task.flagged} className="text-flag" />
               {task.flagged ? 'Unflag' : 'Flag'}
             </ContextMenuItem>
             <ContextMenuSeparator />
           </>
         )}
-        {actions.date && <MenuGroup group={actions.date} />}
-        {actions.state.map((g) => (
-          <MenuGroup key={g.title} group={g} />
+        {rowActions.date && <MenuGroup task={task} group={rowActions.date} actions={actions} today={today} />}
+        {rowActions.state.map((g) => (
+          <MenuGroup key={g.id} task={task} group={g} actions={actions} today={today} />
         ))}
         <ContextMenuSeparator />
-        <ContextMenuItem variant="destructive">
+        <ContextMenuItem
+          variant="destructive"
+          onClick={() => (rowActions.delete.id === 'delete' ? actions?.remove(task) : actions?.removeForever(task))}
+        >
           <Icon name="trash" />
-          {actions.delete}
+          {rowActions.delete.title}
         </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>
   );
 }
 
-/** One task in a section: the title, with icons for flag and dates. */
-export function TaskRowContent({ task, today, context, onOpen, className, style, hoverActions }: TaskRowProps & { hoverActions?: RowActions }) {
-  const followUp = !task.completedAt && !task.deletedAt && task.status === 'waiting' && waitingStateFor(task, today) === 'needs_follow_up';
+/** One task in a section: the checkbox and title, with icons for flag and dates. */
+export function TaskRowContent({
+  task,
+  today,
+  className,
+  style,
+  selected,
+  rowActions,
+  hover,
+}: TaskRowProps & { rowActions: RowActions; hover?: boolean }) {
+  const actions = useBoardActions();
+  const followUp = rowActions.placement === 'waiting';
+  const done = !!task.completedAt;
   return (
     <div
       data-slot="task-row"
       data-task-id={task.id}
-      className={cn('group/row relative flex min-h-row items-center gap-row-gap bg-card px-row-x', className)}
+      data-selected={selected || undefined}
+      className={cn(
+        'group/row relative flex min-h-row items-center gap-row-gap bg-card px-row-x outline-none data-selected:bg-accent',
+        className,
+      )}
       style={style}
     >
-      <Checkbox aria-label={`Complete ${task.title}`} checked={!!task.completedAt} />
+      <Checkbox
+        aria-label={`Complete ${task.title}`}
+        checked={done}
+        disabled={!!task.deletedAt}
+        onCheckedChange={(checked) => (checked ? actions?.complete(task) : actions?.markNotDone(task))}
+      />
       <button
         type="button"
-        onClick={() => onOpen?.(task)}
+        onClick={() => actions?.open(task)}
         className="flex min-h-row min-w-0 flex-1 items-center gap-2 rounded-sm text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
       >
-        <span className={cn('min-w-0 flex-1 truncate text-body optical-center', task.completedAt && 'text-muted-foreground line-through')}>{task.title}</span>
+        <span data-slot="task-title" className={cn('min-w-0 flex-1 truncate text-body optical-center', done && 'text-muted-foreground line-through')}>{task.title}</span>
         <TrailingMeta task={task} today={today} />
       </button>
-      {followUp && <FollowUpButtons actions={hoverActions ?? rowActionsFor(task, today, context)} />}
-      {hoverActions && !followUp && <HoverActions actions={hoverActions} />}
+      {followUp && <FollowUpButtons task={task} actions={actions} rowActions={rowActions} />}
+      {hover && !followUp && <HoverActions task={task} actions={actions} rowActions={rowActions} />}
     </div>
   );
 }
 
-/** A row with its right-click menu and desktop hover buttons. */
+/** A row: swipe actions on touch screens; right-click menu and hover buttons with a mouse. */
 export function TaskRow(props: TaskRowProps) {
-  const actions = rowActionsFor(props.task, props.today, props.context);
+  const rowActions = actionsFor(props.task, props.today, props.context);
+  const touch = useMediaQuery('(pointer: coarse)');
+  if (touch) return <SwipeableRow {...props} rowActions={rowActions} />;
   return (
-    <RowContextMenu task={props.task} actions={actions}>
-      <TaskRowContent {...props} hoverActions={actions} />
+    <RowContextMenu task={props.task} rowActions={rowActions} today={props.today}>
+      <TaskRowContent {...props} rowActions={rowActions} hover />
     </RowContextMenu>
   );
 }

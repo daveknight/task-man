@@ -5,8 +5,7 @@
   "description": "Agent and seeding CLI. Talks to local Supabase only.",
   "type": "module",
   "exports": {
-    "./seed-plan": "./src/seed-plan.ts",
-    "./rows": "./src/rows.ts"
+    "./seed-plan": "./src/seed-plan.ts"
   },
   "scripts": {
     "cli": "tsx src/main.ts",
@@ -17,6 +16,7 @@
   },
   "dependencies": {
     "@app/core": "*",
+    "@app/data": "*",
     "@supabase/supabase-js": "^2.119.0",
     "tsx": "^4.23.0"
   },

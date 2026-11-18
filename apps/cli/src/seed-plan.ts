@@ -9,7 +9,7 @@ import {
   type Status,
   type Weekday,
 } from '@app/core';
-import type { TaskRow } from './rows.ts';
+import type { TaskRow } from '@app/data';
 
 export interface SeedRepeat {
   mode: 'schedule' | 'after_completion' | 'dates';

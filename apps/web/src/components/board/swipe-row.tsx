@@ -1,7 +1,9 @@
+import { actionsFor, type ActionGroup, type RowActions, type Task } from '@app/core';
 import type { IconMeaning } from '@app/tokens';
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { Icon } from '@/components/icon';
 import { cn } from '@/lib/utils';
-import { rowActionsFor } from './row-actions';
+import { useBoardActions } from './board-actions';
 import { TaskRowContent, type TaskRowProps } from './task-row';
 
 export type SwipeReveal = 'left' | 'right';
@@ -9,12 +11,13 @@ export type SwipeReveal = 'left' | 'right';
 const GAP = 'var(--space-unit) * 1.5';
 const PAD = 'var(--space-unit) * 2';
 
-function SwipeButton({ icon, label, className, active }: { icon: IconMeaning; label: string; className: string; active?: boolean }) {
+function SwipeButton({ icon, label, className, active, onClick }: { icon: IconMeaning; label: string; className: string; active?: boolean; onClick?: () => void }) {
   return (
     <button
       type="button"
       aria-label={label}
       title={label}
+      onClick={onClick}
       className={cn(
         'flex size-swipe-button items-center justify-center rounded-lg text-swipe-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
         className,
@@ -25,34 +28,169 @@ function SwipeButton({ icon, label, className, active }: { icon: IconMeaning; la
   );
 }
 
-/** A row held open mid-swipe. Swipe left shows date, state (two for a follow-up: Extend wait and Resume) and Delete; swipe right toggles the flag. */
-export function SwipeRow({ reveal, ...props }: TaskRowProps & { reveal: SwipeReveal }) {
-  const actions = rowActionsFor(props.task, props.today, props.context);
-  const buttons = reveal === 'right' ? 1 : (actions.date ? 1 : 0) + actions.state.length + 1;
-  const tray = `calc(${buttons} * var(--size-swipe-button) + ${buttons - 1} * ${GAP} + 2 * ${PAD})`;
+function trayWidth(buttons: number): string {
+  return `calc(${buttons} * var(--size-swipe-button) + ${buttons - 1} * ${GAP} + 2 * ${PAD})`;
+}
 
+function leftButtons(rowActions: RowActions): number {
+  return (rowActions.date ? 1 : 0) + rowActions.state.length + 1;
+}
+
+/** The buttons a swipe reveals. Left: date (orange), state (blue; two for a follow-up), Delete (red). Right: Flag. */
+function Tray({ task, rowActions, reveal, onDone }: { task: Task; rowActions: RowActions; reveal: SwipeReveal; onDone?: () => void }) {
+  const actions = useBoardActions();
+  const run = (fn: () => void) => () => {
+    onDone?.();
+    fn();
+  };
+  const group = (g: ActionGroup) => run(() => (g.presets.length ? actions?.showPresets(task, g) : actions?.group(task, g)));
+  const buttons = reveal === 'right' ? 1 : leftButtons(rowActions);
+  return (
+    <div
+      className={cn('absolute inset-y-0 flex items-center gap-1.5 px-2', reveal === 'left' ? 'right-0' : 'left-0')}
+      style={{ width: trayWidth(buttons) }}
+      data-slot="swipe-tray"
+      data-reveal={reveal}
+    >
+      {reveal === 'left' ? (
+        <>
+          {rowActions.date && <SwipeButton icon={rowActions.date.icon} label={rowActions.date.title} className="bg-swipe-date" onClick={group(rowActions.date)} />}
+          {rowActions.state.map((g) => (
+            <SwipeButton key={g.id} icon={g.icon} label={g.title} className="bg-swipe-state" onClick={group(g)} />
+          ))}
+          <SwipeButton
+            icon="trash"
+            label={rowActions.delete.title}
+            className="bg-swipe-delete"
+            onClick={run(() => (rowActions.delete.id === 'delete' ? actions?.remove(task) : actions?.removeForever(task)))}
+          />
+        </>
+      ) : (
+        <SwipeButton icon="flag" active={!task.flagged} label={task.flagged ? 'Unflag' : 'Flag'} className="bg-swipe-flag" onClick={run(() => actions?.toggleFlag(task))} />
+      )}
+    </div>
+  );
+}
+
+/** A row held open mid-swipe, for the design screens. */
+export function SwipeRow({ reveal, ...props }: TaskRowProps & { reveal: SwipeReveal }) {
+  const rowActions = actionsFor(props.task, props.today, props.context);
+  const tray = trayWidth(reveal === 'right' ? 1 : leftButtons(rowActions));
   return (
     <div className="relative overflow-hidden bg-card" data-slot="swipe-row" data-reveal={reveal}>
-      <div
-        className={cn('absolute inset-y-0 flex items-center gap-1.5 px-2', reveal === 'left' ? 'right-0' : 'left-0')}
-        style={{ width: tray }}
-      >
-        {reveal === 'left' ? (
-          <>
-            {actions.date && <SwipeButton icon={actions.date.icon} label={actions.date.title} className="bg-swipe-date" />}
-            {actions.state.map((g) => (
-              <SwipeButton key={g.title} icon={g.icon} label={g.title} className="bg-swipe-state" />
-            ))}
-            <SwipeButton icon="trash" label={actions.delete} className="bg-swipe-delete" />
-          </>
-        ) : (
-          <SwipeButton icon="flag" active={!props.task.flagged} label={props.task.flagged ? 'Unflag' : 'Flag'} className="bg-swipe-flag" />
-        )}
+      <Tray task={props.task} rowActions={rowActions} reveal={reveal} />
+      <TaskRowContent
+        {...props}
+        rowActions={rowActions}
+        className="shadow-[0_0_0_0.5px_var(--border)]"
+        style={{ transform: `translateX(calc(${reveal === 'left' ? -1 : 1} * ${tray}))` }}
+      />
+    </div>
+  );
+}
+
+const OPEN_EVENT = 'swipe-row-open';
+
+/**
+ * Swipe actions for touch screens: swipe left for date, state and Delete, swipe right for Flag.
+ * There's no full-swipe complete; the checkbox completes. One row is open at a time.
+ */
+export function SwipeableRow({ rowActions, ...props }: TaskRowProps & { rowActions: RowActions }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const start = useRef<{ x: number; y: number; base: number } | null>(null);
+  const [offset, setOffset] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  const [open, setOpen] = useState<SwipeReveal | null>(null);
+
+  const width = (reveal: SwipeReveal) => {
+    const tray = ref.current?.querySelector<HTMLElement>(`[data-reveal="${reveal}"]`);
+    return tray?.offsetWidth ?? 0;
+  };
+
+  useEffect(() => {
+    const close = (e: Event) => {
+      if ((e as CustomEvent).detail !== props.task.id) {
+        setOpen(null);
+        setOffset(0);
+      }
+    };
+    window.addEventListener(OPEN_EVENT, close);
+    return () => window.removeEventListener(OPEN_EVENT, close);
+  }, [props.task.id]);
+
+  const onPointerDown = (e: ReactPointerEvent) => {
+    if (e.pointerType === 'mouse') return;
+    start.current = { x: e.clientX, y: e.clientY, base: offset };
+  };
+  const onPointerMove = (e: ReactPointerEvent) => {
+    const s = start.current;
+    if (!s) return;
+    const dx = e.clientX - s.x;
+    const dy = e.clientY - s.y;
+    if (!dragging) {
+      if (Math.abs(dy) > 10) {
+        start.current = null;
+        return;
+      }
+      if (Math.abs(dx) < 10) return;
+      setDragging(true);
+      window.dispatchEvent(new CustomEvent(OPEN_EVENT, { detail: props.task.id }));
+    }
+    const max = width('right');
+    const min = -width('left');
+    setOffset(Math.max(min - 24, Math.min(max + 24, s.base + dx)));
+  };
+  const onPointerUp = () => {
+    if (!start.current) return;
+    start.current = null;
+    if (!dragging) return;
+    setDragging(false);
+    if (offset < -width('left') / 2) {
+      setOpen('left');
+      setOffset(-width('left'));
+    } else if (offset > width('right') / 2) {
+      setOpen('right');
+      setOffset(width('right'));
+    } else {
+      setOpen(null);
+      setOffset(0);
+    }
+  };
+  const close = () => {
+    setOpen(null);
+    setOffset(0);
+  };
+
+  const reveal: SwipeReveal | null = offset < 0 ? 'left' : offset > 0 ? 'right' : null;
+  return (
+    <div
+      ref={ref}
+      className="relative touch-pan-y overflow-hidden bg-card"
+      data-slot="swipe-row"
+      data-open={open ?? undefined}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerUp}
+      onClickCapture={(e) => {
+        if (open && !(e.target as HTMLElement).closest('[data-slot="swipe-tray"]')) {
+          e.stopPropagation();
+          e.preventDefault();
+          close();
+        }
+      }}
+    >
+      <div className={cn(reveal !== 'left' && 'invisible')}>
+        <Tray task={props.task} rowActions={rowActions} reveal="left" onDone={close} />
+      </div>
+      <div className={cn(reveal !== 'right' && 'invisible')}>
+        <Tray task={props.task} rowActions={rowActions} reveal="right" onDone={close} />
       </div>
       <TaskRowContent
         {...props}
-        className="shadow-[0_0_0_0.5px_var(--border)]"
-        style={{ transform: `translateX(calc(${reveal === 'left' ? -1 : 1} * ${tray}))` }}
+        rowActions={rowActions}
+        className={cn(offset !== 0 && 'shadow-[0_0_0_0.5px_var(--border)]', !dragging && 'transition-transform duration-200')}
+        style={{ ...props.style, transform: offset ? `translateX(${offset}px)` : undefined }}
       />
     </div>
   );

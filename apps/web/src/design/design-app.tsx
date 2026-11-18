@@ -1,4 +1,4 @@
-import { changeStatus, placementFor, type ISODate, type Status, type Task } from '@app/core';
+import { actionsFor, changeStatus, placementFor, type ISODate, type Status, type Task } from '@app/core';
 import {
   ArrowBendUpLeft,
   ArrowUUpRight,
@@ -14,7 +14,6 @@ import {
 import { useMemo, useState, type ReactNode } from 'react';
 import { BoardView, RowList, SECTION_TITLES } from '@/components/board/board-view';
 import { PresetPanel } from '@/components/board/preset-panel';
-import { rowActionsFor } from '@/components/board/row-actions';
 import { StartDecisionPrompt } from '@/components/board/start-decision-prompt';
 import { SwipeRow, type SwipeReveal } from '@/components/board/swipe-row';
 import { TaskSheet } from '@/components/board/task-sheet';
@@ -71,7 +70,7 @@ function BoardScreen({
   sheetFor?: string;
   prompt?: PromptCase;
 }) {
-  const [sheetTask, setSheetTask] = useState<Task | null>(sheetFor ? seed.byTitle(sheetFor) : null);
+  const sheetTask = sheetFor ? seed.byTitle(sheetFor) : null;
   const [open, setOpen] = useState(!!sheetFor);
   const [promptOpen, setPromptOpen] = useState(!!prompt);
   const promptTask = prompt ? seed.byTitle(prompt.title) : null;
@@ -83,10 +82,6 @@ function BoardScreen({
         today={today}
         expanded={expanded ? { upcoming: true, waiting_later: true } : undefined}
         actionContext={(task) => ({ recurring: seed.recurring(task) })}
-        onOpenTask={(task) => {
-          setSheetTask(task);
-          setOpen(true);
-        }}
       />
       <TaskSheet task={sheetTask} today={today} open={open} onOpenChange={setOpen} />
       {prompt && promptTask && decision && (
@@ -100,7 +95,7 @@ const PLACEMENT_TITLES = { ...SECTION_TITLES, waiting: 'Waiting, needs follow-up
 
 function ActionCase({ seed, task, today, note }: { seed: SeedBoard; task: Task; today: ISODate; note?: string }) {
   const context = { recurring: seed.recurring(task) };
-  const actions = rowActionsFor(task, today, context);
+  const actions = actionsFor(task, today, context);
   const groups = [actions.date, ...actions.state].filter((g) => g && g.presets.length > 0);
   return (
     <section className="flex flex-col gap-2" data-case={actions.placement}>

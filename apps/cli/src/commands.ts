@@ -9,7 +9,7 @@ import {
 } from '@app/core';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { check, checkRows } from './db.ts';
-import { TASK_COLUMNS, taskFromRow, type TaskRow } from './rows.ts';
+import { TASK_COLUMNS, taskFromRow, type TaskRow } from '@app/data';
 import { planSeed, type SeedFile } from './seed-plan.ts';
 
 export interface ResetResult {

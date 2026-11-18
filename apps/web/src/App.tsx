@@ -1,97 +1,132 @@
-import {
-  APP_NAME,
-  buildBoard,
-  isValidDate,
-  localDate,
-  MAIN_VIEW_ID,
-  type Board,
-  type Task,
-} from '@app/core';
-import { useEffect, useState } from 'react';
-import { BoardView } from './components/board/board-view.tsx';
+import { APP_NAME, buildBoard, type Task } from '@app/core';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { BoardActionsProvider } from './components/board/board-actions.tsx';
+import { BoardView, RowList } from './components/board/board-view.tsx';
+import { SearchDialog } from './components/board/search-dialog.tsx';
+import { TaskPane, TaskSheet, TWO_PANE_QUERY } from './components/board/task-sheet.tsx';
 import { Toolbar } from './components/board/toolbar.tsx';
-import { ensureDevSession, supabase, supabaseConfigured } from './supabase.ts';
+import { Icon } from './components/icon.tsx';
+import { Toaster } from './components/ui/sonner.tsx';
+import { useSnapshot, useTaskWrites, type TaskWrites } from './data/board-data.ts';
+import { longDate } from './lib/day-label.ts';
+import { usePersistedBoolean } from './lib/persisted.ts';
+import { useToday } from './lib/today.ts';
+import { useMediaQuery } from './lib/use-media-query.ts';
+import { supabaseConfigured } from './supabase.ts';
 
-/** Dev-only `?today=YYYY-MM-DD`, matching the CLI's --today. */
-function today(): string {
-  const param = new URLSearchParams(window.location.search).get('today');
-  return import.meta.env.DEV && param && isValidDate(param) ? param : localDate();
-}
-
-interface Row {
-  id: string;
-  title: string;
-  description: string;
-  status: Task['status'];
-  flagged: boolean;
-  start_date: string | null;
-  due_date: string | null;
-  completed_at: string | null;
-  completed_on: string | null;
-  deleted_at: string | null;
-  deleted_on: string | null;
-  created_at: string;
-}
-
-async function loadBoard(day: string): Promise<Board> {
-  // No user filter: row-level security returns only the signed-in user's rows.
-  const [tasks, positions] = await Promise.all([
-    supabase.from('tasks').select('*').returns<Row[]>(),
-    supabase.from('task_positions').select('task_id,sort_key').eq('view_id', MAIN_VIEW_ID),
-  ]);
-  if (tasks.error) throw tasks.error;
-  if (positions.error) throw positions.error;
-  const list: Task[] = tasks.data.map((r) => ({
-    id: r.id,
-    title: r.title,
-    description: r.description,
-    status: r.status,
-    flagged: r.flagged,
-    startDate: r.start_date,
-    dueDate: r.due_date,
-    completedAt: r.completed_at,
-    completedOn: r.completed_on,
-    deletedAt: r.deleted_at,
-    deletedOn: r.deleted_on,
-    createdAt: r.created_at,
-  }));
-  return buildBoard(list, new Map(positions.data.map((p) => [p.task_id, p.sort_key])), day);
+/** The quick-add row at the top of the board. New tasks go to the top of Ready; Enter adds and stays open for the next one. */
+function QuickAdd({ writes, onClose }: { writes: TaskWrites; onClose: () => void }) {
+  const [title, setTitle] = useState('');
+  const add = () => {
+    const trimmed = title.trim();
+    if (!trimmed) return;
+    setTitle('');
+    void writes
+      .add({ id: crypto.randomUUID(), title: trimmed, description: '', status: 'open', flagged: false, startDate: null, dueDate: null })
+      .catch(() => {});
+  };
+  return (
+    <RowList className="mb-section-gap">
+      <label className="flex min-h-row items-center gap-row-gap px-row-x">
+        <span className="flex size-checkbox items-center justify-center text-link">
+          <Icon name="add" weight="bold" className="size-icon" />
+        </span>
+        <input
+          autoFocus
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') add();
+            if (e.key === 'Escape') onClose();
+          }}
+          onBlur={() => !title.trim() && onClose()}
+          placeholder="New task"
+          aria-label="New task"
+          className="min-w-0 flex-1 bg-transparent text-body outline-none placeholder:text-muted-foreground"
+        />
+      </label>
+    </RowList>
+  );
 }
 
 export function App() {
-  const [day] = useState(today);
-  const [user, setUser] = useState<string>();
-  const [board, setBoard] = useState<Board>();
-  const [error, setError] = useState<string>();
+  const today = useToday();
+  const snapshot = useSnapshot();
+  const writes = useTaskWrites(today);
+  const twoPane = useMediaQuery(TWO_PANE_QUERY);
+  const [view, setView] = useState<'board' | 'trash'>('board');
+  const [showCompleted, setShowCompleted] = usePersistedBoolean('board:showCompleted', false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const [searching, setSearching] = useState(false);
 
   useEffect(() => {
     document.title = APP_NAME;
-    if (!supabaseConfigured) {
-      setError('Local Supabase is not running. Start it with `npm run db:start`, then restart the dev server.');
-      return;
-    }
-    ensureDevSession()
-      .then((email) => {
-        setUser(email);
-        return loadBoard(day);
-      })
-      .then(setBoard)
-      .catch((e: unknown) => setError(e instanceof Error ? e.message : String(e)));
-  }, [day]);
+  }, []);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setSearching(true);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  const data = snapshot.data;
+  const board = useMemo(
+    () => (data ? buildBoard(data.tasks, data.positions, today, view === 'trash' ? { showTrash: true } : { showCompleted }) : null),
+    [data, today, view, showCompleted],
+  );
+  const shown = useMemo(() => (board && view === 'trash' ? { ...board, sections: board.sections.filter((s) => s.id === 'trash') } : board), [board, view]);
+  const selected = data?.tasks.find((t) => t.id === selectedId) ?? null;
+
+  const open = useCallback((task: Task) => {
+    setSelectedId(task.id);
+    setSheetOpen(true);
+  }, []);
+
+  const error = !supabaseConfigured
+    ? 'Local Supabase is not running. Start it with `npm run db:start`, then restart the dev server.'
+    : snapshot.error
+      ? snapshot.error.message
+      : null;
+  const empty = shown && shown.sections.every((s) => s.count === 0);
 
   return (
-    <main className="mx-auto flex min-h-dvh max-w-2xl flex-col px-row-x pb-[max(2rem,env(safe-area-inset-bottom))]">
-      <Toolbar
-        title={APP_NAME}
-        subtitle={
-          <>
-            Read-only · {day}
-            {user && <> · {user}</>}
-          </>
-        }
-      />
-      {error && <p className="px-row-x text-destructive">{error}</p>}
-      {board && <BoardView board={board} today={day} />}
-    </main>
+    <BoardActionsProvider today={today} writes={writes} onOpen={open}>
+      <div className="flex min-h-dvh">
+        <main className="mx-auto flex min-h-dvh w-full max-w-2xl min-w-0 flex-col px-row-x pb-[max(2rem,env(safe-area-inset-bottom))]">
+          {view === 'trash' ? (
+            <Toolbar title="Trash" subtitle="Deleted tasks are removed for good after 30 days." onBack={() => setView('board')} />
+          ) : (
+            <Toolbar
+              title={APP_NAME}
+              subtitle={longDate(today, today)}
+              onSearch={() => setSearching(true)}
+              onAdd={() => setAdding(true)}
+              menu={{ showCompleted, onShowCompletedChange: setShowCompleted, onTrash: () => setView('trash') }}
+            />
+          )}
+          <div className="pt-2">
+            {error && <p className="px-row-x text-destructive">{error}</p>}
+            {view === 'board' && adding && <QuickAdd writes={writes} onClose={() => setAdding(false)} />}
+            {empty && (
+              <p className="px-row-x py-8 text-center text-muted-foreground" data-slot="empty">
+                {view === 'trash' ? 'Trash is empty' : 'No tasks yet. Add one with +.'}
+              </p>
+            )}
+            {shown && data && <BoardView board={shown} today={today} positions={data.positions} selectedId={twoPane || sheetOpen ? selectedId : null} />}
+          </div>
+        </main>
+        {twoPane && <TaskPane task={selected} today={today} onClose={() => setSelectedId(null)} />}
+      </div>
+      {!twoPane && <TaskSheet task={selected} today={today} open={sheetOpen && !!selected} onOpenChange={setSheetOpen} />}
+      <SearchDialog open={searching} onOpenChange={setSearching} today={today} onOpen={open} />
+      <Toaster position="bottom-center" />
+    </BoardActionsProvider>
   );
 }

@@ -15,13 +15,19 @@ function isLocal(value: string): boolean {
   }
 }
 
+export interface Session {
+  email: string;
+  userId: string;
+}
+
 /**
  * Signs in as the seeded dev user, only in `vite dev` against a local stack.
  * Every query still runs as a real authenticated user, so RLS applies exactly as in production.
  */
-export async function ensureDevSession(): Promise<string> {
+export async function ensureDevSession(): Promise<Session> {
   const existing = await supabase.auth.getSession();
-  if (existing.data.session) return existing.data.session.user.email ?? '';
+  const user = existing.data.session?.user;
+  if (user) return { email: user.email ?? '', userId: user.id };
   if (!import.meta.env.DEV || !isLocal(url)) {
     throw new Error('Not signed in. The login screen arrives in Phase 1b.');
   }
@@ -30,5 +36,5 @@ export async function ensureDevSession(): Promise<string> {
     password: import.meta.env.VITE_DEV_USER_PASSWORD as string,
   });
   if (error) throw error;
-  return data.user.email ?? '';
+  return { email: data.user.email ?? '', userId: data.user.id };
 }

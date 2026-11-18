@@ -1,5 +1,5 @@
 import { planSeed, type SeedFile } from '@app/cli/seed-plan';
-import { taskFromRow } from '@app/cli/rows';
+import { taskFromRow } from '@app/data';
 import { buildBoard, isValidDate, type Board, type ISODate, type Task } from '@app/core';
 import seedFile from '../../../../seed/tasks.json';
 

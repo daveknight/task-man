@@ -8,6 +8,8 @@ Language-neutral JSON cases for the shared rules. The TypeScript `core` runs the
 | `board-order.json` | `buildBoard` (grouping and order) |
 | `dates.json` | `resolveDate`, `weekdayOf`, `nextWeekdayOnOrAfter` |
 | `sort-keys.json` | `keyBetween`, `isValidSortKey` |
+| `actions.json` | `actionsFor` (swipe, right-click and hover actions with their presets) |
+| `positions.json` | `positionEffect`, `planDrop` (drag-and-drop), `planUpcomingDrop` (dropping into Upcoming), `shouldPurge` |
 | `transitions.json` | `setDueDate`, `waitUntil`, `changeStatus` / `resume` (under the default policy) |
 | `validate.json` | `validateTask` |
 

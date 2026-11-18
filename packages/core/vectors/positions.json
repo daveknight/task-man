@@ -1,0 +1,70 @@
+{
+  "function": "positionEffect(before, after, today), planDrop(order, positions, movingId, index) and shouldPurge(task, today)",
+  "description": "positionEffect is the transition table's board-position column: 'keep', 'clear' (no stored position: Upcoming sorts by start date, and the task arrives at the bottom of Ready) or 'top' (top of its new section). planDrop places a dragged task: order is the target section as shown (without the moving task; tasks without a key sort below every positioned one); expect.writes lists the task ids that get a key, and expect.order is the section after the drop. Use keyBetween for the keys so results are deterministic. shouldPurge: Trash keeps a task 30 days after its deletion day.",
+  "positionEffect": [
+    { "name": "Wait until from Ready: top of Waiting", "today": "2026-11-18", "before": { "status": "open" }, "after": { "status": "waiting", "startDate": "2026-11-21" }, "expect": "top" },
+    { "name": "Extend wait keeps it", "today": "2026-11-18", "before": { "status": "waiting", "startDate": "2026-11-17" }, "after": { "status": "waiting", "startDate": "2026-11-25" }, "expect": "keep" },
+    { "name": "Move to In Progress: top of In Progress", "today": "2026-11-18", "before": { "status": "waiting" }, "after": { "status": "in_progress" }, "expect": "top" },
+    { "name": "Start now from Upcoming: top of In Progress", "today": "2026-11-18", "before": { "status": "open", "startDate": "2026-11-25" }, "after": { "status": "in_progress" }, "expect": "top" },
+    { "name": "leaving Waiting with Start on that date: cleared (Upcoming)", "today": "2026-11-18", "before": { "status": "waiting", "startDate": "2026-11-21" }, "after": { "status": "open", "startDate": "2026-11-21" }, "expect": "clear" },
+    { "name": "setting a future start date: cleared", "today": "2026-11-18", "before": { "status": "open" }, "after": { "status": "open", "startDate": "2026-11-19" }, "expect": "clear" },
+    { "name": "Start today from Upcoming keeps (no position: bottom of Ready)", "today": "2026-11-18", "before": { "status": "open", "startDate": "2026-11-25" }, "after": { "status": "open", "startDate": "2026-11-18" }, "expect": "keep" },
+    { "name": "editing the due date keeps it", "today": "2026-11-18", "before": { "status": "open" }, "after": { "status": "open", "dueDate": "2026-11-20" }, "expect": "keep" },
+    { "name": "complete keeps it", "today": "2026-11-18", "before": { "status": "in_progress" }, "after": { "status": "in_progress", "completedAt": "2026-11-18T12:00:00Z", "completedOn": "2026-11-18" }, "expect": "keep" },
+    { "name": "Mark not done keeps it", "today": "2026-11-18", "before": { "completedAt": "2026-11-18T12:00:00Z", "completedOn": "2026-11-18" }, "after": {}, "expect": "keep" },
+    { "name": "delete keeps it", "today": "2026-11-18", "before": {}, "after": { "deletedAt": "2026-11-18T12:00:00Z", "deletedOn": "2026-11-18" }, "expect": "keep" },
+    { "name": "restore keeps it", "today": "2026-11-18", "before": { "deletedAt": "2026-11-18T12:00:00Z", "deletedOn": "2026-11-18" }, "after": {}, "expect": "keep" }
+  ],
+  "planDrop": [
+    { "name": "into an empty section", "order": [], "positions": {}, "moving": "m", "index": 0, "expect": { "writes": ["m"], "order": ["m"] } },
+    { "name": "to the top", "order": ["a", "b"], "positions": { "a": "a1", "b": "a2" }, "moving": "m", "index": 0, "expect": { "writes": ["m"], "order": ["m", "a", "b"] } },
+    { "name": "between two", "order": ["a", "b"], "positions": { "a": "a1", "b": "a2" }, "moving": "m", "index": 1, "expect": { "writes": ["m"], "order": ["a", "m", "b"] } },
+    { "name": "to the bottom of positioned tasks", "order": ["a", "b"], "positions": { "a": "a1", "b": "a2" }, "moving": "m", "index": 2, "expect": { "writes": ["m"], "order": ["a", "b", "m"] } },
+    { "name": "above unpositioned tasks", "order": ["a", "u1", "u2"], "positions": { "a": "a1" }, "moving": "m", "index": 1, "expect": { "writes": ["m"], "order": ["a", "m", "u1", "u2"] } },
+    { "name": "among unpositioned tasks: the ones above get keys", "order": ["a", "u1", "u2", "u3"], "positions": { "a": "a1" }, "moving": "m", "index": 3, "expect": { "writes": ["u1", "u2", "m"], "order": ["a", "u1", "u2", "m", "u3"] } },
+    { "name": "below everything, none positioned", "order": ["u1", "u2"], "positions": {}, "moving": "m", "index": 2, "expect": { "writes": ["u1", "u2", "m"], "order": ["u1", "u2", "m"] } }
+  ],
+  "planUpcomingDrop": [
+    {
+      "name": "no due date: becomes Open, start presets from tomorrow",
+      "today": "2026-11-18", "task": { "status": "waiting", "startDate": "2026-11-20" },
+      "expect": { "task": { "status": "open", "dueDate": null }, "presets": ["tomorrow", "week", "twoWeeks", "pick"] }
+    },
+    {
+      "name": "due later: no question, presets stop at the due date",
+      "today": "2026-11-18", "task": { "status": "in_progress", "dueDate": "2026-11-28" },
+      "expect": { "task": { "status": "open", "dueDate": "2026-11-28" }, "presets": ["tomorrow", "week", "pick"] }
+    },
+    {
+      "name": "due tomorrow: no question, only Tomorrow and Pick date",
+      "today": "2026-11-18", "task": { "dueDate": "2026-11-19" },
+      "expect": { "task": { "status": "open", "dueDate": "2026-11-19" }, "presets": ["tomorrow", "pick"] }
+    },
+    {
+      "name": "due today: asks to remove the due date",
+      "today": "2026-11-18", "task": { "status": "in_progress", "dueDate": "2026-11-18" },
+      "expect": { "decision": { "reason": "due_today_or_earlier", "dueDate": "2026-11-18", "options": ["clear_due"] } }
+    },
+    {
+      "name": "overdue: asks to remove the due date",
+      "today": "2026-11-18", "task": { "dueDate": "2026-11-10" },
+      "expect": { "decision": { "reason": "due_today_or_earlier", "dueDate": "2026-11-10", "options": ["clear_due"] } }
+    },
+    {
+      "name": "overdue, answered clear_due: due date removed, every preset offered",
+      "today": "2026-11-18", "task": { "status": "waiting", "dueDate": "2026-11-10" }, "choice": "clear_due",
+      "expect": { "task": { "status": "open", "dueDate": null }, "presets": ["tomorrow", "week", "twoWeeks", "pick"] }
+    },
+    {
+      "name": "due later, answered clear_due anyway: the answer is ignored",
+      "today": "2026-11-18", "task": { "dueDate": "2026-11-28" }, "choice": "clear_due",
+      "expect": { "task": { "status": "open", "dueDate": "2026-11-28" }, "presets": ["tomorrow", "week", "pick"] }
+    }
+  ],
+  "shouldPurge": [
+    { "name": "deleted 29 days ago stays", "today": "2026-11-18", "task": { "deletedAt": "2026-10-20T12:00:00Z", "deletedOn": "2026-10-20" }, "expect": false },
+    { "name": "deleted 30 days ago stays", "today": "2026-11-18", "task": { "deletedAt": "2026-10-19T12:00:00Z", "deletedOn": "2026-10-19" }, "expect": false },
+    { "name": "deleted 31 days ago goes", "today": "2026-11-18", "task": { "deletedAt": "2026-10-18T12:00:00Z", "deletedOn": "2026-10-18" }, "expect": true },
+    { "name": "not deleted", "today": "2026-11-18", "task": {}, "expect": false }
+  ]
+}
