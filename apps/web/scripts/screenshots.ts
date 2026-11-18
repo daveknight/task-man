@@ -16,10 +16,12 @@ const { values } = parseArgs({
   },
 });
 
-type Device = 'desktop' | 'iphone';
+/** `narrow` is a desktop window too narrow for the task pane beside the board. */
+type Device = 'desktop' | 'narrow' | 'iphone';
 const { defaultBrowserType: _, ...iphone } = devices['iPhone 15 Pro']!;
 const DEVICES: Record<Device, BrowserContextOptions> = {
   desktop: { viewport: { width: 1280, height: 860 }, deviceScaleFactor: 2 },
+  narrow: { viewport: { width: 900, height: 860 }, deviceScaleFactor: 2 },
   iphone,
 };
 
@@ -55,7 +57,7 @@ const SHOTS: Shot[] = [
     },
   },
   { screen: 'actions', fullPage: true },
-  { screen: 'sheet' },
+  { screen: 'sheet', devices: ['desktop', 'narrow', 'iphone'] },
   { screen: 'sheet-waiting' },
   { screen: 'resume-icons', devices: ['desktop'], fullPage: true, bothThemes: true },
   { screen: 'prompt-resume' },

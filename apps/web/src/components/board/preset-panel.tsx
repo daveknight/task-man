@@ -81,8 +81,11 @@ export function PresetPanel({
               data-default={preset.id === defaultId || undefined}
               onClick={() => (preset.effect.kind === 'pick' ? setPicking(preset) : onPreset?.(preset))}
               className={cn(
-                'flex min-h-control flex-col items-center justify-center gap-0.5 rounded-md bg-muted px-1.5 py-2 text-center outline-none hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50',
-                preset.id === defaultId && 'bg-primary text-primary-foreground hover:bg-primary/90',
+                'flex min-h-control flex-col items-center justify-center gap-0.5 rounded-md px-1.5 py-2 text-center outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+                // Dark popovers and dialogs are the muted gray, so tiles step up to accent there.
+                preset.id === defaultId
+                  ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+                  : 'bg-muted hover:bg-accent dark:bg-accent dark:hover:bg-input',
               )}
             >
               <Icon name={preset.icon} className={cn('size-icon', preset.id === defaultId ? 'text-primary-foreground' : 'text-foreground')} />
