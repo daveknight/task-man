@@ -1,4 +1,4 @@
-import type { PresetEffect } from './actions.ts';
+import { upcomingDropPresets, type Preset, type PresetEffect } from './actions.ts';
 import { addDays } from './dates.ts';
 import { DEFAULT_POLICY, type Policy } from './policy.ts';
 import { sectionFor } from './sections.ts';
@@ -131,6 +131,33 @@ export function planDrop(
   if (previous !== null && next !== null && previous >= next) next = null;
   writes.push({ taskId: movingId, sortKey: newKey(previous, next) });
   return writes;
+}
+
+/** Why a drop into Upcoming needs an answer first. Not choosing (Cancel) leaves the task where it was. */
+export interface UpcomingDropDecision {
+  /** Due today or earlier, so no start date from tomorrow on fits. */
+  reason: 'due_today_or_earlier';
+  dueDate: ISODate;
+  options: UpcomingDropChoice[];
+}
+
+export type UpcomingDropChoice = 'clear_due';
+
+/** The task as it enters Upcoming (Open, before its start date is set) and the start dates on offer. */
+export type UpcomingDrop<T extends Task> = { task: T; presets: Preset[]; decision?: never } | { task?: never; presets?: never; decision: UpcomingDropDecision };
+
+/**
+ * A drop into Upcoming, which has no manual order (so no `planDrop` positions). Like `changeStatus`,
+ * returns `decision` when the due date leaves no room for a later start; call again with `choice`.
+ * A `choice` given when no decision is needed is ignored.
+ */
+export function planUpcomingDrop<T extends Task>(task: T, today: ISODate, choice?: UpcomingDropChoice): UpcomingDrop<T> {
+  let next: T = { ...task, status: 'open' };
+  if (task.dueDate && task.dueDate <= today) {
+    if (choice !== 'clear_due') return { decision: { reason: 'due_today_or_earlier', dueDate: task.dueDate, options: ['clear_due'] } };
+    next = { ...next, dueDate: null };
+  }
+  return { task: next, presets: upcomingDropPresets(next, today) };
 }
 
 /** Everything one change writes: the changed task fields and the board-position rows. */

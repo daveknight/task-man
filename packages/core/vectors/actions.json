@@ -108,7 +108,7 @@
       "expect": ["tomorrow:start=2026-11-19", "week:start=2026-11-25", "pick:pick start >=2026-11-19 <=2026-11-28"]
     },
     {
-      "name": "due today: nothing fits, so the drop is refused",
+      "name": "due today: nothing fits (planUpcomingDrop asks to remove the due date)",
       "today": "2026-11-18", "task": { "status": "in_progress", "dueDate": "2026-11-18" },
       "expect": []
     }

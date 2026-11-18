@@ -24,6 +24,43 @@
     { "name": "among unpositioned tasks: the ones above get keys", "order": ["a", "u1", "u2", "u3"], "positions": { "a": "a1" }, "moving": "m", "index": 3, "expect": { "writes": ["u1", "u2", "m"], "order": ["a", "u1", "u2", "m", "u3"] } },
     { "name": "below everything, none positioned", "order": ["u1", "u2"], "positions": {}, "moving": "m", "index": 2, "expect": { "writes": ["u1", "u2", "m"], "order": ["u1", "u2", "m"] } }
   ],
+  "planUpcomingDrop": [
+    {
+      "name": "no due date: becomes Open, start presets from tomorrow",
+      "today": "2026-11-18", "task": { "status": "waiting", "startDate": "2026-11-20" },
+      "expect": { "task": { "status": "open", "dueDate": null }, "presets": ["tomorrow", "week", "twoWeeks", "pick"] }
+    },
+    {
+      "name": "due later: no question, presets stop at the due date",
+      "today": "2026-11-18", "task": { "status": "in_progress", "dueDate": "2026-11-28" },
+      "expect": { "task": { "status": "open", "dueDate": "2026-11-28" }, "presets": ["tomorrow", "week", "pick"] }
+    },
+    {
+      "name": "due tomorrow: no question, only Tomorrow and Pick date",
+      "today": "2026-11-18", "task": { "dueDate": "2026-11-19" },
+      "expect": { "task": { "status": "open", "dueDate": "2026-11-19" }, "presets": ["tomorrow", "pick"] }
+    },
+    {
+      "name": "due today: asks to remove the due date",
+      "today": "2026-11-18", "task": { "status": "in_progress", "dueDate": "2026-11-18" },
+      "expect": { "decision": { "reason": "due_today_or_earlier", "dueDate": "2026-11-18", "options": ["clear_due"] } }
+    },
+    {
+      "name": "overdue: asks to remove the due date",
+      "today": "2026-11-18", "task": { "dueDate": "2026-11-10" },
+      "expect": { "decision": { "reason": "due_today_or_earlier", "dueDate": "2026-11-10", "options": ["clear_due"] } }
+    },
+    {
+      "name": "overdue, answered clear_due: due date removed, every preset offered",
+      "today": "2026-11-18", "task": { "status": "waiting", "dueDate": "2026-11-10" }, "choice": "clear_due",
+      "expect": { "task": { "status": "open", "dueDate": null }, "presets": ["tomorrow", "week", "twoWeeks", "pick"] }
+    },
+    {
+      "name": "due later, answered clear_due anyway: the answer is ignored",
+      "today": "2026-11-18", "task": { "dueDate": "2026-11-28" }, "choice": "clear_due",
+      "expect": { "task": { "status": "open", "dueDate": "2026-11-28" }, "presets": ["tomorrow", "week", "pick"] }
+    }
+  ],
   "shouldPurge": [
     { "name": "deleted 29 days ago stays", "today": "2026-11-18", "task": { "deletedAt": "2026-10-20T12:00:00Z", "deletedOn": "2026-10-20" }, "expect": false },
     { "name": "deleted 30 days ago stays", "today": "2026-11-18", "task": { "deletedAt": "2026-10-19T12:00:00Z", "deletedOn": "2026-10-19" }, "expect": false },

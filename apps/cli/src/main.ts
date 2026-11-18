@@ -47,6 +47,8 @@ Tasks (<task> is an id, an id prefix of 4+ characters, or a title prefix):
                                             moveToInProgress, startNow, markNotDone, restore
   move <task> --top | --before <task> | --after <task> [--start ...]
                                             drag-and-drop: reorder, or move into another section
+  move <task> --upcoming --start <date> [--clear-due]
+                                            drop into Upcoming: Open, starting on that date
   done <task> [--on <date>]    undone <task>
   delete <task> [--forever]    restore <task>
   purge-trash                               permanently remove Trash older than 30 days
@@ -55,6 +57,8 @@ Tasks (<task> is an id, an id prefix of 4+ characters, or a title prefix):
 Status changes never change dates silently. When one would (leaving Waiting with a future
 check-back date, or going into Waiting with a future start), it fails with the question
 unless --start answers it. Going into Waiting, --start <date>|none sets the check-back date.
+Moving a task due today or earlier into Upcoming fails the same way unless --clear-due
+removes the due date. These failures exit with code 2.
 
 Options (every command):
   --today <date>   override today: YYYY-MM-DD or relative to the real today (+1d, -2w, +1m)
@@ -96,6 +100,8 @@ async function main(argv: string[]): Promise<void> {
       before: { type: 'string' },
       after: { type: 'string' },
       top: { type: 'boolean', default: false },
+      upcoming: { type: 'boolean', default: false },
+      'clear-due': { type: 'boolean', default: false },
       forever: { type: 'boolean', default: false },
       tags: { type: 'string' },
       repeat: { type: 'string' },
@@ -183,7 +189,14 @@ async function main(argv: string[]): Promise<void> {
     case 'act':
       return printChanged(await runAction(ctx, arg(0, 'a task'), arg(1, 'an action'), { date: values.date, start: values.start }), 'Updated');
     case 'move':
-      return printChanged(await moveTask(ctx, arg(0, 'a task'), { before: values.before, after: values.after, top: values.top, start: values.start }), 'Moved');
+      return printChanged(await moveTask(ctx, arg(0, 'a task'), {
+            before: values.before,
+            after: values.after,
+            top: values.top,
+            upcoming: values.upcoming,
+            clearDue: values['clear-due'],
+            start: values.start,
+          }), 'Moved');
     case 'done':
       return printChanged(await doneTask(ctx, arg(0, 'a task'), values.on), 'Completed');
     case 'undone':

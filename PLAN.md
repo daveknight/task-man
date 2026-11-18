@@ -49,7 +49,7 @@ Not on the board by default: completed tasks (a "Show completed" toggle in the m
 
 ### Ordering and drag-and-drop
 
-- You can drag to reorder within a section. Dragging between In Progress, Waiting and Ready changes the status. Dropping into Waiting opens the Wait until picker. Dropping into Upcoming opens the start-date picker (Tomorrow, +1 week, +2 weeks, Pick date, from tomorrow and never after the due date; a Waiting or In Progress task becomes Open). A task due today or earlier can't start later, so that drop is refused with a note. Dropping onto a collapsed section isn't allowed. Empty In Progress, Waiting and Ready sections stay hidden, and appear as drop targets only while dragging.
+- You can drag to reorder within a section. Dragging between In Progress, Waiting and Ready changes the status. Dropping into Waiting opens the Wait until picker. Dropping into Upcoming opens the start-date picker (Tomorrow, +1 week, +2 weeks, Pick date, from tomorrow and never after the due date; a Waiting or In Progress task becomes Open). A task due today or earlier can't start later, so that drop first asks: **Remove due date** clears the due date and goes on to the start-date picker, and **Cancel** leaves the task where it started (core's `planUpcomingDrop` returns this as a decision, like `changeStatus`; the CLI's `move --upcoming --start <date>` exits with code 2 unless `--clear-due` answers it). Dropping onto a collapsed section isn't allowed. Empty In Progress, Waiting and Ready sections stay hidden, and appear as drop targets only while dragging.
 - Order is stored **per view**: a `task_positions(view_id, task_id, sort_key)` table with fractional-index string keys, so one move writes one row. The board is `view_id = 'main'`, and future filtered views get their own order for free.
 - New tasks go to the top of Ready (or of the section they land in).
 - **Tasks arriving on their own go to the bottom of Ready.** That covers a start date arriving, and the next occurrence of a recurring task when it has no start date or its start date is today or earlier. A next occurrence with a future start date goes to Upcoming instead.
@@ -339,6 +339,7 @@ add "Title" [--desc ...] [--start +3d] [--due 2026-12-01] [--status waiting --wa
             [--tags a,b] [--flag] [--repeat "weekly" --repeat-mode after_completion --start-offset 2]
             [--subtask "x" ...]
 show <id|title-prefix>      edit <id> [same flags]      move <id> --before <id> | --after <id> | --top
+move <id> --upcoming --start <date> [--clear-due]
 done <id> [--on 2026-11-20]  undone <id>      delete <id>  restore <id>
 purge-trash [--today ...]    search "query" [--completed] [--flagged]
 export > backup.json         import backup.json

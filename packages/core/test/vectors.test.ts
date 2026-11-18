@@ -4,6 +4,7 @@ import {
   actionsFor,
   upcomingDropPresets,
   planDrop,
+  planUpcomingDrop,
   positionEffect,
   shouldPurge,
   type ActionGroup,
@@ -24,6 +25,7 @@ import {
   type StartChoice,
   type StartDecision,
   type Task,
+  type UpcomingDropChoice,
   type Weekday,
 } from '../src/index.ts';
 
@@ -218,6 +220,7 @@ describe('positions.json', () => {
   const vectors = load<{
     positionEffect: { name: string; today: string; before: Partial<Task>; after: Partial<Task>; expect: string }[];
     planDrop: { name: string; order: string[]; positions: Record<string, string>; moving: string; index: number; expect: { writes: string[]; order: string[] } }[];
+    planUpcomingDrop: { name: string; today: string; task: Partial<Task>; choice?: UpcomingDropChoice; expect: unknown }[];
     shouldPurge: { name: string; today: string; task: Partial<Task>; expect: boolean }[];
   }>('positions.json');
 
@@ -242,6 +245,15 @@ describe('positions.json', () => {
       '2026-11-18',
     );
     expect(board.sections.find((s) => s.id === 'ready')!.tasks.map((t) => t.id)).toEqual(expected.order);
+  });
+
+  it.each(vectors.planUpcomingDrop)('planUpcomingDrop: $name', ({ today, task, choice, expect: expected }) => {
+    const result = planUpcomingDrop(taskFrom(task), today, choice);
+    if (result.decision) {
+      expect({ decision: result.decision }).toEqual(expected);
+      return;
+    }
+    expect({ task: { status: result.task.status, dueDate: result.task.dueDate }, presets: result.presets.map((p) => p.id) }).toEqual(expected);
   });
 
   it.each(vectors.shouldPurge)('shouldPurge: $name', ({ today, task, expect: expected }) => {

@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { cliJson, findTask, openBoard, reseed, row, section, showTask, titlesIn, type CliBoard } from './helpers';
+import { cliJson, findTask, openBoard, reseed, row, section, showTask, titlesIn, TODAY, type CliBoard } from './helpers';
 
 test.beforeEach(async ({ page }) => {
   reseed();
@@ -104,6 +104,29 @@ test('drag from Waiting into Upcoming asks for a start date and makes the task O
     task: { status: 'open', startDate: '2026-11-19' },
   });
 });
+
+for (const choice of ['clear_due', 'cancel'] as const) {
+  test(`drag a task due today into Upcoming asks first: ${choice === 'clear_due' ? 'Remove due date' : 'Cancel'}`, async ({ page }) => {
+    const title = 'Contractor sign-off on deck permit';
+    await section(page, 'ready').getByRole('button', { name: /^Ready/ }).click();
+    await section(page, 'upcoming').getByRole('button', { name: /^Upcoming/ }).click();
+    await drag(page, title, { section: 'upcoming' });
+    const prompt = page.locator('[data-slot=upcoming-drop-prompt]');
+    await expect(prompt).toBeVisible();
+    await prompt.locator(`[data-choice=${choice}]`).click();
+    await expect(prompt).toBeHidden();
+    if (choice === 'cancel') {
+      await expect(page.locator('[data-slot=start-pane]')).toHaveCount(0);
+      expect(await titlesIn(page, 'waiting')).toContain(title);
+      expect(showTask(title)).toMatchObject({ placement: 'waiting', task: { status: 'waiting', dueDate: TODAY, startDate: '2026-11-25' } });
+      return;
+    }
+    const pane = page.locator('[data-slot=start-pane]');
+    expect(await pane.locator('[data-preset]').evaluateAll((els) => els.map((e) => e.getAttribute('data-preset')))).toEqual(['tomorrow', 'week', 'twoWeeks', 'pick']);
+    await pane.locator('[data-preset=week]').click();
+    await expect.poll(() => showTask(title)).toMatchObject({ placement: 'upcoming', task: { status: 'open', dueDate: null, startDate: '2026-11-25' } });
+  });
+}
 
 test('quick add puts the task at the top of Ready', async ({ page }) => {
   await page.getByRole('button', { name: 'Add task' }).click();

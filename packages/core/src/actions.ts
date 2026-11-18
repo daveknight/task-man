@@ -105,7 +105,7 @@ export function waitPresets(today: ISODate): Preset[] {
 /** Start presets count from today; ones that would put the start after the due date are hidden. */
 /**
  * Dropping a task into Upcoming: a start date from tomorrow on, never after the due date. The task
- * becomes Open with that start. Empty when the task is due today or earlier, so the drop is refused.
+ * becomes Open with that start. Empty when the task is due today or earlier (see `planUpcomingDrop`).
  */
 export function upcomingDropPresets(task: Task, today: ISODate): Preset[] {
   const fits = (date: ISODate) => !task.dueDate || date <= task.dueDate;

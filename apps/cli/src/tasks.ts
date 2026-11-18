@@ -10,6 +10,7 @@ import {
   planChange,
   planDrop,
   planNewTask,
+  planUpcomingDrop,
   REORDERABLE,
   resolveDate,
   restore,
@@ -25,6 +26,7 @@ import {
   type StartDecision,
   type Status,
   type Task,
+  type UpcomingDropDecision,
 } from '@app/core';
 import { deleteForever, insertTask, loadSnapshot, purgeTrash, searchTasks, writeChange, type Scope, type Snapshot } from '@app/data';
 
@@ -35,19 +37,29 @@ export interface Context {
   now: string;
 }
 
-/** A status change needs a start-date answer the script didn't give (`--start clear|keep|<date>`). */
+/**
+ * A change needs an answer the script didn't give: a start-date choice for a status change
+ * (`--start clear|keep|<date>`), or `--clear-due` for a move into Upcoming of a task due today or earlier.
+ */
 export class DecisionNeeded extends Error {
   constructor(
     readonly task: Task,
-    readonly to: Status,
-    readonly decision: StartDecision,
+    readonly to: Status | 'upcoming',
+    readonly decision: StartDecision | UpcomingDropDecision,
   ) {
-    const opts = decision.options.map((o) => (o === 'set' ? '<date>' : o)).join('|');
-    super(
-      `"${task.title}" has ${decision.reason === 'entering_waiting_future_start' ? 'a future start date' : `check-back date ${decision.startDate}`}` +
-        ` (${decision.reason}). Pass --start ${opts} (default: ${decision.default}).`,
-    );
+    super(decisionQuestion(task, decision));
   }
+}
+
+function decisionQuestion(task: Task, decision: StartDecision | UpcomingDropDecision): string {
+  if (decision.reason === 'due_today_or_earlier') {
+    return `"${task.title}" is due ${decision.dueDate}, so it can't start later (${decision.reason}). Pass --clear-due to remove the due date.`;
+  }
+  const opts = decision.options.map((o) => (o === 'set' ? '<date>' : o)).join('|');
+  return (
+    `"${task.title}" has ${decision.reason === 'entering_waiting_future_start' ? 'a future start date' : `check-back date ${decision.startDate}`}` +
+    ` (${decision.reason}). Pass --start ${opts} (default: ${decision.default}).`
+  );
 }
 
 export interface Changed {
@@ -219,17 +231,23 @@ export interface MoveOptions {
   before?: string;
   after?: string;
   top?: boolean;
-  /** The check-back date when moving into Waiting, or the answer when leaving it. */
+  /** Into Upcoming (needs `start`). */
+  upcoming?: boolean;
+  /** Into Upcoming: removes a due date of today or earlier, which leaves no room for a later start. */
+  clearDue?: boolean;
+  /** The check-back date when moving into Waiting, the answer when leaving it, or the start date when moving into Upcoming. */
   start?: string;
 }
 
 /**
  * Drag-and-drop: reorders within a section, or moves into another manual section (In Progress,
- * Waiting, Ready) next to `--before`/`--after`, changing the status like a drag does.
+ * Waiting, Ready) next to `--before`/`--after`, changing the status like a drag does. `--upcoming`
+ * is a drop into Upcoming: the task becomes Open with the `--start` date.
  */
 export async function moveTask(ctx: Context, ref: string, options: MoveOptions): Promise<Changed> {
   const snapshot = await loadSnapshot(ctx.scope);
   const before = findTask(snapshot, ref);
+  if (options.upcoming) return moveToUpcoming(ctx, snapshot, before, options);
   const anchorRef = options.before ?? options.after;
   if (!anchorRef && !options.top) throw new Error('move needs --before <task>, --after <task> or --top');
   const anchor = anchorRef ? findTask(snapshot, anchorRef) : before;
@@ -249,6 +267,20 @@ export async function moveTask(ctx: Context, ref: string, options: MoveOptions):
   const index = options.top ? 0 : list.findIndex((t) => t.id === anchor.id) + (options.after ? 1 : 0);
   const drop = planDrop(list, snapshot.positions, after.id, index);
   return commit(ctx, snapshot, before, after, drop);
+}
+
+async function moveToUpcoming(ctx: Context, snapshot: Snapshot, before: Task, options: MoveOptions): Promise<Changed> {
+  if (options.before || options.after || options.top) throw new Error('Upcoming is ordered by start date, so --upcoming takes no --before, --after or --top');
+  if (sectionFor(before, ctx.today) === 'upcoming') throw new Error(`"${before.title}" is already in Upcoming`);
+  const result = planUpcomingDrop(before, ctx.today, options.clearDue ? 'clear_due' : undefined);
+  if (result.decision) throw new DecisionNeeded(before, 'upcoming', result.decision);
+  if (!options.start) throw new Error(`--upcoming needs --start <date> (offered: ${result.presets.map((p) => p.label).join(', ')})`);
+  const start = resolveDate(options.start, ctx.today);
+  const min = resolveDate('+1d', ctx.today);
+  const due = result.task.dueDate;
+  if (start < min) throw new Error(`Pick a start date on or after ${min}`);
+  if (due && start > due) throw new Error(`Pick a start date on or before the due date, ${due}`);
+  return commit(ctx, snapshot, before, { ...result.task, startDate: start }, undefined, due !== before.dueDate ? 'Due date removed' : undefined);
 }
 
 export async function doneTask(ctx: Context, ref: string, on?: string): Promise<Changed> {
