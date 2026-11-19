@@ -54,10 +54,12 @@ function DateField({
   tone,
   min,
   max,
+  clearLabel = 'Clear',
   onChange,
 }: {
   icon: IconMeaning;
   label: string;
+  clearLabel?: string;
   date?: ISODate | null;
   today: ISODate;
   tone?: string;
@@ -93,7 +95,7 @@ function DateField({
             }}
           >
             <Icon name="clear" data-icon="inline-start" />
-            Clear
+            {clearLabel}
           </Button>
         )}
       </PopoverContent>
@@ -282,7 +284,7 @@ export function TaskEditor({ task, today, onClose }: { task: Task; today: ISODat
             onChange={(d) => actions?.setField(task, 'start', d)}
           />
         )}
-        <DateField icon="dueDate" label="Due" date={task.dueDate} today={today} tone={overdue ? 'text-overdue' : undefined} onChange={(d) => actions?.setField(task, 'due', d)} />
+        <DateField icon="dueDate" label="Due" clearLabel="No due date" date={task.dueDate} today={today} tone={overdue ? 'text-overdue' : undefined} onChange={(d) => actions?.setField(task, 'due', d)} />
       </RowList>
 
       <Textarea
@@ -305,8 +307,7 @@ export function TaskPane({ task, today, onClose }: { task: Task | null; today: I
       {task ? (
         <TaskEditor key={task.id} task={task} today={today} onClose={onClose} />
       ) : (
-        <div className="flex flex-1 flex-col items-center justify-center gap-2 p-8 text-center text-muted-foreground">
-          <Icon name="complete" className="size-8" />
+        <div className="flex flex-1 flex-col items-center justify-center p-8 text-center text-muted-foreground">
           <p className="text-body">Select a task to see its details</p>
         </div>
       )}

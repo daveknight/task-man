@@ -30,6 +30,16 @@ test('matches the CLI board', async ({ page }) => {
   await expect(section(page, 'waiting').getByText(`Show ${board.sections.find((s) => s.id === 'waiting')!.later!.length} waiting until later`)).toBeVisible();
 });
 
+test('a collapsed section expands from anywhere in its row', async ({ page }) => {
+  const trigger = section(page, 'upcoming').getByRole('button', { name: /^Upcoming/ });
+  await expect(section(page, 'upcoming').locator('[data-slot=task-row]')).toHaveCount(0);
+  await trigger.scrollIntoViewIfNeeded();
+  const box = (await trigger.boundingBox())!;
+  const board = (await page.locator('[data-slot=board]').boundingBox())!;
+  await page.mouse.click(board.x + board.width - 20, box.y + box.height / 2);
+  await expect(section(page, 'upcoming').locator('[data-slot=task-row]').first()).toBeVisible();
+});
+
 test('complete with undo', async ({ page }) => {
   await page.getByRole('checkbox', { name: 'Complete Buy new watch band' }).click();
   await expect(section(page, 'ready').getByText('Buy new watch band')).toHaveCount(0);
