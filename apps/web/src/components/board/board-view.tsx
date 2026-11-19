@@ -169,7 +169,7 @@ function SectionView({
                     <Icon name="waiting" className="size-icon" />
                   </span>
                   <span className="optical-center flex-1">
-                    {laterOpen ? 'Hide' : 'Show'} {later.length} waiting until later
+                    {laterOpen ? 'Hide' : 'Show'} {later.length} hidden until later
                   </span>
                   <Caret open={laterOpen} />
                 </CollapsibleTrigger>

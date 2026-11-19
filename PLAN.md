@@ -11,7 +11,7 @@ One view to start. Sections, top to bottom:
 | Section | A task is here when |
 |---|---|
 | In Progress | status is `in_progress` |
-| Waiting | status is `waiting`. Tasks needing follow-up are visible; tasks still within their check-back period are tucked behind a "Show N waiting until later" row inside the section |
+| Waiting | status is `waiting`. Tasks needing follow-up are visible; tasks still within their hide-until period are tucked behind a "Show N hidden until later" row inside the section |
 | Ready | status is `open` and the start date is empty, today, or in the past |
 | Upcoming | the start date is after today. **Collapsed by default** |
 
@@ -21,35 +21,35 @@ Every collapsible part remembers whether you last left it expanded.
 
 Waiting is a **status**, on the same picker as In Progress, because a task can't be both. A typical flow: you've made progress, and now someone else has to act before you can finish.
 
-- **Going in:** choose Waiting from the status menu, swipe, or drag into the Waiting section. Every way in opens the same picker, **Wait until**, with quick picks: **Tomorrow, Saturday** (the coming one; hidden on Fridays, when it would repeat Tomorrow), **1 week, Pick date, No date**. **No date** is the highlighted default (the task needs follow-up now). A task that already has a future start date also gets a **Keep Nov 21** tile, so its start date becomes the check-back date. Pick date can't choose a past day. There is no "waiting on" field: the title says who. The picked date is stored as the task's **start date**: while a task is Waiting, its start date *is* its check-back date (the task sheet labels the field "Check back"), and it may fall after the due date. Wait until picks aren't capped by the due date.
+- **Going in:** choose Waiting from the status menu, swipe, or drag into the Waiting section. Every way in opens the same picker, **Hide until**, with quick picks: **Tomorrow, Saturday** (the coming one; hidden on Fridays, when it would repeat Tomorrow), **1 week, Pick date, Don't hide**. **Don't hide** is the highlighted default (the task needs follow-up now). The dialog title is "Hide until", with no subheading and no body text; the task name stays available to screen readers. A task that already has a future start date also gets a **Keep Nov 21** tile, so its start date becomes the hide-until date. Pick date can't choose a past day. There is no "waiting on" field: the title says who. The picked date is stored as the task's **start date**: while a task is Waiting, its start date *is* its hide-until date (the task sheet labels the field "Hide until"), and it may fall after the due date. Hide until picks aren't capped by the due date. The row actions `waitUntil`, `extendWait` and `checkBack` are all labeled **Hide until**; the ids don't change.
 - **Two sub-states inside the one Waiting section:**
-  - **Needs follow-up (visible):** no check-back date, or the check-back date is today or earlier, or the due date is today or earlier. There's no badge: being in the visible part of Waiting says it.
-  - **Waiting until later (tucked away):** the check-back date is in the future. These tasks sit behind a "Show 3 waiting until later" row at the bottom of the section, collapsed by default, each showing its check-back date with an hourglass ("Nov 21").
+  - **Needs follow-up (visible):** no hide-until date, or the hide-until date is today or earlier, or the due date is today or earlier. There's no badge: being in the visible part of Waiting says it.
+  - **Hidden until later (tucked away):** the hide-until date is in the future. These tasks sit behind a "Show 3 hidden until later" row at the bottom of the section, collapsed by default, each showing its hide-until date with an hourglass ("Nov 21").
   - The section header counts both. If every waiting task is tucked away, the section shows just its header and the "Show N" row.
 - **Acting on a task that needs follow-up:** two actions, plus the checkbox, which completes it as usual:
-  - **Extend wait:** the same picks as Wait until, counted from today, for when you nudged the person and need more time.
-  - **Move to In Progress:** the blocker cleared, so the task goes to In Progress. A check-back date of today or earlier just stays as a past start date; a future one, or one after the due date, asks first (below).
+  - **Hide until:** the same picks, counted from today, for when you nudged the person and need more time.
+  - **Move to In Progress:** the blocker cleared, so the task goes to In Progress. A hide-until date of today or earlier just stays as a past start date; a future one, or one after the due date, asks first (below).
   - On desktop they are icon-only buttons at the end of the row. Phone rows don't show them (the targets would be too small); they're in the swipe actions and the task sheet, which labels them.
 - Completing a recurring Waiting task ends the wait: the next occurrence is `open`, with its start date recomputed and its subtasks reset.
 - **Status changes never change dates silently.** When a status change would make the start date mean something else, the app asks (a dialog on desktop, a bottom sheet on phones) with the default answer first and highlighted:
-  - **Leaving Waiting** (Move to In Progress, the status menu, or dragging to Ready or In Progress) with a **future** check-back date: **Clear the check-back date** (default; the task moves now), **Start on that date** (it waits in Upcoming), or **Pick a start date**.
-  - **Leaving Waiting with a check-back date after the due date** (past or future): **Clear** (default) or **Pick a start date** on or before the due date. Keeping it isn't offered, since outside Waiting the start can't be after the due date.
-  - **Going into Waiting** doesn't ask a separate question: the Wait until picker above always opens, and its Keep tile covers a future start date. Only non-interactive callers meet this decision (`entering_waiting_future_start`), and its default is **No check-back date**.
-  - `core`'s `changeStatus(task, to, today, choice?)` decides this for every client. Without `choice` it returns `{ decision }` (the reason, the dates, the allowed answers and the default) instead of a task; called again with `choice` (`'clear'`, `'keep'` or `{ set: date }`) it returns the task. Non-interactive callers (CLI commands, AI capture, sync) must pass the choice up front; the CLI's `status`, `act` and `move` take it as `--start clear|keep|<date>` and fail with the question (exit code 2) when it's missing. The defaults live in `core`'s policy (`leaveWaitingDefault: 'clear'`, `enterWaitingDefault: 'clear'`).
-- No field of its own: the check-back date is `start_date`. Which sub-state a task is in is derived, never stored, like the sections.
-- In Phase 5, the check-back date can also send a notification.
+  - **Leaving Waiting** (Move to In Progress, the status menu, or dragging to Ready or In Progress) with a **future** hide-until date that is not after the due date: **Clear the check-back date** (default; the task moves now), **Start on that date** (it waits in Upcoming), or **Pick a start date**.
+  - **Leaving Waiting when the hide-until date is after the due date** (past or future): the title is "Move and clear start date?" and the only way forward is **Yes, clear start date**, which clears the start date and moves the task. **Cancel** leaves it in Waiting. Keeping the date and picking a new one aren't offered, since outside Waiting the start can't be after the due date.
+  - **Going into Waiting** doesn't ask a separate question: the Hide until picker above always opens, and its Keep tile covers a future start date. Only non-interactive callers meet this decision (`entering_waiting_future_start`), and its default is **Don't hide**.
+  - `core`'s `changeStatus(task, to, today, choice?)` decides this for every client. Without `choice` it returns `{ decision }` (the reason, the dates, the allowed answers and the default) instead of a task; called again with `choice` (`'clear'`, `'keep'` or `{ set: date }`) it returns the task, or throws when that answer isn't offered. Non-interactive callers (CLI commands, AI capture, sync) must pass the choice up front; the CLI's `status`, `act` and `move` take it as `--start clear|keep|<date>` and fail with the question (exit code 2) when it's missing. When the hide-until date is after the due date, only `--start clear` is accepted. The defaults live in `core`'s policy (`leaveWaitingDefault: 'clear'`, `enterWaitingDefault: 'clear'`).
+- No field of its own: the hide-until date is `start_date`. Which sub-state a task is in is derived, never stored, like the sections.
+- In Phase 5, the hide-until date can also send a notification.
 
 Not on the board by default: completed tasks (a "Show completed" toggle in the menu adds a collapsed Completed section at the bottom) and deleted tasks (a Trash screen in the menu).
 
 - The section is **derived, never stored**. One shared function, `sectionFor(task, today)`, decides it, so the web app, the native apps and the CLI can never disagree.
-- A Waiting task is always in Waiting: its future start date (the check-back date) only tucks it under "waiting until later." For every other task, a future start date wins over status: it's in Upcoming. Moving an Upcoming task into In Progress is "Start now" and clears its future start date.
+- A Waiting task is always in Waiting: its future start date (the hide-until date) only tucks it under "hidden until later." For every other task, a future start date wins over status: it's in Upcoming. Moving an Upcoming task into In Progress is "Start now" and clears its future start date.
 - "Today" is the device's local calendar day. Tasks move from Upcoming to Ready when the day rolls over, with no background job.
 - Start and due dates are **days only** (Postgres `date`), with no times or time zones.
 - The due date is informational: shown in the row, red when overdue. Later on it will set the default for reminders.
 
 ### Ordering and drag-and-drop
 
-- You can drag to reorder within a section. Dragging between In Progress, Waiting and Ready changes the status. Dropping into Waiting opens the Wait until picker. Dropping into Upcoming opens the start-date picker (Tomorrow, +1 week, +2 weeks, Pick date, from tomorrow and never after the due date; a Waiting or In Progress task becomes Open). A task due today or earlier can't start later, so that drop first asks: **Remove due date** clears the due date and goes on to the start-date picker, and **Cancel** leaves the task where it started (core's `planUpcomingDrop` returns this as a decision, like `changeStatus`; the CLI's `move --upcoming --start <date>` exits with code 2 unless `--clear-due` answers it). Dropping onto a collapsed section isn't allowed. Empty In Progress, Waiting and Ready sections stay hidden, and appear as drop targets only while dragging.
+- You can drag to reorder within a section. Dragging between In Progress, Waiting and Ready changes the status. Dropping into Waiting opens the Hide until picker. Dropping into Upcoming opens the start-date picker (Tomorrow, +1 week, +2 weeks, Pick date, from tomorrow and never after the due date; a Waiting or In Progress task becomes Open). A task due today or earlier can't start later, so that drop first asks: **Remove due date** clears the due date and goes on to the start-date picker, and **Cancel** leaves the task where it started (core's `planUpcomingDrop` returns this as a decision, like `changeStatus`; the CLI's `move --upcoming --start <date>` exits with code 2 unless `--clear-due` answers it). Dropping onto a collapsed section isn't allowed. Empty In Progress, Waiting and Ready sections stay hidden, and appear as drop targets only while dragging.
 - Order is stored **per view**: a `task_positions(view_id, task_id, sort_key)` table with fractional-index string keys, so one move writes one row. The board is `view_id = 'main'`, and future filtered views get their own order for free.
 - New tasks go to the top of Ready (or of the section they land in).
 - **Tasks arriving on their own go to the bottom of Ready.** That covers a start date arriving, and the next occurrence of a recurring task when it has no start date or its start date is today or earlier. A next occurrence with a future start date goes to Upcoming instead.
@@ -60,15 +60,15 @@ Not on the board by default: completed tasks (a "Show completed" toggle in the m
 One shared function in `core`, `actionsFor(task, today)`, picks the actions from the task's state, so phone swipes, the desktop right-click menu and hover buttons always match.
 
 - **Swipe right:** reveals the **Flag** toggle, and that's all. There's no full-swipe complete; completing is the checkbox.
-- **Swipe left:** reveals a **date** button (orange), a **state** button (blue; a follow-up gets two, Extend wait and Move to In Progress), and **Delete** (red).
+- **Swipe left:** reveals a **date** button (orange), a **state** button (blue; a follow-up gets two, Hide until and Move to In Progress), and **Delete** (red).
 - Swipe buttons are icon-only, with no labels: small colored rounded buttons sitting inside the row, not full-height colored panels. There's no "Move to," since there's only one list. The date and state buttons open a small grid of presets, like TickTick's date popover. The tiles show only an icon and a label, with no date underneath.
 
 | Task is in | Date button presets | State button | 
 |---|---|---|
-| Ready | Due: Today, Tomorrow, Next Monday, Pick date, Clear | **Wait until** (Tomorrow, Saturday, 1 week, Pick date, No date) |
-| In Progress | Due: same as Ready | **Wait until** (same picks) |
-| Waiting, needs follow-up | Due: same as Ready | **Extend wait** (same picks as Wait until), **Move to In Progress** |
-| Waiting until later | Check back: Tomorrow, +3 days, +1 week, Pick date, **Now** (makes it need follow-up) | **Move to In Progress** |
+| Ready | Due: Today, Tomorrow, Next Monday, Pick date, Clear | **Hide until** (Tomorrow, Saturday, 1 week, Pick date, Don't hide) |
+| In Progress | Due: same as Ready | **Hide until** (same picks) |
+| Waiting, needs follow-up | Due: same as Ready | **Hide until** (same picks), **Move to In Progress** |
+| Hidden until later | Hide until: Tomorrow, +3 days, +1 week, Pick date, **Now** (makes it need follow-up) | **Move to In Progress** |
 | Upcoming | Start: **Start today** (moves it to Ready), +1 week, Next month, Pick date, Clear | **Start now** (In Progress) |
 | Completed (when shown) | none | **Mark not done** |
 | Trash | none | **Restore** (Delete becomes **Delete forever**) |
@@ -139,10 +139,10 @@ Speak or type a rambling note, and the app turns it into one or more proposed ta
 **Flow**
 1. **Capture:** a "Capture" button beside the + button (and a mode in quick add) opens a large text box. You dictate with the keyboard's microphone (works in the installed web app and natively, no audio leaves the device for this step), type, or paste. For example: *"Call the dentist tomorrow, I'm waiting on Alex for the deck quote, check back Friday, and every other Sunday water the plants. Oh and file taxes, start thinking about it in February, due April 15."*
 2. **Parse:** the text goes to an AI model, which returns structured tasks.
-3. **Review:** a sheet lists each proposed task as a card: title, plus chips for every field it filled in (due Thu Nov 19, Waiting · check back Fri, repeats every 2 weeks on Sunday, start Feb 1, flag, tags, subtasks). You can tap a card to open it in the normal task sheet, untick tasks you don't want, or edit chips. The original text stays visible at the top. **Add 4 tasks** saves them; Cancel saves nothing.
+3. **Review:** a sheet lists each proposed task as a card: title, plus chips for every field it filled in (due Thu Nov 19, Waiting · hide until Fri, repeats every 2 weeks on Sunday, start Feb 1, flag, tags, subtasks). You can tap a card to open it in the normal task sheet, untick tasks you don't want, or edit chips. The original text stays visible at the top. **Add 4 tasks** saves them; Cancel saves nothing.
 4. Saved tasks land like any new task (top of their section, or Upcoming if they have a future start date).
 
-**What the model is told:** today's date and weekday, your time zone, your existing tag names (so it reuses them rather than inventing near-duplicates), and the app's rules in plain terms: start date means "hide until," due date is the deadline, "waiting on someone" means Waiting status (and for a Waiting task, startDate is the check-back date), and the three repeat types. It must answer with JSON matching a fixed schema:
+**What the model is told:** today's date and weekday, your time zone, your existing tag names (so it reuses them rather than inventing near-duplicates), and the app's rules in plain terms: start date means "hide until," due date is the deadline, "waiting on someone" means Waiting status (and for a Waiting task, startDate is the hide-until date), and the three repeat types. It must answer with JSON matching a fixed schema:
 
 ```
 { tasks: [ { title, description?, startDate?, dueDate?, status: open|in_progress|waiting,
@@ -181,26 +181,26 @@ Speak or type a rambling note, and the app turns it into one or more proposed ta
 
 One table in `core`, covered by test vectors, decides what every change does to the other fields. The flag is never changed by a transition.
 
-| Change | Status | Start date (the check-back date while Waiting) | Board position |
+| Change | Status | Start date (the hide-until date while Waiting) | Board position |
 |---|---|---|---|
 | Complete (non-recurring) | kept, so Mark not done returns it where it was | kept | kept |
 | Complete (recurring) | `open` | recomputed | cleared |
 | Mark not done | as before completion | as before | kept, else bottom of section |
-| Into Waiting (status menu, swipe or drag; always with the Wait until picker) | `waiting` | the picked date, or empty for No date | top of Waiting |
-| Extend wait | `waiting` | the new check-back date | kept |
+| Into Waiting (status menu, swipe or drag; always with the Hide until picker) | `waiting` | the picked date, or empty for Don't hide | top of Waiting |
+| Hide until, already waiting | `waiting` | the new hide-until date | kept |
 | Move to In Progress, or drag Waiting to In Progress | `in_progress` | kept if today or earlier; asks first if it's in the future or after the due date (default: clear) | top of In Progress |
 | Drag Waiting to Ready | `open` | same as Move to In Progress | where dropped |
 | Start now, or drag Upcoming to In Progress | `in_progress` | cleared | top of In Progress |
 | Set a future start date (not Waiting) | unchanged | set | cleared (goes to Upcoming) |
 | Delete, then Restore | as before | as before | kept, else bottom of section |
 
-- **The start date is on or before the due date** when both are set, **except on Waiting tasks**, where the start date is the check-back date and may fall after the due date (the due date then brings the task to follow-up first). It's enforced in three places:
-  - **Pickers:** the start picker can't choose a day after the due date, and swipe presets that would break the rule (like "+1 week" on a task due in 3 days) are hidden. The check-back picks (Wait until, Extend wait, Check back) aren't capped.
-  - **Moving the due date earlier than the start date** moves the start date to the new due date, with a brief "Start moved to Nov 20" note and Undo. This doesn't apply to Waiting tasks: their check-back date stays put.
+- **The start date is on or before the due date** when both are set, **except on Waiting tasks**, where the start date is the hide-until date and may fall after the due date (the due date then brings the task to follow-up first). It's enforced in three places:
+  - **Pickers:** the start picker can't choose a day after the due date, and swipe presets that would break the rule (like "+1 week" on a task due in 3 days) are hidden. The hide-until picks (labeled Hide until) aren't capped.
+  - **Moving the due date earlier than the start date** moves the start date to the new due date, with a brief "Start moved to Nov 20" note and Undo. This doesn't apply to Waiting tasks: their hide-until date stays put.
   - **Everywhere else:** `core` validates every write (CLI, AI capture, sync), and the database has a check constraint (`status = 'waiting' or start_date <= due_date`) as the last line of defence. AI capture fixes a violation the same way and marks it on the card.
 - Recurring tasks satisfy this automatically, since `startOffsetDays` can't be negative.
 - Waiting's "Pick date" can't choose a past date (that's what Now is for).
-- The "waiting until later" group is sorted by check-back date, soonest first.
+- The "hidden until later" group is sorted by hide-until date, soonest first.
 - The board re-works out every section at local midnight and whenever the app comes back to the foreground, so tasks move between sections without a refresh.
 
 ## Architecture
@@ -267,7 +267,7 @@ Fallbacks if Supabase ever stops working for this: custom PHP and MySQL on Dream
 ### Web (from Phase 1a)
 
 - **Components:** shadcn/ui with Base UI as the base (`shadcn init`'s default). Components are copied into `apps/web/src/components/ui` and owned by us, so restyling is editing files, not overriding a library. Add components only when a screen needs them.
-- **The Phase 1a set:** Collapsible (sections and "Show N waiting until later"), Checkbox, Popover (quick picks and swipe presets), Calendar (date pickers), Dropdown Menu and Context Menu (status menu, right-click actions), for the task sheet a permanent second pane beside the board on wide windows (1024 px and up), a Sheet over the board on mid-width ones and a Drawer (bottom sheet) on phones, Dialog, Input, Textarea, Toggle (flag), Badge, Tooltip, Separator, Scroll Area, Command (search) and Sonner (toasts with Undo). Swipe actions in mobile Safari and drag-and-drop (dnd-kit) are our own code, styled with the same tokens.
+- **The Phase 1a set:** Collapsible (sections and "Show N hidden until later"), Checkbox, Popover (quick picks and swipe presets), Calendar (date pickers), Dropdown Menu and Context Menu (status menu, right-click actions), for the task sheet a permanent second pane beside the board on wide windows (1024 px and up), a Sheet over the board on mid-width ones and a Drawer (bottom sheet) on phones, Dialog, Input, Textarea, Toggle (flag), Badge, Tooltip, Separator, Scroll Area, Command (search) and Sonner (toasts with Undo). Swipe actions in mobile Safari and drag-and-drop (dnd-kit) are our own code, styled with the same tokens.
 - **Look and density:** the system font stack (`-apple-system, BlinkMacSystemFont, system-ui, sans-serif`), which shows SF Pro on Apple devices. Never bundle SF Pro font files: Apple's license doesn't allow it on the web. 13 to 14 px text and 38 px rows with a mouse, 46 px rows on touch screens (`pointer: coarse`, keeping touch targets at least 44 px), round checkboxes, inset separators and grouped sections like iOS lists.
 - **Light and dark:** shadcn's `.dark` class on `<html>`, set from an Appearance setting (System, Light, Dark; default System, following `prefers-color-scheme`). The installed web app's `theme-color` and status bar follow it.
 - **Icons:** Phosphor (`@phosphor-icons/react`, MIT), the closest licensed match to SF Symbols. Regular weight by default, Fill for selected or active states. Lucide, shadcn's default, is replaced.
@@ -287,7 +287,7 @@ One table in `packages/tokens` maps each meaning to its icon on each platform, s
 | Meaning | Phosphor (web) | SF Symbol (native) |
 |---|---|---|
 | Due date | `CalendarBlank` | `calendar` |
-| Waiting / check back | `Hourglass` | `hourglass` |
+| Waiting / hide until | `Hourglass` | `hourglass` |
 | Start date | `SunHorizon` | `sunrise` |
 | In Progress / start now | `Play` | `play` |
 | Move to In Progress (from Waiting) | `PlayCircle` | `play.circle` |

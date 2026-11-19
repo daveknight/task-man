@@ -86,9 +86,9 @@ function duePresets(task: Task, today: ISODate, context: ActionContext): Preset[
 }
 
 /**
- * Wait until and Extend wait, counted from today and not capped by the due date. Saturday is the
- * coming one, left out on Fridays when it would repeat Tomorrow. The same picks show whenever a
- * task's status changes to Waiting.
+ * Hide until, counted from today and not capped by the due date. Saturday is the coming one, left
+ * out on Fridays when it would repeat Tomorrow. The same picks show whenever a task's status
+ * changes to Waiting, and again as "Hide until" on a task that already needs follow-up.
  */
 export function waitPresets(today: ISODate): Preset[] {
   const tomorrow = addDays(today, 1);
@@ -98,7 +98,7 @@ export function waitPresets(today: ISODate): Preset[] {
     ...(saturday === tomorrow ? [] : [set('saturday', 'Saturday', 'waiting', 'checkBack', saturday)]),
     set('week', '1 week', 'waiting', 'checkBack', addDays(today, 7)),
     { id: 'pick', label: 'Pick date', icon: 'pickDate', effect: { kind: 'pick', field: 'checkBack', min: today } },
-    set('noDate', 'No date', 'clear', 'checkBack', null),
+    set('noDate', "Don't hide", 'clear', 'checkBack', null),
   ];
 }
 
@@ -135,7 +135,7 @@ export function startPresets(task: Task, today: ISODate): Preset[] {
   return presets;
 }
 
-/** Check back presets for a task waiting until later, counted from today. Now makes it need follow-up. */
+/** Hide until presets for a task hidden until later, counted from today. Now makes it need follow-up. */
 function checkBackPresets(today: ISODate): Preset[] {
   return [
     set('tomorrow', 'Tomorrow', 'waiting', 'checkBack', addDays(today, 1)),
@@ -145,6 +145,9 @@ function checkBackPresets(today: ISODate): Preset[] {
     set('now', 'Now', 'followUp', 'checkBack', today),
   ];
 }
+
+/** Shared label for the waitUntil, extendWait and checkBack groups. The ids stay distinct. */
+export const HIDE_UNTIL = 'Hide until';
 
 export const MOVE_TO_IN_PROGRESS = 'Move to In Progress';
 
@@ -168,18 +171,18 @@ export function actionsFor(task: Task, today: ISODate, context: ActionContext = 
   switch (placement) {
     case 'ready':
     case 'in_progress':
-      return { placement, date: due, state: [{ id: 'waitUntil', title: 'Wait until', icon: 'waiting', presets: waitPresets(today) }], delete: DELETE };
+      return { placement, date: due, state: [{ id: 'waitUntil', title: HIDE_UNTIL, icon: 'waiting', presets: waitPresets(today) }], delete: DELETE };
     case 'waiting':
       return {
         placement,
         date: due,
-        state: [{ id: 'extendWait', title: 'Extend wait', icon: 'waiting', presets: waitPresets(today) }, moveToInProgress],
+        state: [{ id: 'extendWait', title: HIDE_UNTIL, icon: 'waiting', presets: waitPresets(today) }, moveToInProgress],
         delete: DELETE,
       };
     case 'waiting_later':
       return {
         placement,
-        date: { id: 'checkBack', title: 'Check back', icon: 'waiting', presets: checkBackPresets(today) },
+        date: { id: 'checkBack', title: HIDE_UNTIL, icon: 'waiting', presets: checkBackPresets(today) },
         state: [moveToInProgress],
         delete: DELETE,
       };

@@ -14,9 +14,10 @@ export interface Policy {
   dueBeforeStart: 'move_start' | 'reject';
   /**
    * The highlighted answer when a status change needs a start-date choice (see `changeStatus`).
-   * Leaving Waiting with a future check-back date: `clear` it (the task is active now) or `keep` it
-   * as a start date (the task goes to Upcoming). Going into Waiting with a future start date: `keep`
-   * it as the check-back date, or `clear` it (needs follow-up now).
+   * Leaving Waiting with a future hide-until date that is not after the due date: `clear` it (the task
+   * is active now) or `keep` it as a start date (the task goes to Upcoming). A hide-until date after
+   * the due date only allows `clear`. Going into Waiting with a future start date: `keep` it as the
+   * hide-until date, or `clear` it (needs follow-up now).
    */
   leaveWaitingDefault: 'clear' | 'keep';
   enterWaitingDefault: 'clear' | 'keep';

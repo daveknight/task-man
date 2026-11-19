@@ -15,7 +15,7 @@ export interface BoardSection<T extends Task = Task> {
   collapsedByDefault: boolean;
   /** Waiting: the tasks needing follow-up. Other sections: every task. */
   tasks: T[];
-  /** Waiting only: tasks behind the "Show N waiting until later" row, soonest check-back first. */
+  /** Waiting only: tasks behind the "Show N hidden until later" row, soonest hide-until date first. */
   later?: T[];
   /** Everything in the section, including `later`. */
   count: number;

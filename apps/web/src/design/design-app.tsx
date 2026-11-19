@@ -25,8 +25,8 @@ import { cn } from '@/lib/utils';
 import { designToday, seedBoard, type SeedBoard } from './seed-board';
 
 export const DESIGN_SCREENS = {
-  board: 'Board: Upcoming and "waiting until later" collapsed',
-  'board-expanded': 'Board with Upcoming and "waiting until later" expanded',
+  board: 'Board: Upcoming and "hidden until later" collapsed',
+  'board-expanded': 'Board with Upcoming and "hidden until later" expanded',
   menu: 'Board menu with the Appearance setting',
   hover: 'Desktop hover buttons on a row',
   'context-menu': 'Right-click menu with due-date presets',
@@ -34,8 +34,8 @@ export const DESIGN_SCREENS = {
   sheet: 'Task sheet (side sheet on desktop, bottom sheet on phones)',
   'sheet-waiting': 'Task sheet for a Waiting task that needs follow-up',
   'resume-icons': 'Resume icon options',
-  'prompt-resume': 'Resume a Waiting task whose check-back is after its due date',
-  'prompt-leave-waiting': 'Drag a Waiting task with a future check-back to Ready',
+  'prompt-resume': 'Resume a Waiting task whose hide-until date is after its due date',
+  'prompt-leave-waiting': 'Drag a Waiting task with a future hide-until date to Ready',
   'prompt-enter-waiting': 'Set an Upcoming task to Waiting',
 } as const;
 
@@ -91,7 +91,7 @@ function BoardScreen({
   );
 }
 
-const PLACEMENT_TITLES = { ...SECTION_TITLES, waiting: 'Waiting, needs follow-up', waiting_later: 'Waiting until later' } as const;
+const PLACEMENT_TITLES = { ...SECTION_TITLES, waiting: 'Waiting, needs follow-up', waiting_later: 'Hidden until later' } as const;
 
 function ActionCase({ seed, task, today, note }: { seed: SeedBoard; task: Task; today: ISODate; note?: string }) {
   const context = { recurring: seed.recurring(task) };
@@ -199,7 +199,7 @@ function ResumePanel({ dark }: { dark?: boolean }) {
                   <span className="font-semibold">{letter}</span> {phosphor} · {sf}
                 </span>
                 <span className="flex shrink-0 items-center gap-0.5 text-link">
-                  <Button variant="ghost" size="icon-sm" aria-label="Extend wait" className="text-link">
+                  <Button variant="ghost" size="icon-sm" aria-label="Hide until" className="text-link">
                     <Hourglass />
                   </Button>
                   <Button variant="ghost" size="icon-sm" aria-label={`Option ${letter}`} className="bg-muted text-link">
@@ -215,7 +215,7 @@ function ResumePanel({ dark }: { dark?: boolean }) {
   );
 }
 
-/** Every Resume candidate at row size beside Extend wait, light and dark side by side. */
+/** Every Resume candidate at row size beside Hide until, light and dark side by side. */
 function ResumeIconsScreen() {
   return (
     <main className="mx-auto flex min-h-dvh max-w-6xl flex-col gap-3 bg-background px-row-x py-4">

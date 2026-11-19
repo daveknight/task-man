@@ -78,7 +78,7 @@ shadcn/ui components are added with `npx shadcn@latest add <name>` from `apps/we
 `packages/core/src/policy.ts` holds them, pinned by `vectors/transitions.json`:
 
 - Move to In Progress (formerly Resume) sends a waiting task to In Progress (`resumeStatus`).
-- A non-interactive move into Waiting with a future start date clears it (`enterWaitingDefault`); the app always shows the Wait until picker instead.
+- A non-interactive move into Waiting with a future start date clears it (`enterWaitingDefault`); the app always shows the Hide until picker instead.
 - Moving the due date earlier than the start date moves the start date to match (`dueBeforeStart`).
 
 ## Environment notes (cloud agents)

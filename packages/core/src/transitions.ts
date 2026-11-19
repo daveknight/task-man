@@ -9,7 +9,7 @@ export interface DueDateChange<T extends Task> {
 
 /**
  * Sets or clears the due date, keeping the start date on or before it according to the policy.
- * A Waiting task's start date is its check-back date, which may be after the due date, so it never moves.
+ * A Waiting task's start date is its hide-until date, which may be after the due date, so it never moves.
  */
 export function setDueDate<T extends Task>(task: T, dueDate: ISODate | null, policy: Policy = DEFAULT_POLICY): DueDateChange<T> {
   const start = task.startDate ?? null;
@@ -22,7 +22,7 @@ export function setDueDate<T extends Task>(task: T, dueDate: ISODate | null, pol
   return { task: { ...task, dueDate, startDate: dueDate }, startMoved: { from: start, to: dueDate } };
 }
 
-/** Wait until / Extend wait: the picked date (or none) becomes the check-back date. Not capped by the due date. */
+/** Hide until: the picked date (or none) becomes the start date. Not capped by the due date. */
 export function waitUntil<T extends Task>(task: T, checkBack: ISODate | null): T {
   return { ...task, status: 'waiting', startDate: checkBack };
 }
@@ -31,11 +31,11 @@ export function waitUntil<T extends Task>(task: T, checkBack: ISODate | null): T
 export type StartChoice = 'clear' | 'keep' | { set: ISODate };
 
 export type StartDecisionReason =
-  /** Leaving Waiting while the check-back date is in the future. */
+  /** Leaving Waiting while the hide-until date is in the future and not after the due date. */
   | 'leaving_waiting_future_start'
-  /** Leaving Waiting while the check-back date is after the due date (allowed only while Waiting). */
+  /** Leaving Waiting while the hide-until date is after the due date (allowed only while Waiting). */
   | 'leaving_waiting_start_after_due'
-  /** Going into Waiting with a future start date, which would become the check-back date. */
+  /** Going into Waiting with a future start date, which would become the hide-until date. */
   | 'entering_waiting_future_start';
 
 /** The question a client must ask (or a script must answer up front) before the status can change. */
@@ -71,7 +71,7 @@ export function changeStatus<T extends Task>(
   if (from === 'waiting' && start) {
     const afterDue = !!due && start > due;
     if (afterDue) {
-      decision = { reason: 'leaving_waiting_start_after_due', startDate: start, dueDate: due, options: ['clear', 'set'], default: 'clear' };
+      decision = { reason: 'leaving_waiting_start_after_due', startDate: start, dueDate: due, options: ['clear'], default: 'clear' };
     } else if (start > today) {
       decision = { reason: 'leaving_waiting_future_start', startDate: start, dueDate: due, options: ['clear', 'keep', 'set'], default: policy.leaveWaitingDefault };
     }
@@ -87,8 +87,11 @@ export function changeStatus<T extends Task>(
   if (choice === undefined) return { decision };
   if (choice === 'clear') return { task: { ...task, status: to, startDate: null } };
   if (choice === 'keep') {
-    if (!decision.options.includes('keep')) throw new Error(`Can't keep start ${start} after due ${due} outside Waiting`);
+    if (!decision.options.includes('keep')) throw new Error(`Can't keep the hide-until date ${start} after the due date ${due} outside Waiting`);
     return { task: { ...task, status: to } };
+  }
+  if (!decision.options.includes('set')) {
+    throw new Error(`Can't set a start date when the hide-until date ${start} is after the due date ${due}; clear it instead`);
   }
   if (to !== 'waiting' && due && choice.set > due) throw new Error(`Start ${choice.set} is after the due date ${due}`);
   return { task: { ...task, status: to, startDate: choice.set } };

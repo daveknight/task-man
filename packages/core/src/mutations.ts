@@ -52,7 +52,7 @@ export function shouldPurge(task: Task, today: ISODate): boolean {
 }
 
 /**
- * Applies a date preset. Due dates keep start <= due (see `setDueDate`); check-back picks make the
+ * Applies a date preset. Due dates keep start <= due (see `setDueDate`); hide-until picks make the
  * task Waiting. A start date after the due date is refused (pickers and presets never offer one).
  */
 export function applyDateEffect<T extends Task>(task: T, effect: Extract<PresetEffect, { kind: 'set' }>, policy: Policy = DEFAULT_POLICY): DueDateChange<T> {

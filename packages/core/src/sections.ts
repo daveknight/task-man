@@ -19,8 +19,8 @@ export function sectionFor(task: Task, today: ISODate): Section {
 }
 
 /**
- * A waiting task's start date is its check-back date. It needs follow-up when that's empty or has
- * arrived, or the due date has arrived; otherwise it waits until later.
+ * A waiting task's start date is its hide-until date. It needs follow-up when that's empty or has
+ * arrived, or the due date has arrived; otherwise it stays hidden until later.
  */
 export function waitingStateFor(task: Task, today: ISODate): WaitingState {
   if (!task.startDate || task.startDate <= today) return 'needs_follow_up';
