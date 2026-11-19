@@ -53,7 +53,7 @@ export class DecisionNeeded extends Error {
 
 function decisionQuestion(task: Task, decision: StartDecision | UpcomingDropDecision): string {
   if (decision.reason === 'due_today_or_earlier') {
-    return `"${task.title}" is due ${decision.dueDate}, so it can't start later (${decision.reason}). Pass --clear-due to remove the due date.`;
+    return `"${task.title}" is due ${decision.dueDate}. Upcoming tasks start after today, and a start can't be after the due date (${decision.reason}). Pass --clear-due to remove the due date.`;
   }
   const opts = decision.options.map((o) => (o === 'set' ? '<date>' : o)).join('|');
   return (

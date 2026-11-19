@@ -195,8 +195,8 @@ export function BoardActionsProvider({
         <Surface
           open
           onOpenChange={(open) => !open && close()}
-          title={`Start “${pending.task.title}” later`}
-          description={`It's due ${pending.decision.dueDate === today ? 'today' : longDate(pending.decision.dueDate, today)}, so it can only start later without a due date.`}
+          title={`Start “${pending.task.title}” later?`}
+          description={`Upcoming tasks start after today, and a start can't be after the due date. It's due ${pending.decision.dueDate === today ? 'today' : longDate(pending.decision.dueDate, today)}. Remove the due date to start it later.`}
           slot="upcoming-drop-prompt"
         >
           <div className="flex flex-col gap-2">

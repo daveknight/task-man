@@ -58,7 +58,8 @@ Status changes never change dates silently. When one would (leaving Waiting with
 check-back date, or going into Waiting with a future start), it fails with the question
 unless --start answers it. Going into Waiting, --start <date>|none sets the check-back date.
 Moving a task due today or earlier into Upcoming fails the same way unless --clear-due
-removes the due date. These failures exit with code 2.
+removes the due date. Upcoming tasks start after today, and a start can't be after the
+due date. These failures exit with code 2.
 
 Options (every command):
   --today <date>   override today: YYYY-MM-DD or relative to the real today (+1d, -2w, +1m)
