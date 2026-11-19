@@ -65,6 +65,18 @@ test('status change to Waiting asks for a check-back date, No date by default', 
   await expect(section(page, 'waiting').getByText('Show 3 waiting until later')).toBeVisible();
 });
 
+test('Waiting row buttons show what they do', async ({ page }) => {
+  const plumber = row(page, 'Plumber quote for kitchen sink');
+  const tip = page.locator('[data-slot=tooltip-content][data-open]');
+  await plumber.getByRole('button', { name: 'Extend wait' }).hover();
+  await expect(tip).toHaveText('Hide until a later date');
+  await plumber.getByRole('button', { name: 'Extend wait' }).click();
+  await expect(page.locator('[data-slot=preset-panel]')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await plumber.getByRole('button', { name: 'Move to In Progress' }).hover();
+  await expect(tip).toHaveText('Move to In Progress now');
+});
+
 test('Move to In Progress on a Waiting task', async ({ page }) => {
   await row(page, 'Plumber quote for kitchen sink').getByRole('button', { name: 'Move to In Progress' }).click();
   await expect(section(page, 'in_progress').getByText('Plumber quote for kitchen sink')).toBeVisible();
