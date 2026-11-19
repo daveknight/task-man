@@ -1,5 +1,5 @@
 import { sectionFor, type ISODate, type Task } from '@app/core';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Icon } from '@/components/icon';
 import { Command, CommandDialog, CommandEmpty, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Toggle } from '@/components/ui/toggle';
@@ -15,6 +15,13 @@ function useDebounced<T>(value: T, ms: number): T {
     return () => clearTimeout(timer);
   }, [value, ms]);
   return debounced;
+}
+
+/** Bolds every case-insensitive occurrence of `query` in `text`. */
+function highlight(text: string, query: string): ReactNode {
+  if (!query) return text;
+  const parts = text.split(new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi'));
+  return parts.map((part, i) => (i % 2 ? <strong key={i} className="font-semibold">{part}</strong> : part));
 }
 
 /** Search titles and descriptions. Completed tasks are included on request; Trash never is. */
@@ -37,7 +44,7 @@ export function SearchDialog({ open, onOpenChange, today, onOpen }: { open: bool
           </Toggle>
           <Toggle size="sm" variant="outline" pressed={flagged} onPressedChange={setFlagged} data-filter="flagged">
             <Icon name="flag" active={flagged} />
-            Flagged
+            Only flagged
           </Toggle>
         </div>
         <CommandList className="max-h-96">
@@ -53,7 +60,7 @@ export function SearchDialog({ open, onOpenChange, today, onOpen }: { open: bool
                 }}
                 data-task-id={task.id}
               >
-                <span className={cn('min-w-0 flex-1 truncate', task.completedAt && 'text-muted-foreground line-through')}>{task.title}</span>
+                <span className={cn('min-w-0 flex-1 truncate', task.completedAt && 'text-muted-foreground line-through')}>{highlight(task.title, debounced)}</span>
                 {task.flagged && <Icon name="flag" active className="text-flag!" />}
                 <span className="shrink-0 text-footnote text-muted-foreground">
                   {SECTION_TITLES[sectionFor(task, today)]}

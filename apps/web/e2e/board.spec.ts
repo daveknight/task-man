@@ -174,6 +174,18 @@ test('search, then delete and restore from Trash', async ({ page }) => {
   await expect.poll(() => showTask('Renew passport').task.deletedAt).toBeNull();
 });
 
+test('search: Only flagged narrows the results to flagged tasks', async ({ page }) => {
+  await page.getByRole('button', { name: 'Search', exact: true }).click();
+  await page.getByPlaceholder('Search tasks').fill('pa');
+  await expect(page.getByRole('option', { name: /Pay the gardener/ })).toBeVisible();
+  await expect(page.getByRole('option', { name: /Renew passport/ })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Only flagged' }).click();
+  await expect(page.getByRole('option', { name: /Pay the gardener/ })).toHaveCount(0);
+  await page.getByRole('option', { name: /Renew passport/ }).click();
+  await expect(page.locator('[data-slot=task-editor]').getByRole('textbox', { name: 'Title' })).toHaveValue('Renew passport');
+});
+
 test('offline: read-only with a banner, nothing is written', async ({ page, context }) => {
   await context.setOffline(true);
   await expect(page.locator('[data-slot=offline-banner]')).toBeVisible();

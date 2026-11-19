@@ -53,6 +53,7 @@ Tasks (<task> is an id, an id prefix of 4+ characters, or a title prefix):
   delete <task> [--forever]    restore <task>
   purge-trash                               permanently remove Trash older than 30 days
   search "query" [--completed] [--flagged]  title and description; never Trash
+                                            --completed: include completed, --flagged: only flagged
 
 Status changes never change dates silently. When one would (leaving Waiting with a future
 check-back date, or going into Waiting with a future start), it fails with the question
