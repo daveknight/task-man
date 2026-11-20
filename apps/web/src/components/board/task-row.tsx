@@ -14,6 +14,7 @@ import {
   ContextMenuTrigger,
 } from '@/components/ui/context-menu';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { dayLabel, longDate } from '@/lib/day-label';
 import { useMediaQuery } from '@/lib/use-media-query';
 import { cn } from '@/lib/utils';
@@ -59,12 +60,35 @@ function TrailingMeta({ task, today }: { task: Task; today: ISODate }) {
 }
 
 /** A group's quick picks in a popover, which closes once one is picked. */
-export function PresetPopover({ task, group, align, trigger, children }: { task: Task; group: ActionGroup; align: 'start' | 'end'; trigger: ReactElement; children: ReactNode }) {
+export function PresetPopover({
+  task,
+  group,
+  align,
+  trigger,
+  children,
+  tooltip,
+}: {
+  task: Task;
+  group: ActionGroup;
+  align: 'start' | 'end';
+  trigger: ReactElement;
+  children: ReactNode;
+  /** Replaces a native title. Composed onto the same button as the popover trigger. */
+  tooltip?: string;
+}) {
   const actions = useBoardActions();
   const [open, setOpen] = useState(false);
+  const popoverTrigger = tooltip ? (
+    <Tooltip>
+      <TooltipTrigger render={<PopoverTrigger render={trigger} />}>{children}</TooltipTrigger>
+      <TooltipContent>{tooltip}</TooltipContent>
+    </Tooltip>
+  ) : (
+    <PopoverTrigger render={trigger}>{children}</PopoverTrigger>
+  );
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger render={trigger}>{children}</PopoverTrigger>
+      {popoverTrigger}
       <PopoverContent align={align} className="w-80">
         <PresetPanel
           group={group}
@@ -83,27 +107,67 @@ export function PresetPopover({ task, group, align, trigger, children }: { task:
 }
 
 /** A group's button: a popover of quick picks, or the action itself when it has none. */
-function GroupButton({ task, group, tone, actions }: { task: Task; group: ActionGroup; tone: string; actions: BoardActions | null }) {
+function GroupButton({
+  task,
+  group,
+  tone,
+  actions,
+  tooltip,
+}: {
+  task: Task;
+  group: ActionGroup;
+  tone: string;
+  actions: BoardActions | null;
+  /** Styled tooltip. Without one, the button keeps a native title. */
+  tooltip?: string;
+}) {
+  const button = (
+    <Button variant="ghost" size="icon-sm" aria-label={group.title} title={tooltip ? undefined : group.title} className={tone} />
+  );
   if (group.presets.length === 0) {
+    const onClick = () => actions?.group(task, group);
+    if (!tooltip) {
+      return (
+        <Button variant="ghost" size="icon-sm" aria-label={group.title} title={group.title} className={tone} onClick={onClick}>
+          <Icon name={group.icon} />
+        </Button>
+      );
+    }
     return (
-      <Button variant="ghost" size="icon-sm" aria-label={group.title} title={group.title} className={tone} onClick={() => actions?.group(task, group)}>
-        <Icon name={group.icon} />
-      </Button>
+      <Tooltip>
+        <TooltipTrigger render={<Button variant="ghost" size="icon-sm" aria-label={group.title} className={tone} onClick={onClick} />}>
+          <Icon name={group.icon} />
+        </TooltipTrigger>
+        <TooltipContent>{tooltip}</TooltipContent>
+      </Tooltip>
     );
   }
   return (
-    <PresetPopover task={task} group={group} align="end" trigger={<Button variant="ghost" size="icon-sm" aria-label={group.title} title={group.title} className={tone} />}>
+    <PresetPopover task={task} group={group} align="end" tooltip={tooltip} trigger={button}>
       <Icon name={group.icon} />
     </PresetPopover>
   );
 }
 
+/** What the always-visible Waiting buttons do. A check-back date is "Hide until", not a second name for waiting. */
+function followUpTooltip(group: ActionGroup): string {
+  if (group.id === 'extendWait') return 'Hide until a later date';
+  return group.title;
+}
+
+/**
+ * Blue once the row is hovered or focused. The resting color is inherited foreground from the
+ * wrapper: a `text-foreground` utility on the button itself loses to Tailwind's `:where()`
+ * group-hover variant. `hover:` and `aria-expanded:` override the ghost button.
+ */
+const followUpTone = 'group-hover/row:text-link group-focus-within/row:text-link hover:text-link aria-expanded:text-link';
+
 /** Extend wait and Move to In Progress as icon buttons. Rows on phones leave them to the swipe actions and the sheet. */
 function FollowUpButtons({ task, actions, rowActions }: { task: Task; actions: BoardActions | null; rowActions: RowActions }) {
   return (
-    <span data-slot="follow-up-buttons" className="flex shrink-0 items-center gap-0.5 max-sm:hidden pointer-coarse:hidden">
+    <span data-slot="follow-up-buttons" className="flex shrink-0 items-center gap-0.5 text-foreground max-sm:hidden pointer-coarse:hidden">
       {rowActions.state.map((g) => (
-        <GroupButton key={g.id} task={task} group={g} tone="text-link" actions={actions} />
+        <GroupButton key={g.id} task={task} group={g} tone={followUpTone} actions={actions} tooltip={followUpTooltip(g)} />
       ))}
     </span>
   );

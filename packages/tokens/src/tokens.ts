@@ -83,6 +83,8 @@ export type ColorRole = keyof typeof colors;
  */
 export const textPairs: readonly [text: ColorRole, on: ColorRole][] = [
   ['foreground', 'background'],
+  ['foreground', 'card'],
+  ['foreground', 'accent'],
   ['card-foreground', 'card'],
   ['popover-foreground', 'popover'],
   ['secondary-foreground', 'secondary'],
