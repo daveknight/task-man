@@ -35,13 +35,15 @@ export function DatePicker({ effect, selected, onPick }: { effect?: Partial<Pick
 
 /**
  * A grid of quick picks, like TickTick's date popover. "Pick date" swaps the grid for a calendar.
- * Used in popovers, the swipe sheets and the Wait until pane. `defaultId` highlights one tile.
+ * Used in popovers, the swipe sheets and the Hide until pane. `defaultId` highlights one tile.
+ * `hideHeader` skips the title row while the tiles are showing; the Back row stays on the calendar.
  */
 export function PresetPanel({
   group,
   defaultId,
   selected,
   initialPick,
+  hideHeader,
   onPreset,
   onPickDate,
   className,
@@ -51,6 +53,8 @@ export function PresetPanel({
   selected?: ISODate | null;
   /** Opens straight onto the calendar for this pick preset. */
   initialPick?: Preset;
+  /** Hide the title row in tile mode. The calendar still shows its label and Back. */
+  hideHeader?: boolean;
   /** A preset with a set or skip effect was tapped. */
   onPreset?: (preset: Preset) => void;
   /** A date was picked from the calendar for a pick preset. */
@@ -60,15 +64,17 @@ export function PresetPanel({
   const [picking, setPicking] = useState<Preset | null>(initialPick ?? null);
   return (
     <div className={cn('flex flex-col gap-2', className)} data-slot="preset-panel">
-      <div className="flex items-center gap-1.5 px-1 text-footnote font-semibold text-muted-foreground">
-        <Icon name={group.icon} className="size-icon" />
-        <span className="optical-center flex-1">{picking ? picking.label : group.title}</span>
-        {picking && (
-          <Button variant="ghost" size="xs" onClick={() => setPicking(null)}>
-            Back
-          </Button>
-        )}
-      </div>
+      {(picking || !hideHeader) && (
+        <div className="flex items-center gap-1.5 px-1 text-footnote font-semibold text-muted-foreground">
+          <Icon name={group.icon} className="size-icon" />
+          <span className="optical-center flex-1">{picking ? picking.label : group.title}</span>
+          {picking && (
+            <Button variant="ghost" size="xs" onClick={() => setPicking(null)}>
+              Back
+            </Button>
+          )}
+        </div>
+      )}
       {picking && picking.effect.kind === 'pick' ? (
         <DatePicker effect={picking.effect} selected={selected} onPick={(date) => onPickDate?.(picking, date)} />
       ) : (

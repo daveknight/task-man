@@ -21,7 +21,7 @@ export function shortDate(date: ISODate, today: ISODate): string {
 
 function details(task: BoardTask, today: ISODate): string {
   const parts: string[] = [];
-  if (task.startDate && task.placement.startsWith('waiting')) parts.push(`check back ${shortDate(task.startDate, today)}`);
+  if (task.startDate && task.placement.startsWith('waiting')) parts.push(`hide until ${shortDate(task.startDate, today)}`);
   if (task.startDate && task.placement === 'upcoming') parts.push(`starts ${shortDate(task.startDate, today)}`);
   if (task.dueDate) parts.push(`due ${shortDate(task.dueDate, today)}${task.overdue ? ' (overdue)' : task.dueDate === today ? ' (today)' : ''}`);
   if (task.completedOn) parts.push(`done ${shortDate(task.completedOn, today)}`);
@@ -39,7 +39,7 @@ function line(task: BoardTask, today: ISODate, indent: string): string {
 const PLACEMENT_TITLES: Record<string, string> = {
   ...SECTION_TITLES,
   waiting: 'Waiting (needs follow-up)',
-  waiting_later: 'Waiting until later',
+  waiting_later: 'Hidden until later',
   deleted_forever: 'deleted forever',
 };
 
@@ -66,7 +66,7 @@ export function formatBoard(board: Board<BoardTask>): string {
     out.push(`${SECTION_TITLES[section.id]} (${section.count})${collapsed}`);
     for (const task of section.tasks) out.push(line(task, today, '  '));
     if (section.later && section.later.length > 0) {
-      out.push(`  Show ${section.later.length} waiting until later`);
+      out.push(`  Show ${section.later.length} hidden until later`);
       for (const task of section.later) out.push(line(task, today, '    '));
     }
     out.push('');

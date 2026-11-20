@@ -55,11 +55,15 @@ function decisionQuestion(task: Task, decision: StartDecision | UpcomingDropDeci
   if (decision.reason === 'due_today_or_earlier') {
     return `"${task.title}" is due ${decision.dueDate}. Upcoming tasks start after today, and a start can't be after the due date (${decision.reason}). Pass --clear-due to remove the due date.`;
   }
+  if (decision.reason === 'leaving_waiting_start_after_due') {
+    return (
+      `"${task.title}" is hidden until ${decision.startDate}, after its due date ${decision.dueDate}. ` +
+      `Leaving Waiting clears that start date. Pass --start clear.`
+    );
+  }
   const opts = decision.options.map((o) => (o === 'set' ? '<date>' : o)).join('|');
-  return (
-    `"${task.title}" has ${decision.reason === 'entering_waiting_future_start' ? 'a future start date' : `check-back date ${decision.startDate}`}` +
-    ` (${decision.reason}). Pass --start ${opts} (default: ${decision.default}).`
-  );
+  const what = decision.reason === 'entering_waiting_future_start' ? 'a future start date' : `a hide-until date of ${decision.startDate}`;
+  return `"${task.title}" has ${what} (${decision.reason}). Pass --start ${opts} (default: ${decision.default}).`;
 }
 
 export interface Changed {
@@ -167,8 +171,9 @@ export async function editTask(ctx: Context, ref: string, options: EditOptions):
 }
 
 /**
- * The status menu. Going into Waiting with `--start <date>|none` sets the check-back date (the
- * app's Wait until picker); otherwise `changeStatus` decides, and `--start` answers its question.
+ * The status menu. Going into Waiting with `--start <date>|none` sets the hide-until date (the
+ * app's Hide until picker); otherwise `changeStatus` decides, and `--start` answers its question.
+ * When the hide-until date is after the due date, leaving Waiting only accepts `--start clear`.
  */
 export async function setStatus(ctx: Context, ref: string, to: string, start?: string): Promise<Changed> {
   const snapshot = await loadSnapshot(ctx.scope);
@@ -180,7 +185,17 @@ function statusChange(task: Task, to: Status, today: ISODate, start: string | un
   if (to === 'waiting' && start !== undefined && start !== 'keep' && start !== 'clear') {
     return waitUntil(task, parseDateFlag(start, today) ?? null);
   }
-  const result = changeStatus(task, to, today, parseStartChoice(start, today));
+  const choice = parseStartChoice(start, today);
+  if (choice !== undefined && choice !== 'clear') {
+    const pending = changeStatus(task, to, today);
+    if (pending.decision?.reason === 'leaving_waiting_start_after_due') {
+      throw new Error(
+        `"${task.title}" is hidden until ${pending.decision.startDate}, after its due date ${pending.decision.dueDate}. ` +
+          `Leaving Waiting only clears the start date. Pass --start clear.`,
+      );
+    }
+  }
+  const result = changeStatus(task, to, today, choice);
   if (result.decision) throw new DecisionNeeded(task, to, result.decision);
   return result.task;
 }
@@ -235,7 +250,7 @@ export interface MoveOptions {
   upcoming?: boolean;
   /** Into Upcoming: removes a due date of today or earlier, which leaves no room for a later start. */
   clearDue?: boolean;
-  /** The check-back date when moving into Waiting, the answer when leaving it, or the start date when moving into Upcoming. */
+  /** The hide-until date when moving into Waiting, the answer when leaving it, or the start date when moving into Upcoming. */
   start?: string;
 }
 

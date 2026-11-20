@@ -1,6 +1,6 @@
 {
   "function": "buildBoard(tasks, positions, today, options)",
-  "description": "Grouping and order of the board. Each expect lists task ids per section in display order; waiting also lists 'later' (behind the 'Show N waiting until later' row). Omitted task fields are null, status defaults to 'open'. positions maps task id to sort key for view 'main'.",
+  "description": "Grouping and order of the board. Each expect lists task ids per section in display order; waiting also lists 'later' (behind the 'Show N hidden until later' row). Omitted task fields are null, status defaults to 'open'. positions maps task id to sort key for view 'main'.",
   "cases": [
     {
       "name": "every ordering rule",

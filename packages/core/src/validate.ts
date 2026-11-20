@@ -1,7 +1,7 @@
 import { isValidDate } from './dates.ts';
 import { STATUSES, type Task } from './types.ts';
 
-/** Start after due is allowed only while Waiting, where the start date is the check-back date. */
+/** Start after due is allowed only while Waiting, where the start date is the hide-until date. */
 export function startAfterDue(task: Partial<Task>): boolean {
   return !!task.startDate && !!task.dueDate && isValidDate(task.startDate) && isValidDate(task.dueDate) && task.startDate > task.dueDate;
 }

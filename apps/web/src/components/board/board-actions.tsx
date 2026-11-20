@@ -43,7 +43,7 @@ export interface BoardActions {
   group: (task: Task, group: ActionGroup) => void;
   /** Opens the quick picks for a group in a sheet (phones, where there's no hover popover). */
   showPresets: (task: Task, group: ActionGroup, pick?: Preset) => void;
-  /** The status menu and drag-and-drop. Into Waiting always asks for a check-back date. */
+  /** The status menu and drag-and-drop. Into Waiting always asks for a hide-until date. */
   setStatus: (task: Task, to: Status, drop?: DropPlanner) => void;
   /** Dropped into Upcoming: asks for a future start date (first offering to remove a due date of today or earlier), and makes the task Open. */
   pickStart: (task: Task, drop?: DropPlanner) => void;
@@ -195,7 +195,7 @@ export function BoardActionsProvider({
         <Surface
           open
           onOpenChange={(open) => !open && close()}
-          title={`Start “${pending.task.title}” later?`}
+          title="Start later"
           description={`Upcoming tasks start after today, and a start can't be after the due date. It's due ${pending.decision.dueDate === today ? 'today' : longDate(pending.decision.dueDate, today)}. Remove the due date to start it later.`}
           slot="upcoming-drop-prompt"
         >
@@ -217,7 +217,14 @@ export function BoardActionsProvider({
       )}
       {pending?.kind === 'start' && <StartPane pending={pending} today={today} onClose={close} commit={commit} />}
       {pending?.kind === 'presets' && (
-        <Surface open onOpenChange={(open) => !open && close()} title={pending.task.title} slot="preset-sheet">
+        <Surface
+          open
+          onOpenChange={(open) => !open && close()}
+          title={pending.group.title}
+          description={pending.task.title}
+          descriptionClassName="sr-only"
+          slot="preset-sheet"
+        >
           <PresetPanel
             group={pending.group}
             initialPick={pending.pick}
@@ -241,7 +248,7 @@ function upcomingStart(task: Task, planned: { task: Task; presets: Preset[] }, d
   return { kind: 'start', task, to: null, upcoming: { task: planned.task, presets: planned.presets }, ...(due ? { max: due } : {}), drop };
 }
 
-/** Wait until: shown whenever a task's status changes to Waiting (status menu or drag). No date is the default. */
+/** Hide until: shown whenever a task's status changes to Waiting (status menu or drag). Don't hide is the default. */
 function WaitPane({
   pending,
   today,
@@ -258,7 +265,7 @@ function WaitPane({
     task.startDate && task.startDate > today
       ? [{ id: 'keep', label: `Keep ${shortDate(task.startDate, today)}`, icon: 'startDate', effect: { kind: 'set', field: 'checkBack', date: task.startDate } }]
       : [];
-  const group: PresetGroup = { title: 'Wait until', icon: 'waiting', presets: [...waitPresets(today), ...keep] };
+  const group: PresetGroup = { title: 'Hide until', icon: 'waiting', presets: [...waitPresets(today), ...keep] };
   const choose = (date: ISODate | null) => {
     onClose();
     commit(task, waitUntil(task, date), drop);
@@ -267,13 +274,15 @@ function WaitPane({
     <Surface
       open
       onOpenChange={(open) => !open && onClose()}
-      title={`Move “${task.title}” to Waiting`}
-      description="When should it come back for follow-up? The check-back date is its start date while it waits."
+      title="Hide until"
+      description={task.title}
+      descriptionClassName="sr-only"
       slot="wait-pane"
     >
       <PresetPanel
         group={group}
         defaultId="noDate"
+        hideHeader
         onPreset={(p) => p.effect.kind === 'set' && choose(p.effect.date)}
         onPickDate={(_, date) => choose(date)}
       />
@@ -295,6 +304,11 @@ function StartPane({
 }) {
   const { task, to, upcoming, max, drop } = pending;
   const capped = { ...task, dueDate: max ?? null, status: 'open' as const };
+  const description = max
+    ? `On or before the due date, ${longDate(max, today)}.`
+    : task.dueDate && upcoming && !upcoming.task.dueDate
+      ? 'Its due date is removed when you pick a start date.'
+      : undefined;
   const presets: Preset[] = upcoming
     ? upcoming.presets
     : startPresets(capped, today)
@@ -313,14 +327,9 @@ function StartPane({
     <Surface
       open
       onOpenChange={(open) => !open && onClose()}
-      title={upcoming ? `Start “${task.title}” later` : `Move “${task.title}” to ${STATUS_LABELS[to ?? 'open']}`}
-      description={
-        max
-          ? `On or before the due date, ${longDate(max, today)}.`
-          : task.dueDate && upcoming && !upcoming.task.dueDate
-            ? 'Its due date is removed when you pick a start date.'
-            : undefined
-      }
+      title={upcoming ? 'Start later' : `Move to ${STATUS_LABELS[to ?? 'open']}`}
+      description={description ?? task.title}
+      descriptionClassName={description ? undefined : 'sr-only'}
       slot="start-pane"
     >
       <PresetPanel

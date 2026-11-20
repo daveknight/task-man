@@ -56,7 +56,7 @@
     {
       "input": "Waiting to hear back from the school about the field trip form.",
       "expect": { "count": 1, "tasks": [ { "titleIncludes": ["field trip"], "status": "waiting", "tags": ["kids"] } ] },
-      "why": "No check-back date given, so startDate (the check-back date) stays empty and the task shows as needing follow-up."
+      "why": "No hide-until date given, so startDate (the hide-until date) stays empty and the task shows as needing follow-up."
     }
   ]
 }

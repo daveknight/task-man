@@ -27,7 +27,7 @@ test('matches the CLI board', async ({ page }) => {
     if (s.id === 'upcoming') continue;
     expect(await titlesIn(page, s.id)).toEqual(s.tasks.map((t) => t.title));
   }
-  await expect(section(page, 'waiting').getByText(`Show ${board.sections.find((s) => s.id === 'waiting')!.later!.length} waiting until later`)).toBeVisible();
+  await expect(section(page, 'waiting').getByText(`Show ${board.sections.find((s) => s.id === 'waiting')!.later!.length} hidden until later`)).toBeVisible();
 });
 
 test('a collapsed section expands from anywhere in its row', async ({ page }) => {
@@ -63,24 +63,27 @@ test('+1 day moves a later due date by a day; overdue tasks get Tomorrow instead
   await expect.poll(() => showTask('Get car tires rotated').task.dueDate).toBe('2026-12-01');
 });
 
-test('status change to Waiting asks for a check-back date, No date by default', async ({ page }) => {
+test('status change to Waiting asks when to hide it, with Don\'t hide by default', async ({ page }) => {
   await row(page, 'Buy new watch band').click();
   await page.locator('[data-slot=status-menu]').click();
   await page.getByRole('menuitemradio', { name: 'Waiting' }).click();
   const pane = page.locator('[data-slot=wait-pane]');
   await expect(pane).toBeVisible();
+  await expect(pane.locator('[data-slot=dialog-title]')).toHaveText('Hide until');
+  await expect(pane.getByText(/come back for follow-up/)).toHaveCount(0);
   await expect(pane.locator('[data-preset=noDate]')).toHaveAttribute('data-default', 'true');
+  await expect(pane.locator('[data-preset=noDate]')).toHaveText(/Don't hide/);
   await pane.locator('[data-preset=tomorrow]').click();
   await expect.poll(() => showTask('Buy new watch band').task).toMatchObject({ status: 'waiting', startDate: '2026-11-19' });
-  await expect(section(page, 'waiting').getByText('Show 3 waiting until later')).toBeVisible();
+  await expect(section(page, 'waiting').getByText('Show 3 hidden until later')).toBeVisible();
 });
 
 test('Waiting row buttons show what they do', async ({ page }) => {
   const plumber = row(page, 'Plumber quote for kitchen sink');
   const tip = page.locator('[data-slot=tooltip-content][data-open]');
-  await plumber.getByRole('button', { name: 'Extend wait' }).hover();
+  await plumber.getByRole('button', { name: 'Hide until' }).hover();
   await expect(tip).toHaveText('Hide until a later date');
-  await plumber.getByRole('button', { name: 'Extend wait' }).click();
+  await plumber.getByRole('button', { name: 'Hide until' }).click();
   await expect(page.locator('[data-slot=preset-panel]')).toBeVisible();
   await page.keyboard.press('Escape');
   await plumber.getByRole('button', { name: 'Move to In Progress' }).hover();
@@ -93,6 +96,33 @@ test('Move to In Progress on a Waiting task', async ({ page }) => {
   expect(showTask('Plumber quote for kitchen sink').task.status).toBe('in_progress');
 });
 
+test('leaving Waiting when the hide date is after the due date only offers clearing it', async ({ page }) => {
+  const title = 'Contractor sign-off on deck permit';
+  await row(page, title).getByRole('button', { name: 'Move to In Progress' }).click();
+  const prompt = page.locator('[data-slot=start-decision-prompt]');
+  await expect(prompt.locator('[data-slot=dialog-title]')).toHaveText('Move and clear start date?');
+  await expect(prompt.locator('[data-answer]')).toHaveCount(1);
+  await expect(prompt.getByRole('button', { name: 'Yes, clear start date' })).toBeVisible();
+  await expect(prompt.getByRole('button', { name: 'Cancel' })).toBeVisible();
+  await prompt.getByRole('button', { name: 'Yes, clear start date' }).click();
+  await expect.poll(() => showTask(title).task).toMatchObject({ status: 'in_progress', startDate: null, dueDate: TODAY });
+});
+
+test('leaving Waiting with a future hide date before the due date still offers keep and pick', async ({ page }) => {
+  const title = 'Warranty replacement for headphones';
+  await section(page, 'waiting').getByText(/hidden until later/).click();
+  await row(page, title).hover();
+  await row(page, title).getByRole('button', { name: 'Move to In Progress' }).click();
+  const prompt = page.locator('[data-slot=start-decision-prompt]');
+  await expect(prompt.locator('[data-slot=dialog-title]')).toHaveText('Move to In Progress');
+  await expect(prompt.locator('[data-answer=clear]')).toContainText('Clear the hide-until date');
+  await expect(prompt).toContainText("It's hidden until");
+  await expect(prompt.locator('[data-answer=keep]')).toBeVisible();
+  await expect(prompt.locator('[data-answer=set]')).toBeVisible();
+  await prompt.getByRole('button', { name: 'Cancel' }).click();
+  expect(showTask(title).task).toMatchObject({ status: 'waiting', startDate: '2026-11-21' });
+});
+
 test('drag to reorder within Ready persists', async ({ page }) => {
   const before = await titlesIn(page, 'ready');
   await drag(page, before[2]!, { title: before[0]! }, 'above');
@@ -103,7 +133,7 @@ test('drag to reorder within Ready persists', async ({ page }) => {
   expect(cli.tasks.slice(0, 3).map((t) => t.title)).toEqual([before[2], before[0], before[1]]);
 });
 
-test('drag from Ready into Waiting opens the check-back picker', async ({ page }) => {
+test('drag from Ready into Waiting opens the hide-until picker', async ({ page }) => {
   await drag(page, 'Replace furnace filter', { title: 'Plumber quote for kitchen sink' }, 'above');
   const pane = page.locator('[data-slot=wait-pane]');
   await expect(pane).toBeVisible();

@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { useMediaQuery } from '@/lib/use-media-query';
+import { cn } from '@/lib/utils';
 
 export const WIDE_QUERY = '(min-width: 768px)';
 
@@ -11,6 +12,7 @@ export function Surface({
   onOpenChange,
   title,
   description,
+  descriptionClassName,
   children,
   slot,
 }: {
@@ -18,6 +20,8 @@ export function Surface({
   onOpenChange: (open: boolean) => void;
   title: ReactNode;
   description?: ReactNode;
+  /** Extra classes for the description, such as `sr-only` when it exists only for screen readers. */
+  descriptionClassName?: string;
   children: ReactNode;
   slot?: string;
 }) {
@@ -28,7 +32,7 @@ export function Surface({
         <DialogContent showCloseButton={false} className="gap-4 sm:max-w-sm" data-slot={slot}>
           <DialogHeader>
             <DialogTitle className="text-headline font-semibold">{title}</DialogTitle>
-            {description && <DialogDescription className="text-body">{description}</DialogDescription>}
+            {description && <DialogDescription className={cn('text-body', descriptionClassName)}>{description}</DialogDescription>}
           </DialogHeader>
           {children}
         </DialogContent>
@@ -40,7 +44,7 @@ export function Surface({
       <DrawerContent className="bg-background" data-slot={slot}>
         <DrawerHeader className="gap-1 pb-3 text-left group-data-[swipe-axis=y]/drawer-popup:text-left">
           <DrawerTitle className="text-headline font-semibold">{title}</DrawerTitle>
-          {description && <DrawerDescription className="text-body">{description}</DrawerDescription>}
+          {description && <DrawerDescription className={cn('text-body', descriptionClassName)}>{description}</DrawerDescription>}
         </DrawerHeader>
         <div className="px-4 pb-[max(1rem,env(safe-area-inset-bottom))]">{children}</div>
       </DrawerContent>

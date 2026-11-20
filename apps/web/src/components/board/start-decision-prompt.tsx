@@ -18,29 +18,36 @@ interface Option {
   detail: string;
 }
 
-function copyFor(task: Task, to: Status, decision: StartDecision, today: ISODate) {
+function copyFor(to: Status, decision: StartDecision, today: ISODate) {
   const start = longDate(decision.startDate, today);
   const target = STATUS_LABELS[to];
+  // The hide-until date is after the due date: the only way forward is to clear the start date.
+  if (decision.reason === 'leaving_waiting_start_after_due') {
+    return {
+      title: 'Move and clear start date?',
+      description: undefined,
+      options: [{ answer: 'clear' as const, icon: 'clear' as const, label: 'Yes, clear start date', detail: '' }],
+    };
+  }
   const options: Record<Answer, Option> =
     decision.reason === 'entering_waiting_future_start'
       ? {
-          keep: { answer: 'keep', icon: 'waiting', label: `Check back ${start}`, detail: 'Tucked away under “waiting until later” until then' },
-          clear: { answer: 'clear', icon: 'clear', label: 'No check-back date', detail: 'Needs follow-up now' },
-          set: { answer: 'set', icon: 'pickDate', label: 'Pick a check-back date…', detail: 'May be after the due date' },
+          keep: { answer: 'keep', icon: 'waiting', label: `Hide until ${start}`, detail: 'Tucked away under “hidden until later” until then' },
+          clear: { answer: 'clear', icon: 'clear', label: "Don't hide", detail: 'Needs follow-up now' },
+          set: { answer: 'set', icon: 'pickDate', label: 'Pick a hide-until date…', detail: 'May be after the due date' },
         }
       : {
-          clear: { answer: 'clear', icon: 'clear', label: 'Clear the check-back date', detail: `Moves to ${target} now` },
+          // Future hide-until date on or before the due date. Same three choices; the date is called hide-until.
+          clear: { answer: 'clear', icon: 'clear', label: 'Clear the hide-until date', detail: `Moves to ${target} now` },
           keep: { answer: 'keep', icon: 'startDate', label: `Start ${start}`, detail: 'Waits in Upcoming until then' },
           set: { answer: 'set', icon: 'pickDate', label: 'Pick a start date…', detail: decision.dueDate ? `On or before the due date, ${longDate(decision.dueDate, today)}` : 'Today or later' },
         };
   const description =
     decision.reason === 'entering_waiting_future_start'
-      ? `It starts ${start}. While a task is waiting, its start date is the check-back date.`
-      : decision.reason === 'leaving_waiting_start_after_due'
-        ? `It's set to check back ${start}, after its due date (${longDate(decision.dueDate!, today)}). Outside Waiting, the start date can't be after the due date.`
-        : `It's set to check back ${start}. Outside Waiting, that would be its start date.`;
+      ? `It starts ${start}. While a task is waiting, its start date is the hide-until date.`
+      : `It's hidden until ${start}. Outside Waiting, that would be its start date.`;
   const ordered = [decision.default, ...decision.options.filter((o) => o !== decision.default)].map((a) => options[a]);
-  return { title: `Move “${task.title}” to ${target}?`, description, options: ordered };
+  return { title: `Move to ${target}`, description, options: ordered };
 }
 
 function OptionList({ options, onChoose, onCancel, touch }: { options: Option[]; onChoose?: (a: Answer) => void; onCancel: () => void; touch?: boolean }) {
@@ -58,7 +65,7 @@ function OptionList({ options, onChoose, onCancel, touch }: { options: Option[];
           <Icon name={o.icon} className="size-icon shrink-0" />
           <span className="flex min-w-0 flex-col">
             <span className="text-body font-medium">{o.label}</span>
-            <span className={cn('text-footnote', i === 0 ? 'text-primary-foreground' : 'text-muted-foreground')}>{o.detail}</span>
+            {o.detail ? <span className={cn('text-footnote', i === 0 ? 'text-primary-foreground' : 'text-muted-foreground')}>{o.detail}</span> : null}
           </span>
         </Button>
       ))}
@@ -91,9 +98,16 @@ export function StartDecisionPrompt({
   onChoose?: (answer: Answer) => void;
 }) {
   const wide = useMediaQuery(WIDE_QUERY);
-  const { title, description, options } = copyFor(task, to, decision, today);
+  const { title, description, options } = copyFor(to, decision, today);
   return (
-    <Surface open={open} onOpenChange={onOpenChange} title={title} description={description} slot="start-decision-prompt">
+    <Surface
+      open={open}
+      onOpenChange={onOpenChange}
+      title={title}
+      description={description ?? task.title}
+      descriptionClassName={description ? undefined : 'sr-only'}
+      slot="start-decision-prompt"
+    >
       <OptionList options={options} onChoose={onChoose} onCancel={() => onOpenChange(false)} touch={!wide} />
     </Surface>
   );

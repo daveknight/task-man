@@ -40,7 +40,7 @@ function DateMeta({ icon, date, today, tone }: { icon: 'dueDate' | 'startDate' |
   );
 }
 
-/** Dates and flag at the end of the row. A task waiting until later shows its check-back date with an hourglass. */
+/** Dates and flag at the end of the row. A task hidden until later shows its hide-until date with an hourglass. */
 function TrailingMeta({ task, today }: { task: Task; today: ISODate }) {
   const waiting = !task.completedAt && !task.deletedAt && task.status === 'waiting' ? waitingStateFor(task, today) : null;
   const upcoming = !waiting && !task.completedAt && !task.deletedAt && !!task.startDate && task.startDate > today;
@@ -149,7 +149,7 @@ function GroupButton({
   );
 }
 
-/** What the always-visible Waiting buttons do. A check-back date is "Hide until", not a second name for waiting. */
+/** What the always-visible Waiting buttons do. A hide-until date is "Hide until", not a second name for waiting. */
 function followUpTooltip(group: ActionGroup): string {
   if (group.id === 'extendWait') return 'Hide until a later date';
   return group.title;
@@ -162,7 +162,7 @@ function followUpTooltip(group: ActionGroup): string {
  */
 const followUpTone = 'group-hover/row:text-link group-focus-within/row:text-link hover:text-link aria-expanded:text-link';
 
-/** Extend wait and Move to In Progress as icon buttons. Rows on phones leave them to the swipe actions and the sheet. */
+/** Hide until and Move to In Progress as icon buttons. Rows on phones leave them to the swipe actions and the sheet. */
 function FollowUpButtons({ task, actions, rowActions }: { task: Task; actions: BoardActions | null; rowActions: RowActions }) {
   return (
     <span data-slot="follow-up-buttons" className="flex shrink-0 items-center gap-0.5 text-foreground max-sm:hidden pointer-coarse:hidden">

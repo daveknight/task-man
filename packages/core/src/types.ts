@@ -12,7 +12,7 @@ export interface Task {
   description?: string;
   status: Status;
   flagged?: boolean;
-  /** Hide until this day. While the task is Waiting, it's the check-back date instead. */
+  /** Hide until this day. While the task is Waiting, this is the hide-until date and may fall after the due date. */
   startDate?: ISODate | null;
   dueDate?: ISODate | null;
   completedAt?: string | null;

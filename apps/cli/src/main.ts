@@ -56,8 +56,9 @@ Tasks (<task> is an id, an id prefix of 4+ characters, or a title prefix):
                                             --completed: include completed, --flagged: only flagged
 
 Status changes never change dates silently. When one would (leaving Waiting with a future
-check-back date, or going into Waiting with a future start), it fails with the question
-unless --start answers it. Going into Waiting, --start <date>|none sets the check-back date.
+hide-until date, or going into Waiting with a future start), it fails with the question
+unless --start answers it. Going into Waiting, --start <date>|none sets the hide-until date.
+When that date is after the due date, leaving Waiting only accepts --start clear.
 Moving a task due today or earlier into Upcoming fails the same way unless --clear-due
 removes the due date. Upcoming tasks start after today, and a start can't be after the
 due date. These failures exit with code 2.

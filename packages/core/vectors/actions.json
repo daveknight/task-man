@@ -1,6 +1,6 @@
 {
   "function": "actionsFor(task, today, context)",
-  "description": "The row actions (swipe, right-click, hover) for each state. Presets are written as 'id:field=date' (sets the field; 'null' clears it), 'id:pick field' with optional '>=min' and '<=max', or 'skip'. A group without presets is written as 'id -> effect' ('status:in_progress', 'undone', 'restore'). Start, check-back and wait presets count from today; '+1 day' (a day after the due date) shows only when the task is due after today; due today or overdue it would equal Tomorrow. labels: the tile labels by group and preset id, for the groups listed. upcomingDrop: the start presets for a drop into Upcoming, from tomorrow and never after the due date; none when nothing fits. 2026-11-18 is a Wednesday; 2026-11-20 is a Friday.",
+  "description": "The row actions (swipe, right-click, hover) for each state. Presets are written as 'id:field=date' (sets the field; 'null' clears it), 'id:pick field' with optional '>=min' and '<=max', or 'skip'. A group without presets is written as 'id -> effect' ('status:in_progress', 'undone', 'restore'). Start and hide-until presets count from today; the waitUntil, extendWait and checkBack groups are all labeled Hide until, and Don't hide clears the date. '+1 day' (a day after the due date) shows only when the task is due after today; due today or overdue it would equal Tomorrow. labels: the tile labels by group and preset id, for the groups listed. upcomingDrop: the start presets for a drop into Upcoming, from tomorrow and never after the due date; none when nothing fits. 2026-11-18 is a Wednesday; 2026-11-20 is a Friday.",
   "cases": [
     {
       "name": "ready, overdue and recurring: no +1 day (it would equal Tomorrow), Skip, No due date",
@@ -43,7 +43,7 @@
       }
     },
     {
-      "name": "waiting, needs follow-up: Extend wait and Move to In Progress",
+      "name": "waiting, needs follow-up: Hide until and Move to In Progress",
       "today": "2026-11-18", "task": { "status": "waiting", "startDate": "2026-11-17" },
       "expect": {
         "placement": "waiting",
@@ -56,7 +56,7 @@
       }
     },
     {
-      "name": "waiting until later: Check back presets from today, Now",
+      "name": "hidden until later: Hide until presets from today, Now",
       "today": "2026-11-18", "task": { "status": "waiting", "startDate": "2026-11-21", "dueDate": "2026-12-01" },
       "expect": {
         "placement": "waiting_later",

@@ -143,7 +143,7 @@ describe('sync safety', () => {
     expect(error?.message).toMatch(/tasks_start_on_or_before_due/);
   });
 
-  it('allows a Waiting task to check back after its due date', async () => {
+  it('allows a Waiting task hide-until date after its due date', async () => {
     const { error } = await addTask(dev, { status: 'waiting', start_date: '2026-11-21', due_date: '2026-11-20' });
     expect(error).toBeNull();
   });
