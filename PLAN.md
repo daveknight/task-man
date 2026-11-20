@@ -21,7 +21,7 @@ Every collapsible part remembers whether you last left it expanded.
 
 Waiting is a **status**, on the same picker as In Progress, because a task can't be both. A typical flow: you've made progress, and now someone else has to act before you can finish.
 
-- **Going in:** choose Waiting from the status menu, swipe, or drag into the Waiting section. Every way in opens the same picker, **Hide until**, with quick picks: **Tomorrow, Saturday** (the coming one; hidden on Fridays, when it would repeat Tomorrow), **1 week, Pick date, Don't hide**. **Don't hide** is the highlighted default (the task needs follow-up now). The dialog title is "Hide until", with no subheading and no body text; the task name stays available to screen readers. A task that already has a future start date also gets a **Keep Nov 21** tile, so its start date becomes the hide-until date. Pick date can't choose a past day. There is no "waiting on" field: the title says who. The picked date is stored as the task's **start date**: while a task is Waiting, its start date *is* its hide-until date (the task sheet labels the field "Hide until"), and it may fall after the due date. Hide until picks aren't capped by the due date. The row actions `waitUntil`, `extendWait` and `checkBack` are all labeled **Hide until**; the ids don't change.
+- **Going in:** choose Waiting from the status menu, the **Move to Waiting** row action, or drag into the Waiting section. Every way in opens the same picker, **Hide until**, with quick picks: **Tomorrow, Saturday** (the coming one; hidden on Fridays, when it would repeat Tomorrow), **1 week, Pick date, Don't hide**. **Don't hide** is the highlighted default (the task needs follow-up now). The dialog title is "Hide until", with no subheading and no body text; the task name stays available to screen readers. A task that already has a future start date also gets a **Keep Nov 21** tile, so its start date becomes the hide-until date. Pick date can't choose a past day. There is no "waiting on" field: the title says who. The picked date is stored as the task's **start date**: while a task is Waiting, its start date *is* its hide-until date (the task sheet labels the field "Hide until"), and it may fall after the due date. Hide until picks aren't capped by the due date. Only Waiting tasks offer **Hide until** as a row action (`extendWait` and `checkBack`, both labeled Hide until, with a closed-eye icon); Ready and In Progress offer **Move to Waiting** (`moveToWaiting`, hourglass) instead, which opens this picker.
 - **Two sub-states inside the one Waiting section:**
   - **Needs follow-up (visible):** no hide-until date, or the hide-until date is today or earlier, or the due date is today or earlier. There's no badge: being in the visible part of Waiting says it.
   - **Hidden until later (tucked away):** the hide-until date is in the future. These tasks sit behind a "Show 3 hidden until later" row at the bottom of the section, collapsed by default, each showing its hide-until date with an hourglass ("Nov 21").
@@ -65,9 +65,9 @@ One shared function in `core`, `actionsFor(task, today)`, picks the actions from
 
 | Task is in | Date button presets | State button | 
 |---|---|---|
-| Ready | Due: Today, Tomorrow, Next Monday, Pick date, Clear | **Hide until** (Tomorrow, Saturday, 1 week, Pick date, Don't hide) |
-| In Progress | Due: same as Ready | **Hide until** (same picks) |
-| Waiting, needs follow-up | Due: same as Ready | **Hide until** (same picks), **Move to In Progress** |
+| Ready | Due: Today, Tomorrow, Next Monday, Pick date, Clear | **Move to Waiting** (opens the Hide until picker) |
+| In Progress | Due: same as Ready | **Move to Waiting** |
+| Waiting, needs follow-up | Due: same as Ready | **Hide until** (Tomorrow, Saturday, 1 week, Pick date, Don't hide), **Move to In Progress** |
 | Hidden until later | Hide until: Tomorrow, +3 days, +1 week, Pick date, **Now** (makes it need follow-up) | **Move to In Progress** |
 | Upcoming | Start: **Start today** (moves it to Ready), +1 week, Next month, Pick date, Clear | **Start now** (In Progress) |
 | Completed (when shown) | none | **Mark not done** |
@@ -75,7 +75,7 @@ One shared function in `core`, `actionsFor(task, today)`, picks the actions from
 
 - A recurring task adds **Skip this occurrence** to its date presets.
 - A task due after today adds **+1 day** (a day after its due date) as the first due preset. It's left out when the task is due today or overdue, where it would equal Tomorrow, so a due date never moves to another past day.
-- When a task's state changes the presets, the button's icon changes too (calendar, hourglass for waiting, sunrise for start), so you can tell what it will do before tapping.
+- When a task's state changes the presets, the button's icon changes too (calendar, closed eye for hide until, sunrise for start), so you can tell what it will do before tapping.
 - These come with Phase 1a (swipe in mobile Safari, right-click and hover on desktop) and carry over to the native apps in Phase 3.
 
 ### Task fields
@@ -186,7 +186,7 @@ One table in `core`, covered by test vectors, decides what every change does to 
 | Complete (non-recurring) | kept, so Mark not done returns it where it was | kept | kept |
 | Complete (recurring) | `open` | recomputed | cleared |
 | Mark not done | as before completion | as before | kept, else bottom of section |
-| Into Waiting (status menu, swipe or drag; always with the Hide until picker) | `waiting` | the picked date, or empty for Don't hide | top of Waiting |
+| Into Waiting (status menu, Move to Waiting or drag; always with the Hide until picker) | `waiting` | the picked date, or empty for Don't hide | top of Waiting |
 | Hide until, already waiting | `waiting` | the new hide-until date | kept |
 | Move to In Progress, or drag Waiting to In Progress | `in_progress` | kept if today or earlier; asks first if it's in the future or after the due date (default: clear) | top of In Progress |
 | Drag Waiting to Ready | `open` | same as Move to In Progress | where dropped |
@@ -287,7 +287,8 @@ One table in `packages/tokens` maps each meaning to its icon on each platform, s
 | Meaning | Phosphor (web) | SF Symbol (native) |
 |---|---|---|
 | Due date | `CalendarBlank` | `calendar` |
-| Waiting / hide until | `Hourglass` | `hourglass` |
+| Waiting / Move to Waiting | `Hourglass` | `hourglass` |
+| Hide until (row action) | `EyeSlash` | `eye.slash` |
 | Start date | `SunHorizon` | `sunrise` |
 | In Progress / start now | `Play` | `play` |
 | Move to In Progress (from Waiting) | `PlayCircle` | `play.circle` |

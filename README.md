@@ -45,7 +45,7 @@ add "Title" [--desc] [--start] [--due] [--status] [--flag]
 show <task>                               fields, placement and the actions the app offers
 edit <task> [--title] [--desc] [--start <date>|none] [--due <date>|none] [--flag|--no-flag]
 status <task> open|in_progress|waiting [--start clear|keep|<date>|none]
-act <task> <action> [--date <date>]       a row action: due.tomorrow, waitUntil.saturday, moveToInProgress, ...
+act <task> <action> [--date <date>]       a row action: due.tomorrow, moveToWaiting --start +3d, moveToInProgress, ...
 move <task> --top | --before <task> | --after <task>
 done / undone / delete [--forever] / restore <task>
 purge-trash                               remove Trash older than 30 days
