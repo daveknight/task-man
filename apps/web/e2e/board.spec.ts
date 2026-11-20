@@ -81,9 +81,9 @@ test('status change to Waiting asks when to hide it, with Don\'t hide by default
 test('Waiting row buttons show what they do', async ({ page }) => {
   const plumber = row(page, 'Plumber quote for kitchen sink');
   const tip = page.locator('[data-slot=tooltip-content][data-open]');
-  await plumber.getByRole('button', { name: 'Extend wait' }).hover();
+  await plumber.getByRole('button', { name: 'Hide until' }).hover();
   await expect(tip).toHaveText('Hide until a later date');
-  await plumber.getByRole('button', { name: 'Extend wait' }).click();
+  await plumber.getByRole('button', { name: 'Hide until' }).click();
   await expect(page.locator('[data-slot=preset-panel]')).toBeVisible();
   await page.keyboard.press('Escape');
   await plumber.getByRole('button', { name: 'Move to In Progress' }).hover();
