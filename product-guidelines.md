@@ -1,6 +1,6 @@
 # Product guidelines
 
-Design guidelines for TaskMan, drawn from Dave's Figma review feedback and sign-offs. Dave approved all 17. Follow them when building features or making design decisions. If a change conflicts with one, ask Dave first.
+Design guidelines for TaskMan, drawn from Dave's Figma review feedback and sign-offs. Dave approved each of them. Follow them when building features or making design decisions. If a change conflicts with one, ask Dave first.
 
 `PLAN.md` holds the product rules and architecture. These guidelines cover copy, layout, dates and status, and color.
 
@@ -17,18 +17,17 @@ Design guidelines for TaskMan, drawn from Dave's Figma review feedback and sign-
 6. **Text is optically centered** with icons, checkboxes, and row height. A pixel high is a bug.
 7. **Section titles line up with task titles.** A collapsed section is a full-width row you can click anywhere.
 8. **Desktop is two panes at 1024px and up,** an overlay from 768 to 1023px, and a bottom sheet on phones.
-9. **Empty sections stay hidden,** and appear as drop targets while dragging.
-10. **The empty detail pane stays empty.** No placeholder icon.
+9. **The empty detail pane stays empty.** No placeholder icon.
 
 ## Dates and status
 
-11. **Check-back is the start date.** Waiting may start after its due date. Other statuses may not.
-12. **Changing into Waiting always opens the picker.** Default is "Don't hide", with a tile to keep the current date.
-13. **"+1 day" shows only when it isn't the same as Tomorrow.** Upcoming drops offer Tomorrow, +1 week, +2 weeks, and Pick date.
-14. **Due today stays blue.** Presets count from today.
-15. **Dropping a task due today or earlier into Upcoming** explains why and offers "Remove due date" or Cancel.
+10. **Check-back is the start date.** Waiting may start after its due date. Other statuses may not.
+11. **Changing into Waiting always opens the picker.** Default is "Don't hide", with a tile to keep the current date.
+12. **Due today stays blue.** Presets count from today.
+13. **Dropping a task due today or earlier into Upcoming** explains why and offers "Remove due date" or Cancel.
 
 ## Color and icons
 
-16. **Use Apple's system colors exactly,** including the documented contrast exemptions.
-17. **Row icons use the text color, and turn blue on hover.** No extra badges, such as Follow up.
+14. **Use Apple's system colors exactly,** including the documented contrast exemptions.
+15. **Row icons use the text color, and turn blue on hover.** No extra badges, such as Follow up.
+
