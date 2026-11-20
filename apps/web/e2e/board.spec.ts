@@ -74,7 +74,7 @@ test('Waiting row buttons show what they do', async ({ page }) => {
   await expect(page.locator('[data-slot=preset-panel]')).toBeVisible();
   await page.keyboard.press('Escape');
   await plumber.getByRole('button', { name: 'Move to In Progress' }).hover();
-  await expect(tip).toHaveText('Move to In Progress now');
+  await expect(tip).toHaveText('Move to In Progress');
 });
 
 test('Move to In Progress on a Waiting task', async ({ page }) => {

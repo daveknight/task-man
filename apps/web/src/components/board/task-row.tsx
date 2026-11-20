@@ -152,7 +152,6 @@ function GroupButton({
 /** What the always-visible Waiting buttons do. A check-back date is "Hide until", not a second name for waiting. */
 function followUpTooltip(group: ActionGroup): string {
   if (group.id === 'extendWait') return 'Hide until a later date';
-  if (group.id === 'moveToInProgress') return 'Move to In Progress now';
   return group.title;
 }
 
