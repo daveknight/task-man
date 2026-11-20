@@ -195,7 +195,7 @@ export function BoardActionsProvider({
         <Surface
           open
           onOpenChange={(open) => !open && close()}
-          title={`Start “${pending.task.title}” later?`}
+          title="Start later"
           description={`Upcoming tasks start after today, and a start can't be after the due date. It's due ${pending.decision.dueDate === today ? 'today' : longDate(pending.decision.dueDate, today)}. Remove the due date to start it later.`}
           slot="upcoming-drop-prompt"
         >
@@ -217,7 +217,14 @@ export function BoardActionsProvider({
       )}
       {pending?.kind === 'start' && <StartPane pending={pending} today={today} onClose={close} commit={commit} />}
       {pending?.kind === 'presets' && (
-        <Surface open onOpenChange={(open) => !open && close()} title={pending.task.title} slot="preset-sheet">
+        <Surface
+          open
+          onOpenChange={(open) => !open && close()}
+          title={pending.group.title}
+          description={pending.task.title}
+          descriptionClassName="sr-only"
+          slot="preset-sheet"
+        >
           <PresetPanel
             group={pending.group}
             initialPick={pending.pick}
@@ -297,6 +304,11 @@ function StartPane({
 }) {
   const { task, to, upcoming, max, drop } = pending;
   const capped = { ...task, dueDate: max ?? null, status: 'open' as const };
+  const description = max
+    ? `On or before the due date, ${longDate(max, today)}.`
+    : task.dueDate && upcoming && !upcoming.task.dueDate
+      ? 'Its due date is removed when you pick a start date.'
+      : undefined;
   const presets: Preset[] = upcoming
     ? upcoming.presets
     : startPresets(capped, today)
@@ -315,14 +327,9 @@ function StartPane({
     <Surface
       open
       onOpenChange={(open) => !open && onClose()}
-      title={upcoming ? `Start “${task.title}” later` : `Move “${task.title}” to ${STATUS_LABELS[to ?? 'open']}`}
-      description={
-        max
-          ? `On or before the due date, ${longDate(max, today)}.`
-          : task.dueDate && upcoming && !upcoming.task.dueDate
-            ? 'Its due date is removed when you pick a start date.'
-            : undefined
-      }
+      title={upcoming ? 'Start later' : `Move to ${STATUS_LABELS[to ?? 'open']}`}
+      description={description ?? task.title}
+      descriptionClassName={description ? undefined : 'sr-only'}
       slot="start-pane"
     >
       <PresetPanel

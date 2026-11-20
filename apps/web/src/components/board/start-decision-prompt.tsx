@@ -18,7 +18,7 @@ interface Option {
   detail: string;
 }
 
-function copyFor(task: Task, to: Status, decision: StartDecision, today: ISODate) {
+function copyFor(to: Status, decision: StartDecision, today: ISODate) {
   const start = longDate(decision.startDate, today);
   const target = STATUS_LABELS[to];
   // The hide-until date is after the due date: the only way forward is to clear the start date.
@@ -47,7 +47,7 @@ function copyFor(task: Task, to: Status, decision: StartDecision, today: ISODate
       ? `It starts ${start}. While a task is waiting, its start date is the hide-until date.`
       : `It's set to check back ${start}. Outside Waiting, that would be its start date.`;
   const ordered = [decision.default, ...decision.options.filter((o) => o !== decision.default)].map((a) => options[a]);
-  return { title: `Move “${task.title}” to ${target}?`, description, options: ordered };
+  return { title: `Move to ${target}`, description, options: ordered };
 }
 
 function OptionList({ options, onChoose, onCancel, touch }: { options: Option[]; onChoose?: (a: Answer) => void; onCancel: () => void; touch?: boolean }) {
@@ -98,7 +98,7 @@ export function StartDecisionPrompt({
   onChoose?: (answer: Answer) => void;
 }) {
   const wide = useMediaQuery(WIDE_QUERY);
-  const { title, description, options } = copyFor(task, to, decision, today);
+  const { title, description, options } = copyFor(to, decision, today);
   return (
     <Surface
       open={open}
