@@ -30,4 +30,3 @@ Design guidelines for TaskMan, drawn from Dave's Figma review feedback and sign-
 
 14. **Use Apple's system colors exactly,** including the documented contrast exemptions.
 15. **Row icons use the text color, and turn blue on hover.** No extra badges, such as Follow up.
-
