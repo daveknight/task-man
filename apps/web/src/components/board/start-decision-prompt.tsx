@@ -37,15 +37,15 @@ function copyFor(to: Status, decision: StartDecision, today: ISODate) {
           set: { answer: 'set', icon: 'pickDate', label: 'Pick a hide-until date…', detail: 'May be after the due date' },
         }
       : {
-          // Future hide-until date on or before the due date. This prompt's wording stays as it is.
-          clear: { answer: 'clear', icon: 'clear', label: 'Clear the check-back date', detail: `Moves to ${target} now` },
+          // Future hide-until date on or before the due date. Same three choices; the date is called hide-until.
+          clear: { answer: 'clear', icon: 'clear', label: 'Clear the hide-until date', detail: `Moves to ${target} now` },
           keep: { answer: 'keep', icon: 'startDate', label: `Start ${start}`, detail: 'Waits in Upcoming until then' },
           set: { answer: 'set', icon: 'pickDate', label: 'Pick a start date…', detail: decision.dueDate ? `On or before the due date, ${longDate(decision.dueDate, today)}` : 'Today or later' },
         };
   const description =
     decision.reason === 'entering_waiting_future_start'
       ? `It starts ${start}. While a task is waiting, its start date is the hide-until date.`
-      : `It's set to check back ${start}. Outside Waiting, that would be its start date.`;
+      : `It's hidden until ${start}. Outside Waiting, that would be its start date.`;
   const ordered = [decision.default, ...decision.options.filter((o) => o !== decision.default)].map((a) => options[a]);
   return { title: `Move to ${target}`, description, options: ordered };
 }

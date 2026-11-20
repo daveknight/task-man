@@ -115,7 +115,8 @@ test('leaving Waiting with a future hide date before the due date still offers k
   await row(page, title).getByRole('button', { name: 'Move to In Progress' }).click();
   const prompt = page.locator('[data-slot=start-decision-prompt]');
   await expect(prompt.locator('[data-slot=dialog-title]')).toHaveText('Move to In Progress');
-  await expect(prompt.locator('[data-answer=clear]')).toContainText('Clear the check-back date');
+  await expect(prompt.locator('[data-answer=clear]')).toContainText('Clear the hide-until date');
+  await expect(prompt).toContainText("It's hidden until");
   await expect(prompt.locator('[data-answer=keep]')).toBeVisible();
   await expect(prompt.locator('[data-answer=set]')).toBeVisible();
   await prompt.getByRole('button', { name: 'Cancel' }).click();
