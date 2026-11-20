@@ -6,8 +6,12 @@ test.beforeEach(async ({ page }) => {
   await openBoard(page);
 });
 
+/** Waits for section folds to finish, so bounding boxes are final. */
+const settled = (page: Page) => page.waitForFunction(() => document.getAnimations().length === 0);
+
 /** Drags with the mouse in steps, so dnd-kit sees a real drag. */
 async function drag(page: Page, from: string, to: { title?: string; section?: string }, position: 'above' | 'below' = 'above') {
+  await settled(page);
   const source = await row(page, from).boundingBox();
   const target = to.title ? await row(page, to.title).boundingBox() : await section(page, to.section!).locator('[data-drop-target]').boundingBox();
   if (!source || !target) throw new Error('row not visible');
@@ -38,6 +42,54 @@ test('a collapsed section expands from anywhere in its row', async ({ page }) =>
   const board = (await page.locator('[data-slot=board]').boundingBox())!;
   await page.mouse.click(board.x + board.width - 20, box.y + box.height / 2);
   await expect(section(page, 'upcoming').locator('[data-slot=task-row]').first()).toBeVisible();
+});
+
+test('a section folds and unfolds without its heading moving, and snaps with reduced motion', async ({ page }) => {
+  const trigger = section(page, 'in_progress').getByRole('button', { name: /^In Progress/ });
+  const rows = section(page, 'in_progress').locator('[data-slot=task-row]');
+  /** Clicks the heading and samples its title and caret (by center, since it rotates) every frame until the fold settles. */
+  const toggle = async () => {
+    await page.evaluate(() => {
+      const heading = document.querySelector('[data-section=in_progress] [data-slot=collapsible-trigger]')!;
+      const place = () => {
+        const title = heading.querySelector('.optical-center')!.getBoundingClientRect();
+        const caret = heading.querySelector('svg')!.getBoundingClientRect();
+        return [title.x, title.y, caret.x + caret.width / 2, caret.y + caret.height / 2].map((n) => n.toFixed(1)).join();
+      };
+      const w = window as unknown as { samples: Promise<{ places: string[]; animated: boolean }> };
+      w.samples = new Promise((done) => {
+        const places: string[] = [];
+        let animated = false;
+        let frames = 0;
+        const tick = () => {
+          places.push(place());
+          animated ||= document.getAnimations().length > 0;
+          if (++frames < 40) requestAnimationFrame(tick);
+          else done({ places, animated });
+        };
+        requestAnimationFrame(tick);
+      });
+    });
+    await trigger.click();
+    return page.evaluate(() => (window as unknown as { samples: Promise<{ places: string[]; animated: boolean }> }).samples);
+  };
+
+  await expect(rows.first()).toBeVisible();
+  const collapse = await toggle();
+  await expect(rows).toHaveCount(0);
+  expect(collapse.animated).toBe(true);
+  expect(new Set(collapse.places).size).toBe(1);
+
+  const expand = await toggle();
+  await expect(rows.first()).toBeVisible();
+  expect(expand.animated).toBe(true);
+  expect(new Set([...collapse.places, ...expand.places]).size).toBe(1);
+
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  const reduced = await toggle();
+  await expect(rows).toHaveCount(0);
+  expect(reduced.animated).toBe(false);
+  expect(new Set([...collapse.places, ...reduced.places]).size).toBe(1);
 });
 
 test('complete with undo', async ({ page }) => {
