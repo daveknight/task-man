@@ -38,6 +38,8 @@
   --swipe-state: #007AFF;
   --swipe-delete: #FF3B30;
   --swipe-flag: #FF9500;
+  --notice: #FFEACC;
+  --notice-foreground: #000000;
   --font-family-sans: -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
   --font-family-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   --font-weight-regular: 400;
@@ -115,6 +117,8 @@
   --swipe-state: #0A84FF;
   --swipe-delete: #FF453A;
   --swipe-flag: #FF9F0A;
+  --notice: #402803;
+  --notice-foreground: #FFFFFF;
 }
 
 @media (pointer: coarse) {

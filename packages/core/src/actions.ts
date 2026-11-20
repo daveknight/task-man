@@ -81,7 +81,7 @@ function duePresets(task: Task, today: ISODate, context: ActionContext): Preset[
     { id: 'pick', label: 'Pick date', icon: 'pickDate', effect: { kind: 'pick', field: 'due' } },
   );
   if (context.recurring) presets.push({ id: 'skip', label: 'Skip this occurrence', icon: 'skip', effect: { kind: 'skip' } });
-  if (task.dueDate) presets.push(set('clear', 'Clear', 'clear', 'due', null));
+  if (task.dueDate) presets.push(set('clear', 'No due date', 'clear', 'due', null));
   return presets;
 }
 

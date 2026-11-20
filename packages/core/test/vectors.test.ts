@@ -208,6 +208,21 @@ describe('actions.json', () => {
   });
 });
 
+describe('actions.json labels', () => {
+  const { labels } = load<{
+    labels: { name: string; today: string; context?: { recurring?: boolean }; task: Partial<Task>; expect: Record<string, Record<string, string>> }[];
+  }>('actions.json');
+
+  it.each(labels)('$name', ({ today, context, task, expect: expected }) => {
+    const a = actionsFor(taskFrom(task), today, context);
+    const groups = [a.date, ...a.state].filter((g) => g !== null);
+    const actual = Object.fromEntries(
+      Object.keys(expected).map((id) => [id, Object.fromEntries((groups.find((g) => g.id === id)?.presets ?? []).map((p) => [p.id, p.label]))]),
+    );
+    expect(actual).toEqual(expected);
+  });
+});
+
 describe('actions.json upcomingDrop', () => {
   const { upcomingDrop } = load<{ upcomingDrop: { name: string; today: string; task: Partial<Task>; expect: string[] }[] }>('actions.json');
 

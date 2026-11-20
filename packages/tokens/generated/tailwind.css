@@ -39,6 +39,8 @@
   --color-swipe-state: var(--swipe-state);
   --color-swipe-delete: var(--swipe-delete);
   --color-swipe-flag: var(--swipe-flag);
+  --color-notice: var(--notice);
+  --color-notice-foreground: var(--notice-foreground);
   --font-sans: var(--font-family-sans);
   --font-mono: var(--font-family-mono);
   --font-heading: var(--font-family-sans);

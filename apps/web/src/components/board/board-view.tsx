@@ -132,11 +132,21 @@ function SectionView({
 
   return (
     <Collapsible open={open} onOpenChange={setOpen} data-section={section.id} className="flex flex-col">
-      <CollapsibleTrigger className="flex h-section-header items-center gap-1.5 self-start rounded-md px-row-x text-subhead font-semibold text-section-header outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
-        <Caret open={open} />
-        <span className="optical-center">{SECTION_TITLES[section.id]}</span>
-        <span className="optical-center font-normal text-muted-foreground" data-slot="section-count">
-          {section.count}
+      {/* The caret sits in the rows' checkbox column so the title starts where task titles start. Collapsed, the header is a full-width card row. */}
+      <CollapsibleTrigger
+        className={cn(
+          'flex items-center gap-row-gap px-row-x text-left text-subhead font-semibold text-section-header outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+          open ? 'h-section-header self-start rounded-md' : 'min-h-row w-full rounded-xl bg-card hover:bg-muted',
+        )}
+      >
+        <span className="flex size-checkbox shrink-0 items-center justify-center">
+          <Caret open={open} />
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="optical-center">{SECTION_TITLES[section.id]}</span>
+          <span className="optical-center font-normal text-muted-foreground" data-slot="section-count">
+            {section.count}
+          </span>
         </span>
       </CollapsibleTrigger>
       <CollapsibleContent>

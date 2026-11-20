@@ -116,16 +116,18 @@ export function App() {
           )}
           <div className="pt-2">
             {!online && (
-              <p className="mb-3 flex items-center gap-2 rounded-xl bg-muted px-row-x py-2 text-footnote text-muted-foreground" role="status" data-slot="offline-banner">
-                <Icon name="offline" className="size-4 shrink-0" />
-                Offline. This is the board as last loaded; changes are paused until you're back online.
+              <p className="mb-3 flex items-center gap-row-gap rounded-xl bg-notice px-row-x py-2.5 text-body text-notice-foreground" role="status" data-slot="offline-banner">
+                <Icon name="offline" weight="bold" className="size-5 shrink-0 text-flag" />
+                <span>
+                  <strong className="font-semibold">You're offline.</strong> This is the board as last loaded; changes are paused until you're back online.
+                </span>
               </p>
             )}
             {error && <p className="px-row-x text-destructive">{error}</p>}
             {view === 'board' && adding && online && <QuickAdd writes={writes} onClose={() => setAdding(false)} />}
             {empty && (
               <p className="px-row-x py-8 text-center text-muted-foreground" data-slot="empty">
-                {view === 'trash' ? 'Trash is empty' : 'No tasks yet. Add one with +.'}
+                {view === 'trash' ? 'Trash is empty' : 'No tasks yet.'}
               </p>
             )}
             {shown && data && <BoardView board={shown} today={today} positions={online ? data.positions : undefined} selectedId={twoPane || sheetOpen ? selectedId : null} />}

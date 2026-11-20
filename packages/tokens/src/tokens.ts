@@ -70,6 +70,9 @@ export const colors = {
   'swipe-state': apple.blue,
   'swipe-delete': apple.red,
   'swipe-flag': apple.orange,
+  /** The offline banner: Apple orange at 20% on white (light) and 25% on black (dark). */
+  notice: { light: '#FFEACC', dark: '#402803' },
+  'notice-foreground': apple.label,
 } as const satisfies Record<string, ColorPair>;
 
 export type ColorRole = keyof typeof colors;
@@ -86,6 +89,7 @@ export const textPairs: readonly [text: ColorRole, on: ColorRole][] = [
   ['accent-foreground', 'accent'],
   ['section-header', 'background'],
   ['sidebar-foreground', 'sidebar'],
+  ['notice-foreground', 'notice'],
 ];
 
 /**

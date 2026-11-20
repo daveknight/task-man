@@ -86,7 +86,7 @@ export function Toolbar({
 }) {
   return (
     <header className="sticky top-0 z-20 -mx-row-x bg-background/85 px-row-x pt-[env(safe-area-inset-top)] backdrop-blur-xl">
-      <div className="flex h-toolbar items-center gap-1">
+      <div className="flex h-toolbar items-center gap-1 pointer-coarse:gap-0">
         {onBack && (
           <Button variant="ghost" size="icon" aria-label="Back" className="-ml-2 text-link pointer-coarse:size-control" onClick={onBack}>
             <Icon name="expand" weight="bold" className="size-5 rotate-180" />
@@ -97,11 +97,13 @@ export function Toolbar({
         </div>
         {!onBack && (
           <>
+            <Button className="mr-1 pointer-coarse:mr-0 pointer-coarse:h-control" disabled={addDisabled} onClick={onAdd}>
+              <Icon name="add" weight="bold" data-icon="inline-start" />
+              {/* Below iPhone width the label would crowd out the title, so it's for screen readers only. */}
+              <span className="optical-center max-[389px]:sr-only">Add task</span>
+            </Button>
             <Button variant="ghost" size="icon" aria-label="Search" className="pointer-coarse:size-control" onClick={onSearch}>
               <Icon name="search" className="size-5" />
-            </Button>
-            <Button variant="ghost" size="icon" aria-label="Add task" className="text-link pointer-coarse:size-control" disabled={addDisabled} onClick={onAdd}>
-              <Icon name="add" weight="bold" className="size-5" />
             </Button>
             <BoardMenu defaultOpen={menuOpen} {...menu} />
           </>
