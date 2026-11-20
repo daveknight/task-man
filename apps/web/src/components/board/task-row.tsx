@@ -19,7 +19,9 @@ import { dayLabel, longDate } from '@/lib/day-label';
 import { useMediaQuery } from '@/lib/use-media-query';
 import { cn } from '@/lib/utils';
 import { useBoardActions, type BoardActions } from './board-actions';
+import { InlineTitle } from './inline-title';
 import { PresetPanel } from './preset-panel';
+import { WIDE_QUERY } from './surface';
 import { SwipeableRow } from './swipe-row';
 
 export interface TaskRowProps {
@@ -287,7 +289,8 @@ export function TaskRowContent({
   selected,
   rowActions,
   hover,
-}: TaskRowProps & { rowActions: RowActions; hover?: boolean }) {
+  editableTitle,
+}: TaskRowProps & { rowActions: RowActions; hover?: boolean; editableTitle?: boolean }) {
   const actions = useBoardActions();
   const metaId = useId();
   const done = !!task.completedAt;
@@ -308,14 +311,27 @@ export function TaskRowContent({
         disabled={!!task.deletedAt}
         onCheckedChange={(checked) => (checked ? actions?.complete(task) : actions?.markNotDone(task))}
       />
-      <button
-        type="button"
-        onClick={() => actions?.open(task)}
-        aria-describedby={metaId}
-        className="flex min-h-row min-w-0 flex-1 items-center gap-2 rounded-sm text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-      >
-        <span data-slot="task-title" className={cn('min-w-0 flex-1 truncate text-body optical-center', done && 'text-muted-foreground line-through')}>{task.title}</span>
-      </button>
+      {editableTitle ? (
+        <div className="relative flex min-h-row min-w-0 flex-1 items-center">
+          <button
+            type="button"
+            aria-label={task.title}
+            aria-describedby={metaId}
+            onClick={() => actions?.open(task)}
+            className="absolute inset-0 rounded-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+          />
+          <InlineTitle task={task} className={cn(done && 'text-muted-foreground line-through')} />
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => actions?.open(task)}
+          aria-describedby={metaId}
+          className="flex min-h-row min-w-0 flex-1 items-center gap-2 rounded-sm text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+        >
+          <span data-slot="task-title" className={cn('min-w-0 flex-1 truncate text-body optical-center', done && 'text-muted-foreground line-through')}>{task.title}</span>
+        </button>
+      )}
       {hover && <QuickActions task={task} actions={actions} rowActions={rowActions} />}
       <TrailingMeta id={metaId} task={task} today={today} onClick={() => actions?.open(task)} />
     </div>
@@ -326,10 +342,11 @@ export function TaskRowContent({
 export function TaskRow(props: TaskRowProps) {
   const rowActions = actionsFor(props.task, props.today, props.context);
   const touch = useMediaQuery('(pointer: coarse)');
+  const wide = useMediaQuery(WIDE_QUERY);
   if (touch) return <SwipeableRow {...props} rowActions={rowActions} />;
   return (
     <RowContextMenu task={props.task} rowActions={rowActions} today={props.today}>
-      <TaskRowContent {...props} rowActions={rowActions} hover />
+      <TaskRowContent {...props} rowActions={rowActions} hover editableTitle={wide} />
     </RowContextMenu>
   );
 }
