@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { findTask, openBoard, reseed, row, showTask, titlesIn } from './helpers';
+import { findTask, openBoard, reseed, row, section, showTask, titlesIn } from './helpers';
 
 test.beforeEach(async ({ page }) => {
   reseed();
@@ -44,4 +44,25 @@ test('swipe left shows the row buttons; Due opens the quick picks', async ({ pag
   await page.locator('[data-slot=swipe-row][data-open=left]').getByRole('button', { name: 'Due', exact: true }).tap();
   await page.locator('[data-slot=preset-sheet] [data-preset=nextMonday]').tap();
   await expect.poll(() => showTask('Return library books').task.dueDate).toBe('2026-11-23');
+});
+
+test('sections bleed to the screen edges, and section titles line up with task titles', async ({ page }) => {
+  const width = page.viewportSize()!.width;
+  const card = (await section(page, 'ready').locator('[data-drop-target] > div').boundingBox())!;
+  expect(card.x).toBe(0);
+  expect(card.width).toBe(width);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width);
+
+  const taskTitle = (await section(page, 'ready').locator('[data-slot=task-title]').first().boundingBox())!.x;
+  const expanded = (await section(page, 'ready').getByText('Ready', { exact: true }).boundingBox())!.x;
+  const collapsed = (await section(page, 'upcoming').getByText('Upcoming', { exact: true }).boundingBox())!.x;
+  expect(expanded).toBeCloseTo(taskTitle, 0);
+  expect(collapsed).toBeCloseTo(taskTitle, 0);
+});
+
+test('rows leave quick actions to the swipe buttons, so the title has the room', async ({ page }) => {
+  for (const title of ['Twitter litigation claim', 'Plumber quote for kitchen sink', 'Renew passport']) {
+    await expect(row(page, title).getByRole('button')).toHaveCount(1);
+    await expect(row(page, title).getByRole('button')).toHaveAccessibleName(new RegExp(`^${title}`));
+  }
 });

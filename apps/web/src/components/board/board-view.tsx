@@ -63,8 +63,25 @@ export function RowList({ children, className }: { children: ReactNode; classNam
   );
 }
 
+const FOLD_MOTION = 'duration-200 ease-out motion-reduce:transition-none';
+
 function Caret({ open }: { open: boolean }) {
-  return <Icon name="expand" weight="bold" className={cn('size-3 transition-transform', open && 'rotate-90')} />;
+  return <Icon name="expand" weight="bold" className={cn('size-3 transition-transform', FOLD_MOTION, open && 'rotate-90')} />;
+}
+
+/**
+ * Collapsible content that folds up into the header above it. The panel's height and the content's
+ * offset share one duration and easing, so the content's bottom edge tracks the panel's while the top
+ * slides up under the header.
+ */
+function Fold({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <CollapsibleContent
+      className={cn('h-(--collapsible-panel-height) overflow-hidden transition-[height] data-starting-style:h-0 data-ending-style:h-0', FOLD_MOTION, className)}
+    >
+      <div className={cn('transition-transform [[data-ending-style]>&]:-translate-y-full [[data-starting-style]>&]:-translate-y-full', FOLD_MOTION)}>{children}</div>
+    </CollapsibleContent>
+  );
 }
 
 export interface BoardViewProps {
@@ -132,11 +149,13 @@ function SectionView({
 
   return (
     <Collapsible open={open} onOpenChange={setOpen} data-section={section.id} className="flex flex-col">
-      {/* The caret sits in the rows' checkbox column so the title starts where task titles start. Collapsed, the header is a full-width card row. */}
+      {/* The caret sits in the rows' checkbox column so the title starts where task titles start. Collapsed, the header is a full-width card row.
+          It is a row tall either way, so the title and caret stay put when the section opens or closes. */}
       <CollapsibleTrigger
         className={cn(
-          'flex items-center gap-row-gap px-row-x text-left text-subhead font-semibold text-section-header outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
-          open ? 'h-section-header self-start rounded-md' : 'min-h-row w-full rounded-xl bg-card hover:bg-muted',
+          'flex min-h-row w-full items-center gap-row-gap rounded-xl max-sm:rounded-none px-row-x text-left text-subhead font-semibold text-section-header outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50',
+          FOLD_MOTION,
+          !open && 'bg-card hover:bg-card-hover',
         )}
       >
         <span className="flex size-checkbox shrink-0 items-center justify-center">
@@ -149,9 +168,10 @@ function SectionView({
           </span>
         </span>
       </CollapsibleTrigger>
-      <CollapsibleContent>
-        <div ref={setNodeRef} className={cn('rounded-xl', isOver && 'ring-2 ring-ring')} data-drop-target={section.id}>
-          <RowList>
+      {/* The 2px bleed keeps the drop target's ring inside the panel's clip without moving anything. */}
+      <Fold className="pointer-events-none -m-0.5 p-0.5 *:pointer-events-auto">
+        <div ref={setNodeRef} className={cn('rounded-xl max-sm:rounded-none', isOver && 'ring-2 ring-ring max-sm:ring-inset')} data-drop-target={section.id}>
+          <RowList className="max-sm:rounded-none">
             {reorderable ? (
               <SortableContext id={section.id} items={section.tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
                 {rows}
@@ -173,16 +193,16 @@ function SectionView({
                   </span>
                   <Caret open={laterOpen} />
                 </CollapsibleTrigger>
-                <CollapsibleContent>
+                <Fold>
                   <div className="*:relative [&>*]:before:absolute [&>*]:before:top-0 [&>*]:before:right-0 [&>*]:before:left-separator-inset [&>*]:before:z-10 [&>*]:before:h-px [&>*]:before:bg-border">
                     {later.map((t) => Row(t, draggableKind))}
                   </div>
-                </CollapsibleContent>
+                </Fold>
               </Collapsible>
             )}
           </RowList>
         </div>
-      </CollapsibleContent>
+      </Fold>
     </Collapsible>
   );
 }
@@ -248,7 +268,8 @@ export function BoardView({ board, positions, ...props }: BoardViewProps) {
 
   const sections = board.sections.filter((s) => s.count > 0 || (active && REORDERABLE.includes(s.id)));
   const content = (
-    <div className="flex flex-col gap-section-gap" data-slot="board">
+    // On phones the sections bleed to the screen edges; headers and rows keep their own padding, so titles still line up.
+    <div className="flex flex-col gap-section-gap max-sm:-mx-row-x max-sm:overflow-x-clip" data-slot="board">
       {sections.map((section) => (
         <SectionView key={section.id} section={section} dnd={dnd} dragging={!!active} {...props} />
       ))}
