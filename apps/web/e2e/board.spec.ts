@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { cliJson, findTask, openBoard, reseed, row, section, showTask, titlesIn, TODAY, type CliBoard } from './helpers';
+import { cli, cliJson, findTask, openBoard, reseed, row, section, showTask, titlesIn, TODAY, type CliBoard } from './helpers';
 
 test.beforeEach(async ({ page }) => {
   reseed();
@@ -38,6 +38,18 @@ test('a collapsed section expands from anywhere in its row', async ({ page }) =>
   const board = (await page.locator('[data-slot=board]').boundingBox())!;
   await page.mouse.click(board.x + board.width - 20, box.y + box.height / 2);
   await expect(section(page, 'upcoming').locator('[data-slot=task-row]').first()).toBeVisible();
+});
+
+test('Upcoming rows show the due date and flag but not the start date, which stays in the sheet', async ({ page }) => {
+  cli('edit', 'Winterize the sprinkler system', '--flag');
+  await page.reload();
+  await section(page, 'upcoming').getByRole('button', { name: /^Upcoming/ }).click();
+  const upcoming = row(page, 'Winterize the sprinkler system');
+  await expect(upcoming).toContainText('Dec 2');
+  await expect(upcoming.getByLabel('Flagged')).toBeVisible();
+  await expect(upcoming).not.toContainText('Nov 25');
+  await upcoming.click();
+  await expect(page.locator('[data-slot=task-editor]').getByRole('button', { name: /^Start/ })).toContainText('Wed, Nov 25');
 });
 
 test('complete with undo', async ({ page }) => {
