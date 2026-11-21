@@ -1,5 +1,5 @@
-import { expect, test, type Page } from '@playwright/test';
-import { cliJson, findTask, openBoard, reseed, row, section, showTask, titlesIn, TODAY, type CliBoard } from './helpers';
+import { expect, test, type Locator, type Page } from '@playwright/test';
+import { cli, cliJson, findTask, openBoard, reseed, row, section, showTask, titlesIn, TODAY, type CliBoard } from './helpers';
 
 test.beforeEach(async ({ page }) => {
   reseed();
@@ -92,6 +92,18 @@ test('a section folds and unfolds without its heading moving, and snaps with red
   expect(new Set([...collapse.places, ...reduced.places]).size).toBe(1);
 });
 
+test('Upcoming rows show the due date and flag but not the start date, which stays in the sheet', async ({ page }) => {
+  cli('edit', 'Winterize the sprinkler system', '--flag');
+  await page.reload();
+  await section(page, 'upcoming').getByRole('button', { name: /^Upcoming/ }).click();
+  const upcoming = row(page, 'Winterize the sprinkler system');
+  await expect(upcoming).toContainText('Dec 2');
+  await expect(upcoming.getByLabel('Flagged')).toBeVisible();
+  await expect(upcoming).not.toContainText('Nov 25');
+  await upcoming.click();
+  await expect(page.locator('[data-slot=task-editor]').getByRole('button', { name: /^Start/ })).toContainText('Wed, Nov 25');
+});
+
 test('complete with undo', async ({ page }) => {
   await page.getByRole('checkbox', { name: 'Complete Buy new watch band' }).click();
   await expect(section(page, 'ready').getByText('Buy new watch band')).toHaveCount(0);
@@ -130,19 +142,40 @@ test('status change to Waiting asks when to hide it, with Don\'t hide by default
   await expect(section(page, 'waiting').getByText('Show 3 hidden until later')).toBeVisible();
 });
 
+test('Ready rows offer Move to Waiting, not Hide until, and it opens the Hide until picker', async ({ page }) => {
+  const watch = row(page, 'Buy new watch band');
+  await watch.click({ button: 'right' });
+  await expect(page.getByRole('menuitem', { name: 'Move to Waiting' })).toBeVisible();
+  await expect(page.getByRole('menuitem', { name: 'Hide until' })).toHaveCount(0);
+  await page.keyboard.press('Escape');
+
+  await watch.hover();
+  await expect(watch.getByRole('button', { name: 'Hide until' })).toHaveCount(0);
+  await watch.getByRole('button', { name: 'Move to Waiting' }).click();
+  const pane = page.locator('[data-slot=wait-pane]');
+  await expect(pane.locator('[data-slot=dialog-title]')).toHaveText('Hide until');
+  await expect(pane.locator('[data-preset=noDate]')).toHaveAttribute('data-default', 'true');
+  await pane.locator('[data-preset=noDate]').click();
+  await expect(section(page, 'waiting').getByText('Buy new watch band')).toBeVisible();
+  await expect.poll(() => showTask('Buy new watch band').task).toMatchObject({ status: 'waiting', startDate: null });
+});
+
 test('Waiting row buttons show what they do', async ({ page }) => {
   const plumber = row(page, 'Plumber quote for kitchen sink');
   const tip = page.locator('[data-slot=tooltip-content][data-open]');
+  await plumber.hover();
   await plumber.getByRole('button', { name: 'Hide until' }).hover();
   await expect(tip).toHaveText('Hide until a later date');
   await plumber.getByRole('button', { name: 'Hide until' }).click();
   await expect(page.locator('[data-slot=preset-panel]')).toBeVisible();
   await page.keyboard.press('Escape');
+  await expect(page.locator('[data-slot=preset-panel]')).toHaveCount(0);
   await plumber.getByRole('button', { name: 'Move to In Progress' }).hover();
   await expect(tip).toHaveText('Move to In Progress');
 });
 
 test('Move to In Progress on a Waiting task', async ({ page }) => {
+  await row(page, 'Plumber quote for kitchen sink').hover();
   await row(page, 'Plumber quote for kitchen sink').getByRole('button', { name: 'Move to In Progress' }).click();
   await expect(section(page, 'in_progress').getByText('Plumber quote for kitchen sink')).toBeVisible();
   expect(showTask('Plumber quote for kitchen sink').task.status).toBe('in_progress');
@@ -150,6 +183,7 @@ test('Move to In Progress on a Waiting task', async ({ page }) => {
 
 test('leaving Waiting when the hide date is after the due date only offers clearing it', async ({ page }) => {
   const title = 'Contractor sign-off on deck permit';
+  await row(page, title).hover();
   await row(page, title).getByRole('button', { name: 'Move to In Progress' }).click();
   const prompt = page.locator('[data-slot=start-decision-prompt]');
   await expect(prompt.locator('[data-slot=dialog-title]')).toHaveText('Move and clear start date?');
@@ -173,6 +207,54 @@ test('leaving Waiting with a future hide date before the due date still offers k
   await expect(prompt.locator('[data-answer=set]')).toBeVisible();
   await prompt.getByRole('button', { name: 'Cancel' }).click();
   expect(showTask(title).task).toMatchObject({ status: 'waiting', startDate: '2026-11-21' });
+});
+
+/** Fully on screen. Quick actions at rest are visually hidden but still in the tab order. */
+const shown = (l: Locator) => expect(l).toBeInViewport({ ratio: 1 });
+const notShown = (l: Locator) => expect(l).not.toBeInViewport({ ratio: 1 });
+
+test('row quick actions show on hover, just left of the dates and flag, in every section', async ({ page }) => {
+  for (const { title, last, meta } of [
+    { title: 'Twitter litigation claim', last: 'Delete', meta: 'Nov 28' },
+    { title: 'Reimbursement for conference travel', last: 'Move to In Progress', meta: 'Mon' },
+    { title: 'Renew passport', last: 'Delete', meta: 'Nov 15' },
+  ]) {
+    const target = row(page, title);
+    const button = target.getByRole('button', { name: last, exact: true });
+    await page.mouse.move(0, 0);
+    await notShown(button);
+    await target.hover();
+    await shown(button);
+    const b = (await button.boundingBox())!;
+    const m = (await target.getByText(meta, { exact: true }).boundingBox())!;
+    expect(b.x + b.width).toBeLessThan(m.x);
+  }
+
+  const plumber = row(page, 'Plumber quote for kitchen sink');
+  await plumber.hover();
+  const r = (await plumber.boundingBox())!;
+  const b = (await plumber.getByRole('button', { name: 'Move to In Progress' }).boundingBox())!;
+  expect(r.x + r.width - (b.x + b.width)).toBeLessThan(20);
+});
+
+test('keyboard focus shows a row\'s quick actions and Tab reaches them', async ({ page }) => {
+  const passport = row(page, 'Renew passport');
+  const due = passport.getByRole('button', { name: 'Due', exact: true });
+  await page.mouse.move(0, 0);
+  await notShown(due);
+  await passport.getByRole('button', { name: /^Renew passport/ }).focus();
+  await page.keyboard.press('Shift+Tab');
+  await expect(passport.getByRole('checkbox')).toBeFocused();
+  await shown(due);
+  await page.keyboard.press('Tab');
+  await page.keyboard.press('Tab');
+  await expect(due).toBeFocused();
+  await shown(due);
+  await page.keyboard.press('Tab');
+  await page.keyboard.press('Tab');
+  await expect(passport.getByRole('button', { name: 'Delete' })).toBeFocused();
+  await page.keyboard.press('Tab');
+  await notShown(due);
 });
 
 test('drag to reorder within Ready persists', async ({ page }) => {
@@ -258,6 +340,35 @@ test('task sheet edits save', async ({ page }) => {
     description: '- WD-40\n- hinge pins\ndone',
     flagged: true,
   });
+});
+
+test('row titles edit in place: Enter and blur save, Escape cancels', async ({ page }) => {
+  const title = row(page, 'Fix squeaky closet door').getByRole('textbox', { name: 'Title' });
+  await title.click();
+  await expect(title).toBeFocused();
+  await expect(page.locator('[data-slot=task-editor]')).toHaveCount(0);
+  await page.keyboard.press('End');
+  await page.keyboard.type(' hinge');
+  await page.keyboard.press('Enter');
+  await expect(title).not.toBeFocused();
+  await expect.poll(() => showTask('Fix squeaky closet door hinge').task.title).toBe('Fix squeaky closet door hinge');
+
+  await title.click();
+  await page.keyboard.press('End');
+  await page.keyboard.type(' now');
+  await page.keyboard.press('Escape');
+  await expect(title).toHaveText('Fix squeaky closet door hinge');
+  expect(showTask('Fix squeaky closet door hinge').task.title).toBe('Fix squeaky closet door hinge');
+
+  await title.click();
+  await page.keyboard.press('ControlOrMeta+a');
+  await page.keyboard.type('Oil the closet hinges');
+  await row(page, 'Buy new watch band').getByRole('textbox', { name: 'Title' }).click();
+  await expect.poll(() => findTask('Oil the closet hinges')?.task.title).toBe('Oil the closet hinges');
+  expect(findTask('Fix squeaky closet door')).toBeNull();
+
+  await row(page, 'Oil the closet hinges').click();
+  await expect(page.locator('[data-slot=task-editor]').getByRole('textbox', { name: 'Title' })).toHaveValue('Oil the closet hinges');
 });
 
 test('search, then delete and restore from Trash', async ({ page }) => {
