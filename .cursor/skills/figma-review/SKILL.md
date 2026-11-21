@@ -15,7 +15,11 @@ Figma file: https://www.figma.com/design/T2uWdMZE3ptRelGfMFCMlN
 - Make a **new page** named `YYYY-MM-DD: {description of phase or PRs}`, and add the same date as a canvas title on the page. **Never edit existing pages.**
 - Put **one image per state**, with a text label directly above it that matches the image name, and group the images by the areas in `test-cases.md`.
 
-## 1. Run the app
+## 1. Check the list with Dave
+
+Read `test-cases.md` before capturing anything. Collect every entry that's ambiguous: the state is unclear, the data or setup it needs isn't in the seed, or it doesn't say which layout or theme to use. Ask Dave about all of them in one question (use `AskQuestion` where the choices are discrete). Don't guess. Fold his answers back into `test-cases.md` so the next round doesn't have to ask again.
+
+## 2. Run the app
 
 ```bash
 npm run db:start
@@ -25,7 +29,7 @@ npm run web        # http://127.0.0.1:5179
 
 Open the board at `http://127.0.0.1:5179/?today=2026-11-18`. For PR reviews, check out or merge the PR branches first, and reseed before each run so earlier interactions don't leak into later shots.
 
-## 2. Capture PNGs with Playwright
+## 3. Capture PNGs with Playwright
 
 Write a throwaway Playwright script (Chrome; `apps/web/scripts/screenshots.ts` and `apps/web/e2e/helpers.ts` show the selectors and setup) that captures every state listed in `test-cases.md`:
 
@@ -36,15 +40,17 @@ Write a throwaway Playwright script (Chrome; `apps/web/scripts/screenshots.ts` a
 - For offline, use `context.setOffline(true)` against `npm run preview:local -w @app/web`. That build has the service worker; the dev server doesn't.
 - Name each file after its state title, for example `Search: query “pa” with results – desktop 1440, dark`.
 
-Review the PNGs before uploading. Drop or retake any that show the wrong state.
+Review the PNGs before uploading, and retake any that show the wrong state.
 
-## 3. Place them in Figma
+If a state can't be captured, stop and ask Dave how to proceed rather than skipping it silently. Typical options are a different setup, skipping it, or a note on the page in its place. Batch these into one question where possible: capture everything else first, then ask about all the blocked states together.
+
+## 4. Place them in Figma
 
 1. `create_session` with the file key, then use `use_figma` (read the `figma-use` skill first) to create the new page, the date canvas title, and one labeled section per area.
 2. `upload_assets` with `currentPageId` set to the new page, POSTing each PNG as `image/png`. Each PNG lands as a frame with an image fill.
 3. With `use_figma`, name each image frame after its state, put the label text above it, and lay the frames out in rows inside their area section.
 4. Check the page with `get_screenshot`, then share the page link.
 
-## 4. Report
+## 5. Report
 
-Reply with the page link, the states captured, and every state listed in `test-cases.md` that **couldn't be captured**, with the reason (for example, a native browser tooltip or a feature not built yet). Add any new states the round introduced to `test-cases.md`.
+Reply with the page link, the states captured, and every state listed in `test-cases.md` that was **skipped or captured differently**. Give the reason (for example, a native browser tooltip or a feature not built yet) and Dave's decision for each. Add any new states the round introduced to `test-cases.md`.
