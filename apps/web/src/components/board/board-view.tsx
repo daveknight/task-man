@@ -155,7 +155,7 @@ function SectionView({
         className={cn(
           'flex min-h-row w-full items-center gap-row-gap rounded-xl px-row-x text-left text-subhead font-semibold text-section-header outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50',
           FOLD_MOTION,
-          !open && 'bg-card hover:bg-muted',
+          !open && 'bg-card hover:bg-card-hover',
         )}
       >
         <span className="flex size-checkbox shrink-0 items-center justify-center">

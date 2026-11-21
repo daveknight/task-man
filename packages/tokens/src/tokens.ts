@@ -33,6 +33,11 @@ export const colors = {
   background: apple.groupedBackground,
   foreground: apple.label,
   card: apple.secondaryGroupedBackground,
+  /**
+   * A card under the pointer, such as a collapsed section header. Not an Apple color: light is halfway
+   * from the card to the page, so it stays distinct from both; dark is halfway from the card to gray5.
+   */
+  'card-hover': { light: '#F9F9FB', dark: '#242426' },
   'card-foreground': apple.label,
   popover: { light: '#FFFFFF', dark: '#2C2C2E' },
   'popover-foreground': apple.label,
@@ -90,6 +95,8 @@ export const textPairs: readonly [text: ColorRole, on: ColorRole][] = [
   ['secondary-foreground', 'secondary'],
   ['accent-foreground', 'accent'],
   ['section-header', 'background'],
+  ['section-header', 'card'],
+  ['section-header', 'card-hover'],
   ['sidebar-foreground', 'sidebar'],
   ['notice-foreground', 'notice'],
 ];
@@ -101,6 +108,7 @@ export const textPairs: readonly [text: ColorRole, on: ColorRole][] = [
  */
 export const exactApplePairs: readonly [text: ColorRole, on: ColorRole][] = [
   ['muted-foreground', 'card'],
+  ['muted-foreground', 'card-hover'],
   ['muted-foreground', 'background'],
   ['muted-foreground', 'muted'],
   ['muted-foreground', 'popover'],
