@@ -290,6 +290,35 @@ test('task sheet edits save', async ({ page }) => {
   });
 });
 
+test('row titles edit in place: Enter and blur save, Escape cancels', async ({ page }) => {
+  const title = row(page, 'Fix squeaky closet door').getByRole('textbox', { name: 'Title' });
+  await title.click();
+  await expect(title).toBeFocused();
+  await expect(page.locator('[data-slot=task-editor]')).toHaveCount(0);
+  await page.keyboard.press('End');
+  await page.keyboard.type(' hinge');
+  await page.keyboard.press('Enter');
+  await expect(title).not.toBeFocused();
+  await expect.poll(() => showTask('Fix squeaky closet door hinge').task.title).toBe('Fix squeaky closet door hinge');
+
+  await title.click();
+  await page.keyboard.press('End');
+  await page.keyboard.type(' now');
+  await page.keyboard.press('Escape');
+  await expect(title).toHaveText('Fix squeaky closet door hinge');
+  expect(showTask('Fix squeaky closet door hinge').task.title).toBe('Fix squeaky closet door hinge');
+
+  await title.click();
+  await page.keyboard.press('ControlOrMeta+a');
+  await page.keyboard.type('Oil the closet hinges');
+  await row(page, 'Buy new watch band').getByRole('textbox', { name: 'Title' }).click();
+  await expect.poll(() => findTask('Oil the closet hinges')?.task.title).toBe('Oil the closet hinges');
+  expect(findTask('Fix squeaky closet door')).toBeNull();
+
+  await row(page, 'Oil the closet hinges').click();
+  await expect(page.locator('[data-slot=task-editor]').getByRole('textbox', { name: 'Title' })).toHaveValue('Oil the closet hinges');
+});
+
 test('search, then delete and restore from Trash', async ({ page }) => {
   await page.getByRole('button', { name: 'Search', exact: true }).click();
   await page.getByPlaceholder('Search tasks').fill('passport');
