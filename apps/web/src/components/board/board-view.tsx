@@ -63,7 +63,7 @@ export function RowList({ children, className }: { children: ReactNode; classNam
   );
 }
 
-const FOLD_MOTION = 'duration-200 ease-out motion-reduce:transition-none';
+export const FOLD_MOTION = 'duration-200 ease-out motion-reduce:transition-none';
 
 function Caret({ open }: { open: boolean }) {
   return <Icon name="expand" weight="bold" className={cn('size-3 transition-transform', FOLD_MOTION, open && 'rotate-90')} />;

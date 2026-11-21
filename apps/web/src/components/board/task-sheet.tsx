@@ -22,13 +22,10 @@ import { useOnline } from '@/lib/online';
 import { useMediaQuery } from '@/lib/use-media-query';
 import { cn } from '@/lib/utils';
 import { useBoardActions } from './board-actions';
-import { RowList } from './board-view';
+import { FOLD_MOTION, RowList } from './board-view';
 import { DatePicker } from './preset-panel';
 import { PresetPopover } from './task-row';
 import { WIDE_QUERY } from './surface';
-
-/** At this width and up the sheet is a permanent second pane beside the board. */
-export const TWO_PANE_QUERY = '(min-width: 1024px)';
 
 const STATUS: Record<Status, { label: string; icon: IconMeaning }> = {
   open: { label: 'Open', icon: 'complete' },
@@ -300,17 +297,41 @@ export function TaskEditor({ task, today, onClose }: { task: Task; today: ISODat
   );
 }
 
-/** The permanent detail pane beside the board on wide screens. */
+/**
+ * The detail pane beside the board on wide screens. It slides in from the right when a task is selected
+ * and out again when the selection clears, showing the last task meanwhile. Nothing renders when closed.
+ */
 export function TaskPane({ task, today, onClose }: { task: Task | null; today: ISODate; onClose: () => void }) {
+  const [shown, setShown] = useState(task);
+  if (task && task !== shown) setShown(task);
+  const open = !!task;
+  const [expanded, setExpanded] = useState(false);
+  const ref = useRef<HTMLElement>(null);
+
+  useLayoutEffect(() => {
+    // Commit the collapsed width first, so a freshly mounted pane has something to transition from.
+    if (open) ref.current?.getBoundingClientRect();
+    setExpanded(open);
+  }, [open, !!shown]);
+
+  useLayoutEffect(() => {
+    // Reduced motion has no transition to end, so there's no transitionend to wait for.
+    if (expanded || open || !ref.current) return;
+    const { transitionProperty, transitionDuration } = getComputedStyle(ref.current);
+    if (transitionProperty === 'none' || parseFloat(transitionDuration) === 0) setShown(null);
+  }, [expanded, open]);
+
+  if (!shown) return null;
   return (
-    <aside className="sticky top-0 flex h-dvh w-[400px] shrink-0 flex-col border-l border-border bg-background" data-slot="task-pane">
-      {task ? (
-        <TaskEditor key={task.id} task={task} today={today} onClose={onClose} />
-      ) : (
-        <div className="flex flex-1 flex-col items-center justify-center p-8 text-center text-muted-foreground">
-          <p className="text-body">Select a task to see its details</p>
-        </div>
-      )}
+    <aside
+      ref={ref}
+      data-slot="task-pane"
+      className={cn('sticky top-0 h-dvh shrink-0 overflow-hidden bg-background transition-[width]', FOLD_MOTION, expanded ? 'w-[400px]' : 'w-0')}
+      onTransitionEnd={(e) => e.target === e.currentTarget && !open && setShown(null)}
+    >
+      <div className="flex h-full w-[400px] flex-col border-l border-border" inert={!open}>
+        <TaskEditor key={shown.id} task={shown} today={today} onClose={onClose} />
+      </div>
     </aside>
   );
 }

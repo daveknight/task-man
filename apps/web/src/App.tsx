@@ -1,9 +1,10 @@
 import { APP_NAME, buildBoard, type Task } from '@app/core';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BoardActionsProvider } from './components/board/board-actions.tsx';
 import { BoardView, RowList } from './components/board/board-view.tsx';
 import { SearchDialog } from './components/board/search-dialog.tsx';
-import { TaskPane, TaskSheet, TWO_PANE_QUERY } from './components/board/task-sheet.tsx';
+import { TWO_PANE_QUERY } from './components/board/surface.tsx';
+import { TaskPane, TaskSheet } from './components/board/task-sheet.tsx';
 import { AddTaskFab, FAB_CLEARANCE, Toolbar } from './components/board/toolbar.tsx';
 import { Icon } from './components/icon.tsx';
 import { Toaster } from './components/ui/sonner.tsx';
@@ -62,6 +63,7 @@ export function App() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [adding, setAdding] = useState(false);
   const [searching, setSearching] = useState(false);
+  const appRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     document.title = APP_NAME;
@@ -77,6 +79,19 @@ export function App() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, []);
+
+  // Floating layers (menus, dialogs, toasts) are portaled outside the app container, so they never count as off the list.
+  const paneOpen = twoPane && !!selectedId;
+  useEffect(() => {
+    if (!paneOpen) return;
+    const onPointerDown = (e: PointerEvent) => {
+      const target = e.target as Element;
+      if (e.button !== 0 || !e.isPrimary || !appRef.current?.contains(target) || target.closest('[data-slot=task-row], [data-slot=task-pane]')) return;
+      setSelectedId(null);
+    };
+    document.addEventListener('pointerdown', onPointerDown, true);
+    return () => document.removeEventListener('pointerdown', onPointerDown, true);
+  }, [paneOpen]);
 
   const data = snapshot.data;
   const board = useMemo(
@@ -100,7 +115,7 @@ export function App() {
 
   return (
     <BoardActionsProvider today={today} writes={writes} onOpen={open}>
-      <div className="flex min-h-dvh">
+      <div ref={appRef} className="flex min-h-dvh">
         <main className={`mx-auto flex min-h-dvh w-full max-w-2xl min-w-0 flex-col px-row-x pb-[max(2rem,env(safe-area-inset-bottom))] ${view === 'board' ? FAB_CLEARANCE : ''}`}>
           {view === 'trash' ? (
             <Toolbar title="Trash" subtitle="Deleted tasks are removed for good after 30 days." onBack={() => setView('board')} />
