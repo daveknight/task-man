@@ -21,7 +21,7 @@ import { cn } from '@/lib/utils';
 import { useBoardActions, type BoardActions } from './board-actions';
 import { InlineTitle } from './inline-title';
 import { PresetPanel } from './preset-panel';
-import { WIDE_QUERY } from './surface';
+import { TWO_PANE_QUERY } from './surface';
 import { SwipeableRow } from './swipe-row';
 
 export interface TaskRowProps {
@@ -340,11 +340,11 @@ export function TaskRowContent({
 export function TaskRow(props: TaskRowProps) {
   const rowActions = actionsFor(props.task, props.today, props.context);
   const touch = useMediaQuery('(pointer: coarse)');
-  const wide = useMediaQuery(WIDE_QUERY);
+  const twoPane = useMediaQuery(TWO_PANE_QUERY);
   if (touch) return <SwipeableRow {...props} rowActions={rowActions} />;
   return (
     <RowContextMenu task={props.task} rowActions={rowActions} today={props.today}>
-      <TaskRowContent {...props} rowActions={rowActions} hover editableTitle={wide} />
+      <TaskRowContent {...props} rowActions={rowActions} hover editableTitle={twoPane} />
     </RowContextMenu>
   );
 }

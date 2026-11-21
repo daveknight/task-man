@@ -33,11 +33,11 @@ export function InlineTitle({ task, className }: { task: Task; className?: strin
       role="textbox"
       aria-label="Title"
       contentEditable={editable ? 'plaintext-only' : false}
-      // Click to edit; keyboard users Tab to the row's open button and edit in the sheet.
+      // Click to select the row and edit; keyboard users Tab to the row's open button and edit in the pane.
       tabIndex={-1}
       suppressContentEditableWarning
       spellCheck={false}
-      onClick={() => !editable && actions?.open(task)}
+      onClick={() => actions?.open(task)}
       // Once editing, a drag selects text and a right-click gets the browser's menu, not the row's.
       onMouseDown={(e) => focused() && e.stopPropagation()}
       onContextMenu={(e) => focused() && e.stopPropagation()}
