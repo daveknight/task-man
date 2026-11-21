@@ -65,11 +65,11 @@ One shared function in `core`, `actionsFor(task, today)`, picks the actions from
 
 | Task is in | Date button presets | State button | 
 |---|---|---|
-| Ready | Due: Today, Tomorrow, Next Monday, Pick date, Clear | **Move to Waiting** (opens the Hide until picker) |
+| Ready | Due: Today, Tomorrow, Next Monday, Pick date, No due date | **Move to Waiting** (opens the Hide until picker) |
 | In Progress | Due: same as Ready | **Move to Waiting** |
 | Waiting, needs follow-up | Due: same as Ready | **Hide until** (Tomorrow, Saturday, 1 week, Pick date, Don't hide), **Move to In Progress** |
 | Hidden until later | Hide until: Tomorrow, +3 days, +1 week, Pick date, **Now** (makes it need follow-up) | **Move to In Progress** |
-| Upcoming | Start: **Start today** (moves it to Ready), +1 week, Next month, Pick date, Clear | **Start now** (In Progress) |
+| Upcoming | Start: **Start today** (moves it to Ready), +1 week, Next month, Pick date, No start date | **Start now** (In Progress) |
 | Completed (when shown) | none | **Mark not done** |
 | Trash | none | **Restore** (Delete becomes **Delete forever**) |
 
