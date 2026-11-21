@@ -78,6 +78,24 @@ test('status change to Waiting asks when to hide it, with Don\'t hide by default
   await expect(section(page, 'waiting').getByText('Show 3 hidden until later')).toBeVisible();
 });
 
+test('Ready rows offer Move to Waiting, not Hide until, and it opens the Hide until picker', async ({ page }) => {
+  const watch = row(page, 'Buy new watch band');
+  await watch.click({ button: 'right' });
+  await expect(page.getByRole('menuitem', { name: 'Move to Waiting' })).toBeVisible();
+  await expect(page.getByRole('menuitem', { name: 'Hide until' })).toHaveCount(0);
+  await page.keyboard.press('Escape');
+
+  await watch.hover();
+  await expect(watch.getByRole('button', { name: 'Hide until' })).toHaveCount(0);
+  await watch.getByRole('button', { name: 'Move to Waiting' }).click();
+  const pane = page.locator('[data-slot=wait-pane]');
+  await expect(pane.locator('[data-slot=dialog-title]')).toHaveText('Hide until');
+  await expect(pane.locator('[data-preset=noDate]')).toHaveAttribute('data-default', 'true');
+  await pane.locator('[data-preset=noDate]').click();
+  await expect(section(page, 'waiting').getByText('Buy new watch band')).toBeVisible();
+  await expect.poll(() => showTask('Buy new watch band').task).toMatchObject({ status: 'waiting', startDate: null });
+});
+
 test('Waiting row buttons show what they do', async ({ page }) => {
   const plumber = row(page, 'Plumber quote for kitchen sink');
   const tip = page.locator('[data-slot=tooltip-content][data-open]');
