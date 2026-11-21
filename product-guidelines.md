@@ -29,4 +29,4 @@ Design guidelines for TaskMan, drawn from Dave's Figma review feedback and sign-
 ## Color and icons
 
 14. **Use Apple's system colors exactly,** including the documented contrast exemptions.
-15. **Row icons use the text color, and turn blue on hover.** No extra badges, such as Follow up.
+15. **Quick action icons in a task list row carry no color until you hover them.** On hover they take their action's color (today: Due orange, Move to Waiting blue, Delete red). This applies only to the quick actions; the flag, date icons, chevrons, toolbar and pane icons carry status or are chrome. No extra badges, such as Follow up.
