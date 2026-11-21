@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 import { cli, cliJson, findTask, openBoard, reseed, row, section, showTask, titlesIn, TODAY, type CliBoard } from './helpers';
 
 test.beforeEach(async ({ page }) => {
@@ -90,19 +90,40 @@ test('status change to Waiting asks when to hide it, with Don\'t hide by default
   await expect(section(page, 'waiting').getByText('Show 3 hidden until later')).toBeVisible();
 });
 
+test('Ready rows offer Move to Waiting, not Hide until, and it opens the Hide until picker', async ({ page }) => {
+  const watch = row(page, 'Buy new watch band');
+  await watch.click({ button: 'right' });
+  await expect(page.getByRole('menuitem', { name: 'Move to Waiting' })).toBeVisible();
+  await expect(page.getByRole('menuitem', { name: 'Hide until' })).toHaveCount(0);
+  await page.keyboard.press('Escape');
+
+  await watch.hover();
+  await expect(watch.getByRole('button', { name: 'Hide until' })).toHaveCount(0);
+  await watch.getByRole('button', { name: 'Move to Waiting' }).click();
+  const pane = page.locator('[data-slot=wait-pane]');
+  await expect(pane.locator('[data-slot=dialog-title]')).toHaveText('Hide until');
+  await expect(pane.locator('[data-preset=noDate]')).toHaveAttribute('data-default', 'true');
+  await pane.locator('[data-preset=noDate]').click();
+  await expect(section(page, 'waiting').getByText('Buy new watch band')).toBeVisible();
+  await expect.poll(() => showTask('Buy new watch band').task).toMatchObject({ status: 'waiting', startDate: null });
+});
+
 test('Waiting row buttons show what they do', async ({ page }) => {
   const plumber = row(page, 'Plumber quote for kitchen sink');
   const tip = page.locator('[data-slot=tooltip-content][data-open]');
+  await plumber.hover();
   await plumber.getByRole('button', { name: 'Hide until' }).hover();
   await expect(tip).toHaveText('Hide until a later date');
   await plumber.getByRole('button', { name: 'Hide until' }).click();
   await expect(page.locator('[data-slot=preset-panel]')).toBeVisible();
   await page.keyboard.press('Escape');
+  await expect(page.locator('[data-slot=preset-panel]')).toHaveCount(0);
   await plumber.getByRole('button', { name: 'Move to In Progress' }).hover();
   await expect(tip).toHaveText('Move to In Progress');
 });
 
 test('Move to In Progress on a Waiting task', async ({ page }) => {
+  await row(page, 'Plumber quote for kitchen sink').hover();
   await row(page, 'Plumber quote for kitchen sink').getByRole('button', { name: 'Move to In Progress' }).click();
   await expect(section(page, 'in_progress').getByText('Plumber quote for kitchen sink')).toBeVisible();
   expect(showTask('Plumber quote for kitchen sink').task.status).toBe('in_progress');
@@ -110,6 +131,7 @@ test('Move to In Progress on a Waiting task', async ({ page }) => {
 
 test('leaving Waiting when the hide date is after the due date only offers clearing it', async ({ page }) => {
   const title = 'Contractor sign-off on deck permit';
+  await row(page, title).hover();
   await row(page, title).getByRole('button', { name: 'Move to In Progress' }).click();
   const prompt = page.locator('[data-slot=start-decision-prompt]');
   await expect(prompt.locator('[data-slot=dialog-title]')).toHaveText('Move and clear start date?');
@@ -133,6 +155,54 @@ test('leaving Waiting with a future hide date before the due date still offers k
   await expect(prompt.locator('[data-answer=set]')).toBeVisible();
   await prompt.getByRole('button', { name: 'Cancel' }).click();
   expect(showTask(title).task).toMatchObject({ status: 'waiting', startDate: '2026-11-21' });
+});
+
+/** Fully on screen. Quick actions at rest are visually hidden but still in the tab order. */
+const shown = (l: Locator) => expect(l).toBeInViewport({ ratio: 1 });
+const notShown = (l: Locator) => expect(l).not.toBeInViewport({ ratio: 1 });
+
+test('row quick actions show on hover, just left of the dates and flag, in every section', async ({ page }) => {
+  for (const { title, last, meta } of [
+    { title: 'Twitter litigation claim', last: 'Delete', meta: 'Nov 28' },
+    { title: 'Reimbursement for conference travel', last: 'Move to In Progress', meta: 'Mon' },
+    { title: 'Renew passport', last: 'Delete', meta: 'Nov 15' },
+  ]) {
+    const target = row(page, title);
+    const button = target.getByRole('button', { name: last, exact: true });
+    await page.mouse.move(0, 0);
+    await notShown(button);
+    await target.hover();
+    await shown(button);
+    const b = (await button.boundingBox())!;
+    const m = (await target.getByText(meta, { exact: true }).boundingBox())!;
+    expect(b.x + b.width).toBeLessThan(m.x);
+  }
+
+  const plumber = row(page, 'Plumber quote for kitchen sink');
+  await plumber.hover();
+  const r = (await plumber.boundingBox())!;
+  const b = (await plumber.getByRole('button', { name: 'Move to In Progress' }).boundingBox())!;
+  expect(r.x + r.width - (b.x + b.width)).toBeLessThan(20);
+});
+
+test('keyboard focus shows a row\'s quick actions and Tab reaches them', async ({ page }) => {
+  const passport = row(page, 'Renew passport');
+  const due = passport.getByRole('button', { name: 'Due', exact: true });
+  await page.mouse.move(0, 0);
+  await notShown(due);
+  await passport.getByRole('button', { name: /^Renew passport/ }).focus();
+  await page.keyboard.press('Shift+Tab');
+  await expect(passport.getByRole('checkbox')).toBeFocused();
+  await shown(due);
+  await page.keyboard.press('Tab');
+  await page.keyboard.press('Tab');
+  await expect(due).toBeFocused();
+  await shown(due);
+  await page.keyboard.press('Tab');
+  await page.keyboard.press('Tab');
+  await expect(passport.getByRole('button', { name: 'Delete' })).toBeFocused();
+  await page.keyboard.press('Tab');
+  await notShown(due);
 });
 
 test('drag to reorder within Ready persists', async ({ page }) => {
