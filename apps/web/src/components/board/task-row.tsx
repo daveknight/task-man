@@ -31,7 +31,7 @@ export interface TaskRowProps {
   selected?: boolean;
 }
 
-function DateMeta({ icon, date, today, tone }: { icon: 'dueDate' | 'startDate' | 'waiting'; date: ISODate; today: ISODate; tone?: string }) {
+function DateMeta({ icon, date, today, tone }: { icon: 'dueDate' | 'waiting'; date: ISODate; today: ISODate; tone?: string }) {
   return (
     <span className={cn('inline-flex items-center gap-1 text-footnote whitespace-nowrap', tone ?? 'text-muted-foreground')}>
       <Icon name={icon} className="size-3.5" />
@@ -43,14 +43,12 @@ function DateMeta({ icon, date, today, tone }: { icon: 'dueDate' | 'startDate' |
 /** Dates and flag at the end of the row. A task hidden until later shows its hide-until date with an hourglass. */
 function TrailingMeta({ task, today }: { task: Task; today: ISODate }) {
   const waiting = !task.completedAt && !task.deletedAt && task.status === 'waiting' ? waitingStateFor(task, today) : null;
-  const upcoming = !waiting && !task.completedAt && !task.deletedAt && !!task.startDate && task.startDate > today;
   const open = !task.completedAt && !task.deletedAt;
   const overdue = open && !!task.dueDate && task.dueDate < today;
   const dueToday = open && task.dueDate === today;
   return (
     <span className="flex shrink-0 items-center gap-2">
       {waiting === 'later' && task.startDate && <DateMeta icon="waiting" date={task.startDate} today={today} />}
-      {upcoming && task.startDate && <DateMeta icon="startDate" date={task.startDate} today={today} />}
       {task.dueDate && (
         <DateMeta icon="dueDate" date={task.dueDate} today={today} tone={overdue ? 'text-overdue font-medium' : dueToday ? 'text-link font-medium' : undefined} />
       )}
