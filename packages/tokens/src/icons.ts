@@ -12,6 +12,7 @@ export interface IconSpec {
 export const icons = {
   dueDate: { phosphor: 'CalendarBlank', sfSymbol: 'calendar' },
   waiting: { phosphor: 'Hourglass', sfSymbol: 'hourglass' },
+  hideUntil: { phosphor: 'EyeSlash', sfSymbol: 'eye.slash' },
   startDate: { phosphor: 'SunHorizon', sfSymbol: 'sunrise' },
   inProgress: { phosphor: 'Play', sfSymbol: 'play' },
   resume: { phosphor: 'PlayCircle', sfSymbol: 'play.circle' },

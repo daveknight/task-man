@@ -213,8 +213,9 @@ function presetDate(preset: Preset, date: string | undefined, today: ISODate): I
 
 /**
  * Runs a row action by id, exactly as the app's swipe, hover and right-click menus do:
- * `<group>.<preset>` (e.g. `due.tomorrow`, `waitUntil.saturday`, `checkBack.now`, `due.pick --date 2026-12-01`)
- * or a group without presets (`moveToInProgress`, `startNow`, `markNotDone`, `restore`).
+ * `<group>.<preset>` (e.g. `due.tomorrow`, `extendWait.saturday`, `checkBack.now`, `due.pick --date 2026-12-01`)
+ * or a group without presets (`moveToWaiting`, `moveToInProgress`, `startNow`, `markNotDone`, `restore`).
+ * `moveToWaiting` takes the Hide until picker's answer as `--start <date>|none`.
  */
 export async function runAction(ctx: Context, ref: string, action: string, options: { date?: string; start?: string }): Promise<Changed> {
   const snapshot = await loadSnapshot(ctx.scope);

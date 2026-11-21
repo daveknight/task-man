@@ -42,7 +42,7 @@ Tasks (<task> is an id, an id prefix of 4+ characters, or a title prefix):
   edit <task> [--title t] [--desc text] [--start <date>|none] [--due <date>|none] [--flag|--no-flag]
   status <task> open|in_progress|waiting [--start clear|keep|<date>|none]
   act <task> <action> [--date <date>] [--start clear|keep|<date>]
-                                            a row action, as in the app: due.tomorrow, waitUntil.saturday,
+                                            a row action, as in the app: due.tomorrow, moveToWaiting --start +3d,
                                             extendWait.week, checkBack.now, start.pick --date +5d,
                                             moveToInProgress, startNow, markNotDone, restore
   move <task> --top | --before <task> | --after <task> [--start ...]

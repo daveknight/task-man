@@ -7,6 +7,7 @@ export type ActionIcon =
   | 'dueDate'
   | 'startDate'
   | 'waiting'
+  | 'hideUntil'
   | 'pickDate'
   | 'clear'
   | 'skip'
@@ -34,7 +35,7 @@ export interface Preset {
 /** What an action without presets does. */
 export type GroupEffect = { kind: 'status'; to: Status } | { kind: 'undone' } | { kind: 'restore' };
 
-export type ActionGroupId = 'due' | 'start' | 'checkBack' | 'waitUntil' | 'extendWait' | 'moveToInProgress' | 'startNow' | 'markNotDone' | 'restore';
+export type ActionGroupId = 'due' | 'start' | 'checkBack' | 'moveToWaiting' | 'extendWait' | 'moveToInProgress' | 'startNow' | 'markNotDone' | 'restore';
 
 export interface ActionGroup {
   id: ActionGroupId;
@@ -146,10 +147,21 @@ function checkBackPresets(today: ISODate): Preset[] {
   ];
 }
 
-/** Shared label for the waitUntil, extendWait and checkBack groups. The ids stay distinct. */
+/** Shared label for the extendWait and checkBack groups, which only Waiting tasks offer. The ids stay distinct. */
 export const HIDE_UNTIL = 'Hide until';
 
 export const MOVE_TO_IN_PROGRESS = 'Move to In Progress';
+
+export const MOVE_TO_WAITING = 'Move to Waiting';
+
+/** A status change, so the app opens the Hide until picker, like every other way into Waiting. */
+const moveToWaiting: ActionGroup = {
+  id: 'moveToWaiting',
+  title: MOVE_TO_WAITING,
+  icon: 'waiting',
+  presets: [],
+  effect: { kind: 'status', to: 'waiting' },
+};
 
 const moveToInProgress: ActionGroup = {
   id: 'moveToInProgress',
@@ -171,18 +183,18 @@ export function actionsFor(task: Task, today: ISODate, context: ActionContext = 
   switch (placement) {
     case 'ready':
     case 'in_progress':
-      return { placement, date: due, state: [{ id: 'waitUntil', title: HIDE_UNTIL, icon: 'waiting', presets: waitPresets(today) }], delete: DELETE };
+      return { placement, date: due, state: [moveToWaiting], delete: DELETE };
     case 'waiting':
       return {
         placement,
         date: due,
-        state: [{ id: 'extendWait', title: HIDE_UNTIL, icon: 'waiting', presets: waitPresets(today) }, moveToInProgress],
+        state: [{ id: 'extendWait', title: HIDE_UNTIL, icon: 'hideUntil', presets: waitPresets(today) }, moveToInProgress],
         delete: DELETE,
       };
     case 'waiting_later':
       return {
         placement,
-        date: { id: 'checkBack', title: HIDE_UNTIL, icon: 'waiting', presets: checkBackPresets(today) },
+        date: { id: 'checkBack', title: HIDE_UNTIL, icon: 'hideUntil', presets: checkBackPresets(today) },
         state: [moveToInProgress],
         delete: DELETE,
       };

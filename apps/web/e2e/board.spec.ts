@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { cliJson, findTask, openBoard, reseed, row, section, showTask, titlesIn, TODAY, type CliBoard } from './helpers';
+import { cli, cliJson, findTask, openBoard, reseed, row, section, showTask, titlesIn, TODAY, type CliBoard } from './helpers';
 
 test.beforeEach(async ({ page }) => {
   reseed();
@@ -40,6 +40,18 @@ test('a collapsed section expands from anywhere in its row', async ({ page }) =>
   await expect(section(page, 'upcoming').locator('[data-slot=task-row]').first()).toBeVisible();
 });
 
+test('Upcoming rows show the due date and flag but not the start date, which stays in the sheet', async ({ page }) => {
+  cli('edit', 'Winterize the sprinkler system', '--flag');
+  await page.reload();
+  await section(page, 'upcoming').getByRole('button', { name: /^Upcoming/ }).click();
+  const upcoming = row(page, 'Winterize the sprinkler system');
+  await expect(upcoming).toContainText('Dec 2');
+  await expect(upcoming.getByLabel('Flagged')).toBeVisible();
+  await expect(upcoming).not.toContainText('Nov 25');
+  await upcoming.click();
+  await expect(page.locator('[data-slot=task-editor]').getByRole('button', { name: /^Start/ })).toContainText('Wed, Nov 25');
+});
+
 test('complete with undo', async ({ page }) => {
   await page.getByRole('checkbox', { name: 'Complete Buy new watch band' }).click();
   await expect(section(page, 'ready').getByText('Buy new watch band')).toHaveCount(0);
@@ -76,6 +88,24 @@ test('status change to Waiting asks when to hide it, with Don\'t hide by default
   await pane.locator('[data-preset=tomorrow]').click();
   await expect.poll(() => showTask('Buy new watch band').task).toMatchObject({ status: 'waiting', startDate: '2026-11-19' });
   await expect(section(page, 'waiting').getByText('Show 3 hidden until later')).toBeVisible();
+});
+
+test('Ready rows offer Move to Waiting, not Hide until, and it opens the Hide until picker', async ({ page }) => {
+  const watch = row(page, 'Buy new watch band');
+  await watch.click({ button: 'right' });
+  await expect(page.getByRole('menuitem', { name: 'Move to Waiting' })).toBeVisible();
+  await expect(page.getByRole('menuitem', { name: 'Hide until' })).toHaveCount(0);
+  await page.keyboard.press('Escape');
+
+  await watch.hover();
+  await expect(watch.getByRole('button', { name: 'Hide until' })).toHaveCount(0);
+  await watch.getByRole('button', { name: 'Move to Waiting' }).click();
+  const pane = page.locator('[data-slot=wait-pane]');
+  await expect(pane.locator('[data-slot=dialog-title]')).toHaveText('Hide until');
+  await expect(pane.locator('[data-preset=noDate]')).toHaveAttribute('data-default', 'true');
+  await pane.locator('[data-preset=noDate]').click();
+  await expect(section(page, 'waiting').getByText('Buy new watch band')).toBeVisible();
+  await expect.poll(() => showTask('Buy new watch band').task).toMatchObject({ status: 'waiting', startDate: null });
 });
 
 test('Waiting row buttons show what they do', async ({ page }) => {
