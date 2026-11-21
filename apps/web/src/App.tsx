@@ -4,7 +4,7 @@ import { BoardActionsProvider } from './components/board/board-actions.tsx';
 import { BoardView, RowList } from './components/board/board-view.tsx';
 import { SearchDialog } from './components/board/search-dialog.tsx';
 import { TaskPane, TaskSheet, TWO_PANE_QUERY } from './components/board/task-sheet.tsx';
-import { Toolbar } from './components/board/toolbar.tsx';
+import { AddTaskFab, FAB_CLEARANCE, Toolbar } from './components/board/toolbar.tsx';
 import { Icon } from './components/icon.tsx';
 import { Toaster } from './components/ui/sonner.tsx';
 import { useSnapshot, useTaskWrites, type TaskWrites } from './data/board-data.ts';
@@ -101,7 +101,7 @@ export function App() {
   return (
     <BoardActionsProvider today={today} writes={writes} onOpen={open}>
       <div className="flex min-h-dvh">
-        <main className="mx-auto flex min-h-dvh w-full max-w-2xl min-w-0 flex-col px-row-x pb-[max(2rem,env(safe-area-inset-bottom))]">
+        <main className={`mx-auto flex min-h-dvh w-full max-w-2xl min-w-0 flex-col px-row-x pb-[max(2rem,env(safe-area-inset-bottom))] ${view === 'board' ? FAB_CLEARANCE : ''}`}>
           {view === 'trash' ? (
             <Toolbar title="Trash" subtitle="Deleted tasks are removed for good after 30 days." onBack={() => setView('board')} />
           ) : (
@@ -135,6 +135,7 @@ export function App() {
         </main>
         {twoPane && <TaskPane task={selected} today={today} onClose={() => setSelectedId(null)} />}
       </div>
+      {view === 'board' && <AddTaskFab disabled={!online} onAdd={() => setAdding(true)} />}
       {!twoPane && <TaskSheet task={selected} today={today} open={sheetOpen && !!selected} onOpenChange={setSheetOpen} />}
       <SearchDialog open={searching} onOpenChange={setSearching} today={today} onOpen={open} />
       <Toaster position="bottom-center" />

@@ -97,10 +97,10 @@ export function Toolbar({
         </div>
         {!onBack && (
           <>
-            <Button className="mr-1 pointer-coarse:mr-0 pointer-coarse:h-control" disabled={addDisabled} onClick={onAdd}>
+            {/* Phones get `AddTaskFab` instead. */}
+            <Button className="mr-1 max-md:hidden pointer-coarse:mr-0 pointer-coarse:h-control" disabled={addDisabled} onClick={onAdd}>
               <Icon name="add" weight="bold" data-icon="inline-start" />
-              {/* Below iPhone width the label would crowd out the title, so it's for screen readers only. */}
-              <span className="optical-center max-[389px]:sr-only">Add task</span>
+              <span className="optical-center">Add task</span>
             </Button>
             <Button variant="ghost" size="icon" aria-label="Search" className="pointer-coarse:size-control" onClick={onSearch}>
               <Icon name="search" className="size-5" />
@@ -111,5 +111,26 @@ export function Toolbar({
       </div>
       {subtitle && <p className="-mt-1 pb-2 text-footnote text-muted-foreground">{subtitle}</p>}
     </header>
+  );
+}
+
+/** Bottom padding for the board on phones, so the last row can scroll clear of `AddTaskFab`. */
+export const FAB_CLEARANCE = 'max-md:pb-[calc(env(safe-area-inset-bottom)+6rem)]';
+
+/**
+ * The phone layout's Add task button, floating in the lower right. Render it outside the toolbar:
+ * the toolbar's backdrop blur would pin a fixed child to the header instead of the screen.
+ */
+export function AddTaskFab({ disabled, onAdd }: { disabled?: boolean; onAdd?: () => void }) {
+  return (
+    <Button
+      aria-label="Add task"
+      data-slot="add-task-fab"
+      disabled={disabled}
+      onClick={onAdd}
+      className="fixed right-[calc(env(safe-area-inset-right)+1rem)] bottom-[calc(env(safe-area-inset-bottom)+1rem)] z-30 size-14 rounded-full shadow-lg md:hidden"
+    >
+      <Icon name="add" weight="bold" className="size-6" />
+    </Button>
   );
 }
