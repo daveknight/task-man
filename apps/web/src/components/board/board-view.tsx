@@ -136,7 +136,7 @@ function SectionView({
       <CollapsibleTrigger
         className={cn(
           'flex items-center gap-row-gap px-row-x text-left text-subhead font-semibold text-section-header outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
-          open ? 'h-section-header self-start rounded-md' : 'min-h-row w-full rounded-xl bg-card hover:bg-muted',
+          open ? 'h-section-header self-start rounded-md' : 'min-h-row w-full rounded-xl bg-card hover:bg-muted max-sm:rounded-none',
         )}
       >
         <span className="flex size-checkbox shrink-0 items-center justify-center">
@@ -150,8 +150,8 @@ function SectionView({
         </span>
       </CollapsibleTrigger>
       <CollapsibleContent>
-        <div ref={setNodeRef} className={cn('rounded-xl', isOver && 'ring-2 ring-ring')} data-drop-target={section.id}>
-          <RowList>
+        <div ref={setNodeRef} className={cn('rounded-xl max-sm:rounded-none', isOver && 'ring-2 ring-ring max-sm:ring-inset')} data-drop-target={section.id}>
+          <RowList className="max-sm:rounded-none">
             {reorderable ? (
               <SortableContext id={section.id} items={section.tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
                 {rows}
@@ -248,7 +248,8 @@ export function BoardView({ board, positions, ...props }: BoardViewProps) {
 
   const sections = board.sections.filter((s) => s.count > 0 || (active && REORDERABLE.includes(s.id)));
   const content = (
-    <div className="flex flex-col gap-section-gap" data-slot="board">
+    // On phones the sections bleed to the screen edges; headers and rows keep their own padding, so titles still line up.
+    <div className="flex flex-col gap-section-gap max-sm:-mx-row-x max-sm:overflow-x-clip" data-slot="board">
       {sections.map((section) => (
         <SectionView key={section.id} section={section} dnd={dnd} dragging={!!active} {...props} />
       ))}
