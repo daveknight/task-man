@@ -8,7 +8,7 @@ Design guidelines for TaskMan, drawn from Dave's Figma review feedback and sign-
 
 1. **Short labels.** Dialog titles name the action, not the task: "Move to Ready", "Start later". Tooltips drop filler like "now".
 2. **Sentence case for buttons and titles.** "Add task", not "Add Task".
-3. **Name the thing being cleared.** "No due date", "Don't hide", not "Clear".
+3. **Name the thing being cleared.** "No due date", "No start date", "Don't hide", not "Clear".
 4. **One name everywhere, including the CLI.** "Hide until", "Don't hide", "hidden until later". No "Wait until", "Check back", or "waiting until later".
 5. **"Move to In Progress", not "Resume".**
 

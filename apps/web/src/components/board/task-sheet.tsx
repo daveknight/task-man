@@ -51,12 +51,12 @@ function DateField({
   tone,
   min,
   max,
-  clearLabel = 'Clear',
+  clearLabel,
   onChange,
 }: {
   icon: IconMeaning;
   label: string;
-  clearLabel?: string;
+  clearLabel: string;
   date?: ISODate | null;
   today: ISODate;
   tone?: string;
@@ -270,11 +270,12 @@ export function TaskEditor({ task, today, onClose }: { task: Task; today: ISODat
 
       <RowList className="ring-1 ring-border/60">
         {task.status === 'waiting' ? (
-          <DateField icon="waiting" label="Hide until" date={task.startDate} today={today} min={today} onChange={(d) => actions?.setField(task, 'checkBack', d)} />
+          <DateField icon="waiting" label="Hide until" clearLabel="Don't hide" date={task.startDate} today={today} min={today} onChange={(d) => actions?.setField(task, 'checkBack', d)} />
         ) : (
           <DateField
             icon="startDate"
             label="Start"
+            clearLabel="No start date"
             date={task.startDate}
             today={today}
             {...(task.dueDate ? { max: task.dueDate } : {})}

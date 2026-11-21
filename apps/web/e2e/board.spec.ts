@@ -104,6 +104,28 @@ test('Upcoming rows show the due date and flag but not the start date, which sta
   await expect(page.locator('[data-slot=task-editor]').getByRole('button', { name: /^Start/ })).toContainText('Wed, Nov 25');
 });
 
+test('the date pickers name what clearing does: No start date and No due date', async ({ page }) => {
+  await section(page, 'upcoming').getByRole('button', { name: /^Upcoming/ }).click();
+  const upcoming = row(page, 'Winterize the sprinkler system');
+  await upcoming.hover();
+  await upcoming.getByRole('button', { name: 'Start', exact: true }).click();
+  await expect(page.locator('[data-preset=clear]')).toHaveText('No start date');
+  await page.locator('[data-preset=clear]').click();
+  await expect.poll(() => showTask('Winterize the sprinkler system').task.startDate).toBeNull();
+
+  await row(page, 'Renew passport').hover();
+  await row(page, 'Renew passport').getByRole('button', { name: 'Due' }).click();
+  await expect(page.locator('[data-preset=clear]')).toHaveText('No due date');
+  await page.keyboard.press('Escape');
+
+  await row(page, 'Pay the gardener').click();
+  const editor = page.locator('[data-slot=task-editor]');
+  await editor.getByRole('button', { name: /^Due/ }).click();
+  await expect(page.getByRole('button', { name: 'No due date' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('button', { name: 'Clear', exact: true })).toHaveCount(0);
+});
+
 test('complete with undo', async ({ page }) => {
   await page.getByRole('checkbox', { name: 'Complete Buy new watch band' }).click();
   await expect(section(page, 'ready').getByText('Buy new watch band')).toHaveCount(0);
