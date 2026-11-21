@@ -153,7 +153,7 @@ function SectionView({
           It is a row tall either way, so the title and caret stay put when the section opens or closes. */}
       <CollapsibleTrigger
         className={cn(
-          'flex min-h-row w-full items-center gap-row-gap rounded-xl px-row-x text-left text-subhead font-semibold text-section-header outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50',
+          'flex min-h-row w-full items-center gap-row-gap rounded-xl max-sm:rounded-none px-row-x text-left text-subhead font-semibold text-section-header outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50',
           FOLD_MOTION,
           !open && 'bg-card hover:bg-card-hover',
         )}
@@ -170,8 +170,8 @@ function SectionView({
       </CollapsibleTrigger>
       {/* The 2px bleed keeps the drop target's ring inside the panel's clip without moving anything. */}
       <Fold className="pointer-events-none -m-0.5 p-0.5 *:pointer-events-auto">
-        <div ref={setNodeRef} className={cn('rounded-xl', isOver && 'ring-2 ring-ring')} data-drop-target={section.id}>
-          <RowList>
+        <div ref={setNodeRef} className={cn('rounded-xl max-sm:rounded-none', isOver && 'ring-2 ring-ring max-sm:ring-inset')} data-drop-target={section.id}>
+          <RowList className="max-sm:rounded-none">
             {reorderable ? (
               <SortableContext id={section.id} items={section.tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
                 {rows}
@@ -268,7 +268,8 @@ export function BoardView({ board, positions, ...props }: BoardViewProps) {
 
   const sections = board.sections.filter((s) => s.count > 0 || (active && REORDERABLE.includes(s.id)));
   const content = (
-    <div className="flex flex-col gap-section-gap" data-slot="board">
+    // On phones the sections bleed to the screen edges; headers and rows keep their own padding, so titles still line up.
+    <div className="flex flex-col gap-section-gap max-sm:-mx-row-x max-sm:overflow-x-clip" data-slot="board">
       {sections.map((section) => (
         <SectionView key={section.id} section={section} dnd={dnd} dragging={!!active} {...props} />
       ))}
