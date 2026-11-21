@@ -1,5 +1,5 @@
 import { actionsFor, waitingStateFor, type ActionContext, type ActionGroup, type ISODate, type Preset, type RowActions, type Task } from '@app/core';
-import { useState, type CSSProperties, type ReactElement, type ReactNode } from 'react';
+import { useId, useState, type CSSProperties, type ReactElement, type ReactNode } from 'react';
 import { Icon } from '@/components/icon';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -41,14 +41,16 @@ function DateMeta({ icon, date, today, tone }: { icon: 'dueDate' | 'startDate' |
 }
 
 /** Dates and flag at the end of the row. A task hidden until later shows its hide-until date with an hourglass. */
-function TrailingMeta({ task, today }: { task: Task; today: ISODate }) {
+function TrailingMeta({ id, task, today, onClick }: { id: string; task: Task; today: ISODate; onClick: () => void }) {
   const waiting = !task.completedAt && !task.deletedAt && task.status === 'waiting' ? waitingStateFor(task, today) : null;
   const upcoming = !waiting && !task.completedAt && !task.deletedAt && !!task.startDate && task.startDate > today;
   const open = !task.completedAt && !task.deletedAt;
   const overdue = open && !!task.dueDate && task.dueDate < today;
   const dueToday = open && task.dueDate === today;
+  const startShown = (waiting === 'later' || upcoming) && !!task.startDate;
+  if (!startShown && !task.dueDate && !task.flagged) return null;
   return (
-    <span className="flex shrink-0 items-center gap-2">
+    <span id={id} data-slot="trailing-meta" className="flex shrink-0 items-center gap-2" onClick={onClick}>
       {waiting === 'later' && task.startDate && <DateMeta icon="waiting" date={task.startDate} today={today} />}
       {upcoming && task.startDate && <DateMeta icon="startDate" date={task.startDate} today={today} />}
       {task.dueDate && (
@@ -162,38 +164,41 @@ function followUpTooltip(group: ActionGroup): string {
  */
 const followUpTone = 'group-hover/row:text-link group-focus-within/row:text-link hover:text-link aria-expanded:text-link';
 
-/** Hide until and Move to In Progress as icon buttons. Rows on phones leave them to the swipe actions and the sheet. */
-function FollowUpButtons({ task, actions, rowActions }: { task: Task; actions: BoardActions | null; rowActions: RowActions }) {
-  return (
-    <span data-slot="follow-up-buttons" className="flex shrink-0 items-center gap-0.5 text-foreground max-sm:hidden pointer-coarse:hidden">
-      {rowActions.state.map((g) => (
-        <GroupButton key={g.id} task={task} group={g} tone={followUpTone} actions={actions} tooltip={followUpTooltip(g)} />
-      ))}
-    </span>
-  );
-}
-
-/** Desktop hover buttons: the same date and state groups as the swipe buttons. */
-function HoverActions({ task, actions, rowActions }: { task: Task; actions: BoardActions | null; rowActions: RowActions }) {
+/**
+ * Quick-action icon buttons, just left of the dates and flag. Shown while the row is hovered, holds
+ * keyboard focus, or has a popover open. At rest they're visually hidden rather than `display: none`,
+ * so they take no room yet Tab can still reach them: Chrome drops focus on an element that hides as
+ * focus leaves the title. Phones leave them to the swipe actions and the sheet. Waiting rows show
+ * Hide until and Move to In Progress; other rows the date and state groups and Delete, like the
+ * swipe buttons.
+ */
+function QuickActions({ task, actions, rowActions }: { task: Task; actions: BoardActions | null; rowActions: RowActions }) {
+  const followUp = rowActions.placement === 'waiting';
   return (
     <span
-      data-slot="row-hover-actions"
-      className="absolute inset-y-0 right-row-x hidden items-center gap-0.5 bg-card pl-2 group-hover/row:flex group-focus-within/row:flex has-data-popup-open:flex pointer-coarse:hidden!"
+      data-slot="row-quick-actions"
+      className="sr-only flex shrink-0 items-center gap-0.5 text-foreground group-hover/row:not-sr-only group-has-focus-visible/row:not-sr-only has-data-popup-open:not-sr-only max-sm:hidden pointer-coarse:hidden"
     >
-      {rowActions.date && <GroupButton task={task} group={rowActions.date} tone="text-flag" actions={actions} />}
-      {rowActions.state.map((g) => (
-        <GroupButton key={g.id} task={task} group={g} tone="text-link" actions={actions} />
-      ))}
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        aria-label={rowActions.delete.title}
-        title={rowActions.delete.title}
-        className="text-destructive"
-        onClick={() => (rowActions.delete.id === 'delete' ? actions?.remove(task) : actions?.removeForever(task))}
-      >
-        <Icon name="trash" />
-      </Button>
+      {followUp ? (
+        rowActions.state.map((g) => <GroupButton key={g.id} task={task} group={g} tone={followUpTone} actions={actions} tooltip={followUpTooltip(g)} />)
+      ) : (
+        <>
+          {rowActions.date && <GroupButton task={task} group={rowActions.date} tone="text-flag" actions={actions} />}
+          {rowActions.state.map((g) => (
+            <GroupButton key={g.id} task={task} group={g} tone="text-link" actions={actions} />
+          ))}
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={rowActions.delete.title}
+            title={rowActions.delete.title}
+            className="text-destructive"
+            onClick={() => (rowActions.delete.id === 'delete' ? actions?.remove(task) : actions?.removeForever(task))}
+          >
+            <Icon name="trash" />
+          </Button>
+        </>
+      )}
     </span>
   );
 }
@@ -284,7 +289,7 @@ export function TaskRowContent({
   hover,
 }: TaskRowProps & { rowActions: RowActions; hover?: boolean }) {
   const actions = useBoardActions();
-  const followUp = rowActions.placement === 'waiting';
+  const metaId = useId();
   const done = !!task.completedAt;
   return (
     <div
@@ -306,13 +311,13 @@ export function TaskRowContent({
       <button
         type="button"
         onClick={() => actions?.open(task)}
+        aria-describedby={metaId}
         className="flex min-h-row min-w-0 flex-1 items-center gap-2 rounded-sm text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
       >
         <span data-slot="task-title" className={cn('min-w-0 flex-1 truncate text-body optical-center', done && 'text-muted-foreground line-through')}>{task.title}</span>
-        <TrailingMeta task={task} today={today} />
       </button>
-      {followUp && <FollowUpButtons task={task} actions={actions} rowActions={rowActions} />}
-      {hover && !followUp && <HoverActions task={task} actions={actions} rowActions={rowActions} />}
+      {hover && <QuickActions task={task} actions={actions} rowActions={rowActions} />}
+      <TrailingMeta id={metaId} task={task} today={today} onClick={() => actions?.open(task)} />
     </div>
   );
 }
