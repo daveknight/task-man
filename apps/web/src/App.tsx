@@ -27,7 +27,7 @@ function QuickAdd({ writes, onClose }: { writes: TaskWrites; onClose: () => void
       .catch(() => {});
   };
   return (
-    <RowList className="mb-section-gap">
+    <RowList className="mb-section-gap max-sm:-mx-row-x max-sm:rounded-none">
       <label className="flex min-h-row items-center gap-row-gap px-row-x">
         <span className="flex size-checkbox items-center justify-center text-link">
           <Icon name="add" weight="bold" className="size-icon" />

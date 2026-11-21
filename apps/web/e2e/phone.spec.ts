@@ -15,6 +15,7 @@ test('the floating Add task button quick-adds from anywhere on the board', async
   await expect(page.getByRole('button', { name: 'Add task' })).toHaveCount(1);
   await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
   await page.getByRole('button', { name: 'Add task' }).tap();
+  await expect(page.getByRole('textbox', { name: 'New task' })).toBeInViewport();
   await page.getByRole('textbox', { name: 'New task' }).fill('Book flu shots for the family');
   await page.keyboard.press('Enter');
   await expect.poll(async () => (await titlesIn(page, 'ready'))[0]).toBe('Book flu shots for the family');
