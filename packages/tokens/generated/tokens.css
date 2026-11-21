@@ -5,6 +5,7 @@
   --background: #F2F2F7;
   --foreground: #000000;
   --card: #FFFFFF;
+  --card-hover: #F9F9FB;
   --card-foreground: #000000;
   --popover: #FFFFFF;
   --popover-foreground: #000000;
@@ -84,6 +85,7 @@
   --background: #000000;
   --foreground: #FFFFFF;
   --card: #1C1C1E;
+  --card-hover: #242426;
   --card-foreground: #FFFFFF;
   --popover: #2C2C2E;
   --popover-foreground: #FFFFFF;
