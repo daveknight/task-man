@@ -33,6 +33,8 @@ export function InlineTitle({ task, className }: { task: Task; className?: strin
       role="textbox"
       aria-label="Title"
       contentEditable={editable ? 'plaintext-only' : false}
+      // Click to edit; keyboard users Tab to the row's open button and edit in the sheet.
+      tabIndex={-1}
       suppressContentEditableWarning
       spellCheck={false}
       onClick={() => !editable && actions?.open(task)}
