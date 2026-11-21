@@ -1,6 +1,6 @@
 {
   "function": "actionsFor(task, today, context)",
-  "description": "The row actions (swipe, right-click, hover) for each state. Presets are written as 'id:field=date' (sets the field; 'null' clears it), 'id:pick field' with optional '>=min' and '<=max', or 'skip'. A group without presets is written as 'id -> effect' ('status:in_progress', 'undone', 'restore'). Start and hide-until presets count from today; the waitUntil, extendWait and checkBack groups are all labeled Hide until, and Don't hide clears the date. '+1 day' (a day after the due date) shows only when the task is due after today; due today or overdue it would equal Tomorrow. labels: the tile labels by group and preset id, for the groups listed. upcomingDrop: the start presets for a drop into Upcoming, from tomorrow and never after the due date; none when nothing fits. 2026-11-18 is a Wednesday; 2026-11-20 is a Friday.",
+  "description": "The row actions (swipe, right-click, hover) for each state. Presets are written as 'id:field=date' (sets the field; 'null' clears it), 'id:pick field' with optional '>=min' and '<=max', or 'skip'. A group without presets is written as 'id -> effect' ('status:in_progress', 'undone', 'restore'). Start and hide-until presets count from today. Only Waiting tasks offer Hide until (the extendWait and checkBack groups), and Don't hide clears the date; Ready and In Progress offer Move to Waiting instead, a status change that opens the Hide until picker in the app. '+1 day' (a day after the due date) shows only when the task is due after today; due today or overdue it would equal Tomorrow. labels: the tile labels by group and preset id, for the groups listed. upcomingDrop: the start presets for a drop into Upcoming, from tomorrow and never after the due date; none when nothing fits. 2026-11-18 is a Wednesday; 2026-11-20 is a Friday.",
   "cases": [
     {
       "name": "ready, overdue and recurring: no +1 day (it would equal Tomorrow), Skip, No due date",
@@ -8,7 +8,7 @@
       "expect": {
         "placement": "ready",
         "date": ["due", "today:due=2026-11-18", "tomorrow:due=2026-11-19", "nextMonday:due=2026-11-23", "pick:pick due", "skip", "clear:due=null"],
-        "state": [["waitUntil", "tomorrow:checkBack=2026-11-19", "saturday:checkBack=2026-11-21", "week:checkBack=2026-11-25", "pick:pick checkBack >=2026-11-18", "noDate:checkBack=null"]],
+        "state": [["moveToWaiting -> status:waiting"]],
         "delete": "delete"
       }
     },
@@ -18,7 +18,7 @@
       "expect": {
         "placement": "ready",
         "date": ["due", "today:due=2026-11-18", "tomorrow:due=2026-11-19", "nextMonday:due=2026-11-23", "pick:pick due", "clear:due=null"],
-        "state": [["waitUntil", "tomorrow:checkBack=2026-11-19", "saturday:checkBack=2026-11-21", "week:checkBack=2026-11-25", "pick:pick checkBack >=2026-11-18", "noDate:checkBack=null"]],
+        "state": [["moveToWaiting -> status:waiting"]],
         "delete": "delete"
       }
     },
@@ -28,17 +28,17 @@
       "expect": {
         "placement": "in_progress",
         "date": ["due", "today:due=2026-11-18", "tomorrow:due=2026-11-19", "nextMonday:due=2026-11-23", "pick:pick due"],
-        "state": [["waitUntil", "tomorrow:checkBack=2026-11-19", "saturday:checkBack=2026-11-21", "week:checkBack=2026-11-25", "pick:pick checkBack >=2026-11-18", "noDate:checkBack=null"]],
+        "state": [["moveToWaiting -> status:waiting"]],
         "delete": "delete"
       }
     },
     {
-      "name": "on a Friday, Saturday is left out (it would repeat Tomorrow); due later, so +1 day is first",
-      "today": "2026-11-20", "task": { "dueDate": "2026-11-25" },
+      "name": "waiting on a Friday: Saturday is left out of Hide until (it would repeat Tomorrow); due later, so +1 day is first",
+      "today": "2026-11-20", "task": { "status": "waiting", "dueDate": "2026-11-25" },
       "expect": {
-        "placement": "ready",
+        "placement": "waiting",
         "date": ["due", "plus1d:due=2026-11-26", "today:due=2026-11-20", "tomorrow:due=2026-11-21", "nextMonday:due=2026-11-23", "pick:pick due", "clear:due=null"],
-        "state": [["waitUntil", "tomorrow:checkBack=2026-11-21", "week:checkBack=2026-11-27", "pick:pick checkBack >=2026-11-20", "noDate:checkBack=null"]],
+        "state": [["extendWait", "tomorrow:checkBack=2026-11-21", "week:checkBack=2026-11-27", "pick:pick checkBack >=2026-11-20", "noDate:checkBack=null"], ["moveToInProgress -> status:in_progress"]],
         "delete": "delete"
       }
     },

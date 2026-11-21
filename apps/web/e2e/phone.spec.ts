@@ -39,3 +39,10 @@ test('sections bleed to the screen edges, and section titles line up with task t
   expect(expanded).toBeCloseTo(taskTitle, 0);
   expect(collapsed).toBeCloseTo(taskTitle, 0);
 });
+
+test('rows leave quick actions to the swipe buttons, so the title has the room', async ({ page }) => {
+  for (const title of ['Twitter litigation claim', 'Plumber quote for kitchen sink', 'Renew passport']) {
+    await expect(row(page, title).getByRole('button')).toHaveCount(1);
+    await expect(row(page, title).getByRole('button')).toHaveAccessibleName(new RegExp(`^${title}`));
+  }
+});
