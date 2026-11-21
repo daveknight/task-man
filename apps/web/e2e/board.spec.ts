@@ -346,7 +346,6 @@ test('row titles edit in place: Enter and blur save, Escape cancels', async ({ p
   const title = row(page, 'Fix squeaky closet door').getByRole('textbox', { name: 'Title' });
   await title.click();
   await expect(title).toBeFocused();
-  await expect(page.locator('[data-slot=task-editor]')).toHaveCount(0);
   await page.keyboard.press('End');
   await page.keyboard.type(' hinge');
   await page.keyboard.press('Enter');
@@ -369,6 +368,97 @@ test('row titles edit in place: Enter and blur save, Escape cancels', async ({ p
 
   await row(page, 'Oil the closet hinges').click();
   await expect(page.locator('[data-slot=task-editor]').getByRole('textbox', { name: 'Title' })).toHaveValue('Oil the closet hinges');
+});
+
+const pane = (page: Page) => page.locator('[data-slot=task-pane]');
+const editorTitle = (page: Page) => page.locator('[data-slot=task-editor]').getByRole('textbox', { name: 'Title' });
+
+test('no detail pane shows until a task is selected, and the board uses the full width', async ({ page }) => {
+  await expect(pane(page)).toHaveCount(0);
+  await expect(page.getByText('Select a task to see its details')).toHaveCount(0);
+  const main = (await page.locator('main').boundingBox())!;
+  expect(main.x + main.width / 2).toBeCloseTo(640, -1);
+});
+
+test('clicking a title selects the row, loads the pane and leaves the title ready to edit', async ({ page }) => {
+  const title = row(page, 'Fix squeaky closet door').getByRole('textbox', { name: 'Title' });
+  await title.click();
+  const { task } = showTask('Fix squeaky closet door');
+  await expect(row(page, 'Fix squeaky closet door')).toHaveAttribute('data-selected', 'true');
+  await expect(page.locator(`[data-slot=task-editor][data-task-id="${task.id}"]`)).toBeVisible();
+  await expect(title).toBeFocused();
+  await page.keyboard.press('End');
+  await page.keyboard.type(' hinge');
+  await page.keyboard.press('Enter');
+  await expect.poll(() => findTask('Fix squeaky closet door hinge')?.task.title).toBe('Fix squeaky closet door hinge');
+  await expect(editorTitle(page)).toHaveValue('Fix squeaky closet door hinge');
+
+  await row(page, 'Buy new watch band').getByRole('textbox', { name: 'Title' }).click();
+  const other = showTask('Buy new watch band').task;
+  await expect(page.locator(`[data-slot=task-editor][data-task-id="${other.id}"]`)).toBeVisible();
+  await expect(page.locator('[data-slot=task-row][data-selected]')).toHaveCount(1);
+  await expect(row(page, 'Buy new watch band')).toHaveAttribute('data-selected', 'true');
+  await expect(row(page, 'Buy new watch band').getByRole('textbox', { name: 'Title' })).toBeFocused();
+});
+
+test('clicking off the list closes the pane and clears the selection', async ({ page }) => {
+  await row(page, 'Fix squeaky closet door').getByRole('textbox', { name: 'Title' }).click();
+  await expect(pane(page)).toBeVisible();
+  await settled(page);
+
+  // Inside the pane, on a popover, and on a row's own controls keep the selection.
+  await page.locator('[data-slot=task-editor]').getByRole('button', { name: 'More' }).click();
+  await expect(page.getByRole('menuitem', { name: /Move to Trash|Delete/ }).first()).toBeVisible();
+  await page.keyboard.press('Escape');
+  await row(page, 'Buy new watch band').hover();
+  await expect(pane(page)).toBeVisible();
+
+  await page.mouse.click(40, 400);
+  await expect(page.locator('[data-slot=task-row][data-selected]')).toHaveCount(0);
+  await expect(pane(page)).toHaveCount(0);
+  const main = (await page.locator('main').boundingBox())!;
+  expect(main.x + main.width / 2).toBeCloseTo(640, -1);
+});
+
+test('the pane slides in and out, keeping the last task while it leaves', async ({ page }) => {
+  await row(page, 'Fix squeaky closet door').click();
+  const widths = await page.evaluate(async () => {
+    const el = document.querySelector('[data-slot=task-pane]')!;
+    const seen: number[] = [];
+    for (let i = 0; i < 30; i++) {
+      seen.push(el.getBoundingClientRect().width);
+      await new Promise((r) => requestAnimationFrame(r));
+    }
+    return seen;
+  });
+  expect(widths[widths.length - 1]).toBe(400);
+  expect(widths.some((w) => w > 0 && w < 400)).toBe(true);
+
+  await settled(page);
+  await pane(page).getByRole('button', { name: 'Close' }).click();
+  await expect(row(page, 'Fix squeaky closet door')).not.toHaveAttribute('data-selected');
+  await expect(pane(page).getByRole('textbox', { name: 'Title' })).toHaveValue('Fix squeaky closet door');
+  expect(await pane(page).evaluate((el) => el.getBoundingClientRect().width)).toBeGreaterThan(0);
+  await expect(pane(page)).toHaveCount(0);
+});
+
+test('the pane snaps in and out with reduced motion', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await row(page, 'Fix squeaky closet door').click();
+  await expect(pane(page)).toBeVisible();
+  expect(await pane(page).evaluate((el) => el.getBoundingClientRect().width)).toBe(400);
+  expect(await page.evaluate(() => document.getAnimations().length)).toBe(0);
+  await page.mouse.click(40, 400);
+  await expect(pane(page)).toHaveCount(0);
+  expect(await page.evaluate(() => document.getAnimations().length)).toBe(0);
+});
+
+test('below 1024px titles do not edit in place and a click opens the overlay sheet', async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 860 });
+  await expect(row(page, 'Fix squeaky closet door').getByRole('textbox', { name: 'Title' })).toHaveCount(0);
+  await row(page, 'Fix squeaky closet door').getByText('Fix squeaky closet door').click();
+  await expect(page.locator('[data-slot=sheet-content] [data-slot=task-editor]')).toBeVisible();
+  await expect(pane(page)).toHaveCount(0);
 });
 
 test('search, then delete and restore from Trash', async ({ page }) => {

@@ -6,6 +6,9 @@ import { cn } from '@/lib/utils';
 
 export const WIDE_QUERY = '(min-width: 768px)';
 
+/** At this width and up the task sheet is a pane beside the board, and row titles edit in place. */
+export const TWO_PANE_QUERY = '(min-width: 1024px)';
+
 /** A dialog on desktop and a bottom sheet on phones. */
 export function Surface({
   open,
