@@ -17,7 +17,7 @@ import { PresetPanel } from '@/components/board/preset-panel';
 import { StartDecisionPrompt } from '@/components/board/start-decision-prompt';
 import { SwipeRow, type SwipeReveal } from '@/components/board/swipe-row';
 import { TaskSheet } from '@/components/board/task-sheet';
-import { Toolbar } from '@/components/board/toolbar';
+import { AddTaskFab, FAB_CLEARANCE, Toolbar } from '@/components/board/toolbar';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { longDate } from '@/lib/day-label';
@@ -43,9 +43,10 @@ export type DesignScreen = keyof typeof DESIGN_SCREENS;
 
 function Page({ title, today, menuOpen, children }: { title: string; today: ISODate; menuOpen?: boolean; children: ReactNode }) {
   return (
-    <main className="mx-auto flex min-h-dvh max-w-2xl flex-col px-row-x pb-[max(2rem,env(safe-area-inset-bottom))]" data-design-today={today}>
+    <main className={cn('mx-auto flex min-h-dvh max-w-2xl flex-col px-row-x pb-[max(2rem,env(safe-area-inset-bottom))]', FAB_CLEARANCE)} data-design-today={today}>
       <Toolbar title={title} subtitle={longDate(today, today)} menuOpen={menuOpen} />
       <div className="pt-2">{children}</div>
+      <AddTaskFab />
     </main>
   );
 }
