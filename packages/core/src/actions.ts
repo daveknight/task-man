@@ -131,7 +131,7 @@ export function startPresets(task: Task, today: ISODate): Preset[] {
   if (fits(month)) presets.push(set('month', 'Next month', 'startDate', 'start', month));
   presets.push(
     { id: 'pick', label: 'Pick date', icon: 'pickDate', effect: { kind: 'pick', field: 'start', ...(task.dueDate ? { max: task.dueDate } : {}) } },
-    set('clear', 'Clear', 'clear', 'start', null),
+    set('clear', 'No start date', 'clear', 'start', null),
   );
   return presets;
 }

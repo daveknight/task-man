@@ -106,6 +106,15 @@
           "pick": "Pick date", "skip": "Skip this occurrence", "clear": "No due date"
         }
       }
+    },
+    {
+      "name": "start presets, upcoming: every tile's label; clearing the start date reads No start date",
+      "today": "2026-11-18", "task": { "startDate": "2027-01-10" },
+      "expect": {
+        "start": {
+          "today": "Start today", "week": "+1 week", "month": "Next month", "pick": "Pick date", "clear": "No start date"
+        }
+      }
     }
   ],
   "upcomingDrop": [
