@@ -9,6 +9,7 @@ export interface TaskRow {
   status: Status;
   flagged: boolean;
   start_date: ISODate | null;
+  hide_until: ISODate | null;
   due_date: ISODate | null;
   repeat: unknown;
   completed_at: string | null;
@@ -20,7 +21,7 @@ export interface TaskRow {
 }
 
 export const TASK_COLUMNS =
-  'id,user_id,title,description,status,flagged,start_date,due_date,repeat,completed_at,completed_on,deleted_at,deleted_on,created_at,updated_at';
+  'id,user_id,title,description,status,flagged,start_date,hide_until,due_date,repeat,completed_at,completed_on,deleted_at,deleted_on,created_at,updated_at';
 
 export function taskFromRow(row: TaskRow): Task {
   return {
@@ -30,6 +31,7 @@ export function taskFromRow(row: TaskRow): Task {
     status: row.status,
     flagged: row.flagged,
     startDate: row.start_date,
+    hideUntil: row.hide_until,
     dueDate: row.due_date,
     completedAt: row.completed_at,
     completedOn: row.completed_on,
@@ -45,6 +47,7 @@ const COLUMN: Record<EditableField, keyof TaskRow> = {
   status: 'status',
   flagged: 'flagged',
   startDate: 'start_date',
+  hideUntil: 'hide_until',
   dueDate: 'due_date',
   completedAt: 'completed_at',
   completedOn: 'completed_on',
@@ -69,6 +72,7 @@ export function rowForInsert(task: Task, userId: string): Omit<TaskRow, 'created
     status: task.status,
     flagged: task.flagged ?? false,
     start_date: task.startDate ?? null,
+    hide_until: task.hideUntil ?? null,
     due_date: task.dueDate ?? null,
     completed_at: task.completedAt ?? null,
     completed_on: task.completedOn ?? null,

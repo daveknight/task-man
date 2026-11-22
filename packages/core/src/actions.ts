@@ -17,7 +17,7 @@ export type ActionIcon =
   | 'restore'
   | 'trash';
 
-export type DateField = 'due' | 'start' | 'checkBack';
+export type DateField = 'due' | 'start' | 'hideUntil';
 
 /** What tapping a preset does. `pick` opens a date picker limited to `min`..`max`. */
 export type PresetEffect =
@@ -95,11 +95,11 @@ export function waitPresets(today: ISODate): Preset[] {
   const tomorrow = addDays(today, 1);
   const saturday = nextWeekdayOnOrAfter(tomorrow, ['sat']);
   return [
-    set('tomorrow', 'Tomorrow', 'waiting', 'checkBack', tomorrow),
-    ...(saturday === tomorrow ? [] : [set('saturday', 'Saturday', 'waiting', 'checkBack', saturday)]),
-    set('week', '1 week', 'waiting', 'checkBack', addDays(today, 7)),
-    { id: 'pick', label: 'Pick date', icon: 'pickDate', effect: { kind: 'pick', field: 'checkBack', min: today } },
-    set('noDate', "Don't hide", 'clear', 'checkBack', null),
+    set('tomorrow', 'Tomorrow', 'waiting', 'hideUntil', tomorrow),
+    ...(saturday === tomorrow ? [] : [set('saturday', 'Saturday', 'waiting', 'hideUntil', saturday)]),
+    set('week', '1 week', 'waiting', 'hideUntil', addDays(today, 7)),
+    { id: 'pick', label: 'Pick date', icon: 'pickDate', effect: { kind: 'pick', field: 'hideUntil', min: today } },
+    set('noDate', "Don't hide", 'clear', 'hideUntil', null),
   ];
 }
 
@@ -139,11 +139,11 @@ export function startPresets(task: Task, today: ISODate): Preset[] {
 /** Hide until presets for a task hidden until later, counted from today. Now makes it need follow-up. */
 function checkBackPresets(today: ISODate): Preset[] {
   return [
-    set('tomorrow', 'Tomorrow', 'waiting', 'checkBack', addDays(today, 1)),
-    set('plus3d', '+3 days', 'waiting', 'checkBack', addDays(today, 3)),
-    set('week', '+1 week', 'waiting', 'checkBack', addDays(today, 7)),
-    { id: 'pick', label: 'Pick date', icon: 'pickDate', effect: { kind: 'pick', field: 'checkBack', min: today } },
-    set('now', 'Now', 'followUp', 'checkBack', today),
+    set('tomorrow', 'Tomorrow', 'waiting', 'hideUntil', addDays(today, 1)),
+    set('plus3d', '+3 days', 'waiting', 'hideUntil', addDays(today, 3)),
+    set('week', '+1 week', 'waiting', 'hideUntil', addDays(today, 7)),
+    { id: 'pick', label: 'Pick date', icon: 'pickDate', effect: { kind: 'pick', field: 'hideUntil', min: today } },
+    set('now', 'Now', 'followUp', 'hideUntil', today),
   ];
 }
 

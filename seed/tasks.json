@@ -7,7 +7,7 @@
     "repeat.mode: 'schedule' (next due follows the calendar) or 'after_completion' (next due counts from the day it was completed).",
     "repeat.startOffsetDays: the start date sits this many days before each due date, so the task stays in Upcoming until then.",
     "When a repeat names byWeekday and the seeded due date isn't one of those days, the seeder moves the due date forward to the next day that is.",
-    "A waiting task's start is its hide-until date (it may be after the due date). 'waiting' = visible in the Waiting section (no hide-until date, or it or the due date has arrived). 'waiting_later' = tucked behind the section's 'Show N hidden until later' row.",
+    "A waiting task's hideUntil is its own date (it may be after the due date). Only Open tasks have a 'start'; Waiting and In Progress tasks never do. 'waiting' = visible in the Waiting section (no hide-until date, or it or the due date has arrived). 'waiting_later' = tucked behind the section's 'Show N hidden until later' row.",
     "flagged: true marks the single priority flag. It never changes a task's section or order.",
     "afterPurge: whether a Trash task survives the next purge-trash ('kept' or 'removed'). Purge removes tasks whose deletion day is more than 30 days ago.",
     "Seeds are checked in CI at a pinned --today (a Wednesday, plus a Saturday run), so weekday-dependent repeats like 'Stand-up notes' give stable results."
@@ -78,7 +78,7 @@
         "work",
         "finance"
       ],
-      "start": "-1d"
+      "hideUntil": "-1d"
     },
     {
       "expect": "waiting",
@@ -87,20 +87,20 @@
       "tags": [
         "kids"
       ],
-      "start": "today"
+      "hideUntil": "today"
     },
     {
       "expect": "waiting_later",
       "title": "Warranty replacement for headphones",
       "status": "waiting",
       "description": "Case number 48213-B. They said 5-7 business days.",
-      "start": "+3d"
+      "hideUntil": "+3d"
     },
     {
       "expect": "waiting_later",
       "title": "Quote from window cleaners",
       "status": "waiting",
-      "start": "+1w",
+      "hideUntil": "+1w",
       "tags": [
         "home"
       ]
@@ -109,7 +109,7 @@
       "expect": "waiting",
       "title": "Contractor sign-off on deck permit",
       "status": "waiting",
-      "start": "+7d",
+      "hideUntil": "+7d",
       "due": "today",
       "tags": [
         "home"

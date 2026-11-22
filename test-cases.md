@@ -63,7 +63,7 @@ All desktop 1440 unless noted.
 - [ ] Hide until picker from a row (Ready, In Progress)
 - [ ] Wait until picker: status changed to Waiting in the task sheet
 - [ ] Upcoming drop prompt: dragging a task due today into Upcoming
-- [ ] Start-decision prompt: Move to In Progress on a waiting task whose check-back is after its due date – desktop 1440, phone
+- [ ] Task detail for an Open, a Waiting and an In Progress task: Start and Due, Hide until and Due, Due only – desktop 1440, light and dark
 
 ## Search
 

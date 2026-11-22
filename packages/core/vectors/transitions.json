@@ -1,57 +1,36 @@
 {
-  "function": "setDueDate(task, dueDate), waitUntil(task, checkBack) and changeStatus(task, to, today, choice) under the default policy",
-  "description": "Policy defaults (packages/core/src/policy.ts): moving the due date earlier than the start moves the start to match, except on Waiting tasks, whose start date is the hide-until date; Resume is changeStatus to in_progress. expect lists the fields that must result; startMoved is null when the start date didn't move. A changeStatus case with expectDecision must return that decision (and no task) when called without a choice; with a choice it must return expect, or fail when expectError is true.",
+  "function": "setDueDate(task, dueDate), waitUntil(task, hideUntil) and changeStatus(task, to) under the default policy",
+  "description": "Policy defaults (packages/core/src/policy.ts): moving the due date earlier than the start moves the start to match (only Open tasks have a start date, so Waiting and In Progress tasks are never touched); Move to In Progress is changeStatus to in_progress. Status changes never ask: going into Waiting or In Progress clears the start date, and leaving Waiting clears hideUntil. expect lists the fields that must result; startMoved is null when the start date didn't move.",
   "setDueDate": [
     { "name": "earlier than start moves start", "task": { "startDate": "2026-11-20", "dueDate": "2026-11-25" }, "dueDate": "2026-11-19", "expect": { "startDate": "2026-11-19", "dueDate": "2026-11-19" }, "startMoved": { "from": "2026-11-20", "to": "2026-11-19" } },
     { "name": "still after start leaves start alone", "task": { "startDate": "2026-11-20", "dueDate": "2026-11-25" }, "dueDate": "2026-11-22", "expect": { "startDate": "2026-11-20", "dueDate": "2026-11-22" }, "startMoved": null },
     { "name": "equal to start is allowed", "task": { "startDate": "2026-11-20" }, "dueDate": "2026-11-20", "expect": { "startDate": "2026-11-20", "dueDate": "2026-11-20" }, "startMoved": null },
     { "name": "clearing the due date", "task": { "startDate": "2026-11-20", "dueDate": "2026-11-25" }, "dueDate": null, "expect": { "startDate": "2026-11-20", "dueDate": null }, "startMoved": null },
     { "name": "no start date", "task": {}, "dueDate": "2026-11-01", "expect": { "startDate": null, "dueDate": "2026-11-01" }, "startMoved": null },
-    { "name": "waiting: earlier than the hide-until leaves it alone", "task": { "status": "waiting", "startDate": "2026-11-25", "dueDate": "2026-11-30" }, "dueDate": "2026-11-20", "expect": { "startDate": "2026-11-25", "dueDate": "2026-11-20" }, "startMoved": null }
+    { "name": "waiting: earlier than the hide-until leaves it alone", "task": { "status": "waiting", "hideUntil": "2026-11-25", "dueDate": "2026-11-30" }, "dueDate": "2026-11-20", "expect": { "hideUntil": "2026-11-25", "dueDate": "2026-11-20" }, "startMoved": null },
+    { "name": "waiting: the plain rule, a later due date changes only the due date", "task": { "status": "waiting", "hideUntil": "2026-11-25", "dueDate": "2026-11-30" }, "dueDate": "2026-12-10", "expect": { "hideUntil": "2026-11-25", "dueDate": "2026-12-10", "startDate": null }, "startMoved": null },
+    { "name": "in progress: no start date to move", "task": { "status": "in_progress", "dueDate": "2026-11-30" }, "dueDate": "2026-11-20", "expect": { "startDate": null, "dueDate": "2026-11-20" }, "startMoved": null }
   ],
   "waitUntil": [
-    { "name": "sets status and hide-until", "task": { "status": "open", "flagged": true }, "checkBack": "2026-11-21", "expect": { "status": "waiting", "startDate": "2026-11-21", "flagged": true } },
-    { "name": "not capped by the due date", "task": { "status": "in_progress", "dueDate": "2026-11-19" }, "checkBack": "2026-11-25", "expect": { "status": "waiting", "startDate": "2026-11-25", "dueDate": "2026-11-19" } },
-    { "name": "Don't hide clears it", "task": { "status": "waiting", "startDate": "2026-11-21" }, "checkBack": null, "expect": { "status": "waiting", "startDate": null } },
-    { "name": "replaces a future start date", "task": { "status": "open", "startDate": "2026-12-01" }, "checkBack": "2026-11-21", "expect": { "status": "waiting", "startDate": "2026-11-21" } }
+    { "name": "sets status and hide-until", "task": { "status": "open", "flagged": true }, "hideUntil": "2026-11-21", "expect": { "status": "waiting", "hideUntil": "2026-11-21", "startDate": null, "flagged": true } },
+    { "name": "not capped by the due date", "task": { "status": "in_progress", "dueDate": "2026-11-19" }, "hideUntil": "2026-11-25", "expect": { "status": "waiting", "hideUntil": "2026-11-25", "dueDate": "2026-11-19" } },
+    { "name": "Don't hide clears it", "task": { "status": "waiting", "hideUntil": "2026-11-21" }, "hideUntil": null, "expect": { "status": "waiting", "hideUntil": null } },
+    { "name": "clears a future start date", "task": { "status": "open", "startDate": "2026-12-01" }, "hideUntil": "2026-11-21", "expect": { "status": "waiting", "startDate": null, "hideUntil": "2026-11-21" } },
+    { "name": "replaces the hide-until on a waiting task", "task": { "status": "waiting", "hideUntil": "2026-11-21" }, "hideUntil": "2026-11-28", "expect": { "status": "waiting", "hideUntil": "2026-11-28" } }
   ],
   "changeStatus": [
-    { "name": "resume with no hide-until date", "today": "2026-11-18", "task": { "status": "waiting", "flagged": true }, "to": "in_progress", "expect": { "status": "in_progress", "startDate": null, "flagged": true } },
-    { "name": "resume with a past hide-until keeps it", "today": "2026-11-18", "task": { "status": "waiting", "startDate": "2026-11-10" }, "to": "in_progress", "expect": { "status": "in_progress", "startDate": "2026-11-10" } },
-    { "name": "resume with hide-until today keeps it", "today": "2026-11-18", "task": { "status": "waiting", "startDate": "2026-11-18" }, "to": "in_progress", "expect": { "status": "in_progress", "startDate": "2026-11-18" } },
-    {
-      "name": "resume with a future hide-until needs a choice",
-      "today": "2026-11-18", "task": { "status": "waiting", "startDate": "2026-11-21", "dueDate": "2026-11-30" }, "to": "in_progress",
-      "expectDecision": { "reason": "leaving_waiting_future_start", "startDate": "2026-11-21", "dueDate": "2026-11-30", "options": ["clear", "keep", "set"], "default": "clear" }
-    },
-    { "name": "future hide-until, clear", "today": "2026-11-18", "task": { "status": "waiting", "startDate": "2026-11-21" }, "to": "in_progress", "choice": "clear", "expect": { "status": "in_progress", "startDate": null } },
-    { "name": "future hide-until, keep as start (goes to Upcoming)", "today": "2026-11-18", "task": { "status": "waiting", "startDate": "2026-11-21" }, "to": "open", "choice": "keep", "expect": { "status": "open", "startDate": "2026-11-21" } },
-    { "name": "future hide-until, set a new start", "today": "2026-11-18", "task": { "status": "waiting", "startDate": "2026-11-21", "dueDate": "2026-11-30" }, "to": "open", "choice": { "set": "2026-11-23" }, "expect": { "status": "open", "startDate": "2026-11-23" } },
-    {
-      "name": "hide-until after due needs a choice, and only clear is offered",
-      "today": "2026-11-18", "task": { "status": "waiting", "startDate": "2026-11-25", "dueDate": "2026-11-18" }, "to": "in_progress",
-      "expectDecision": { "reason": "leaving_waiting_start_after_due", "startDate": "2026-11-25", "dueDate": "2026-11-18", "options": ["clear"], "default": "clear" }
-    },
-    {
-      "name": "past hide-until after an overdue due date still needs a choice",
-      "today": "2026-11-18", "task": { "status": "waiting", "startDate": "2026-11-17", "dueDate": "2026-11-15" }, "to": "open",
-      "expectDecision": { "reason": "leaving_waiting_start_after_due", "startDate": "2026-11-17", "dueDate": "2026-11-15", "options": ["clear"], "default": "clear" }
-    },
-    { "name": "hide-until after due, keep is refused", "today": "2026-11-18", "task": { "status": "waiting", "startDate": "2026-11-25", "dueDate": "2026-11-18" }, "to": "in_progress", "choice": "keep", "expectError": true },
-    { "name": "hide-until after due, set after due is refused", "today": "2026-11-18", "task": { "status": "waiting", "startDate": "2026-11-25", "dueDate": "2026-11-20" }, "to": "open", "choice": { "set": "2026-11-21" }, "expectError": true },
-    { "name": "hide-until after due, set on or before the due date is refused", "today": "2026-11-18", "task": { "status": "waiting", "startDate": "2026-11-25", "dueDate": "2026-11-20" }, "to": "open", "choice": { "set": "2026-11-19" }, "expectError": true },
-    {
-      "name": "into Waiting with a future start needs a choice",
-      "today": "2026-11-18", "task": { "status": "open", "startDate": "2026-11-25", "dueDate": "2026-12-02" }, "to": "waiting",
-      "expectDecision": { "reason": "entering_waiting_future_start", "startDate": "2026-11-25", "dueDate": "2026-12-02", "options": ["clear", "keep", "set"], "default": "clear" }
-    },
-    { "name": "into Waiting, keep the start as the hide-until", "today": "2026-11-18", "task": { "status": "open", "startDate": "2026-11-25" }, "to": "waiting", "choice": "keep", "expect": { "status": "waiting", "startDate": "2026-11-25" } },
-    { "name": "into Waiting, clear it (needs follow-up now)", "today": "2026-11-18", "task": { "status": "open", "startDate": "2026-11-25" }, "to": "waiting", "choice": "clear", "expect": { "status": "waiting", "startDate": null } },
-    { "name": "into Waiting, a hide-until after due is allowed", "today": "2026-11-18", "task": { "status": "open", "startDate": "2026-11-20", "dueDate": "2026-11-22" }, "to": "waiting", "choice": { "set": "2026-11-30" }, "expect": { "status": "waiting", "startDate": "2026-11-30" } },
-    { "name": "into Waiting with a past start keeps it (needs follow-up)", "today": "2026-11-18", "task": { "status": "open", "startDate": "2026-11-10" }, "to": "waiting", "expect": { "status": "waiting", "startDate": "2026-11-10" } },
-    { "name": "Upcoming to In Progress is Start now: the future start clears", "today": "2026-11-18", "task": { "status": "open", "startDate": "2026-11-25" }, "to": "in_progress", "expect": { "status": "in_progress", "startDate": null } },
-    { "name": "Ready to In Progress is unaffected", "today": "2026-11-18", "task": { "status": "open", "startDate": "2026-11-10" }, "to": "in_progress", "expect": { "status": "in_progress", "startDate": "2026-11-10" } },
-    { "name": "same status is a no-op", "today": "2026-11-18", "task": { "status": "waiting", "startDate": "2026-11-25" }, "to": "waiting", "expect": { "status": "waiting", "startDate": "2026-11-25" } },
-    { "name": "a choice given when none is needed is ignored", "today": "2026-11-18", "task": { "status": "waiting" }, "to": "in_progress", "choice": "keep", "expect": { "status": "in_progress", "startDate": null } }
+    { "name": "into Waiting clears a future start", "task": { "status": "open", "startDate": "2026-11-25", "dueDate": "2026-12-02" }, "to": "waiting", "expect": { "status": "waiting", "startDate": null, "hideUntil": null, "dueDate": "2026-12-02" } },
+    { "name": "into Waiting clears a past start", "task": { "status": "open", "startDate": "2026-11-10" }, "to": "waiting", "expect": { "status": "waiting", "startDate": null, "hideUntil": null } },
+    { "name": "into Waiting with no dates", "task": { "status": "open", "flagged": true }, "to": "waiting", "expect": { "status": "waiting", "startDate": null, "hideUntil": null, "flagged": true } },
+    { "name": "into In Progress clears a future start (Start now)", "task": { "status": "open", "startDate": "2026-11-25" }, "to": "in_progress", "expect": { "status": "in_progress", "startDate": null } },
+    { "name": "into In Progress clears a past start", "task": { "status": "open", "startDate": "2026-11-10" }, "to": "in_progress", "expect": { "status": "in_progress", "startDate": null } },
+    { "name": "Ready to In Progress with no start", "task": { "status": "open", "dueDate": "2026-11-20" }, "to": "in_progress", "expect": { "status": "in_progress", "startDate": null, "dueDate": "2026-11-20" } },
+    { "name": "leaving Waiting clears a future hide-until", "task": { "status": "waiting", "hideUntil": "2026-11-21", "dueDate": "2026-11-30" }, "to": "in_progress", "expect": { "status": "in_progress", "hideUntil": null, "startDate": null, "dueDate": "2026-11-30" } },
+    { "name": "leaving Waiting clears a past hide-until", "task": { "status": "waiting", "hideUntil": "2026-11-10" }, "to": "in_progress", "expect": { "status": "in_progress", "hideUntil": null } },
+    { "name": "leaving Waiting for Ready lands in Ready: hide-until cleared, no start", "task": { "status": "waiting", "hideUntil": "2026-11-21" }, "to": "open", "expect": { "status": "open", "hideUntil": null, "startDate": null } },
+    { "name": "leaving Waiting with a hide-until after the due date", "task": { "status": "waiting", "hideUntil": "2026-11-25", "dueDate": "2026-11-18" }, "to": "in_progress", "expect": { "status": "in_progress", "hideUntil": null, "startDate": null, "dueDate": "2026-11-18" } },
+    { "name": "leaving Waiting with no hide-until", "task": { "status": "waiting", "flagged": true }, "to": "in_progress", "expect": { "status": "in_progress", "hideUntil": null, "flagged": true } },
+    { "name": "In Progress to Ready keeps no dates", "task": { "status": "in_progress", "dueDate": "2026-11-20" }, "to": "open", "expect": { "status": "open", "startDate": null, "hideUntil": null, "dueDate": "2026-11-20" } },
+    { "name": "same status is a no-op", "task": { "status": "waiting", "hideUntil": "2026-11-25" }, "to": "waiting", "expect": { "status": "waiting", "hideUntil": "2026-11-25" } }
   ]
 }

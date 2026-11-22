@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { APP_NAME, localDate, resolveDate, type ISODate } from '@app/core';
-import { exportAll, importAll, type Backup } from './backup.ts';
+import { exportAll, importAll, type Backup, type BackupV1 } from './backup.ts';
 import { loadBoard, reset, seed } from './commands.ts';
 import { DEFAULT_SEED_FILE } from './config.ts';
 import { adminClient, devUserId } from './db.ts';
@@ -37,15 +37,16 @@ Board and data:
   import <file> [--reset]                   load a backup; --reset replaces existing data
 
 Tasks (<task> is an id, an id prefix of 4+ characters, or a title prefix):
-  add "Title" [--desc text] [--start <date>] [--due <date>] [--status open|in_progress|waiting] [--flag]
+  add "Title" [--desc text] [--start <date>] [--hide-until <date>] [--due <date>] [--status open|in_progress|waiting] [--flag]
   show <task>                               fields, placement and the actions the app offers
-  edit <task> [--title t] [--desc text] [--start <date>|none] [--due <date>|none] [--flag|--no-flag]
-  status <task> open|in_progress|waiting [--start clear|keep|<date>|none]
-  act <task> <action> [--date <date>] [--start clear|keep|<date>]
-                                            a row action, as in the app: due.tomorrow, moveToWaiting --start +3d,
+  edit <task> [--title t] [--desc text] [--start <date>|none] [--hide-until <date>|none] [--due <date>|none]
+              [--flag|--no-flag]
+  status <task> open|in_progress|waiting [--hide-until <date>|none]
+  act <task> <action> [--date <date>] [--hide-until <date>|none]
+                                            a row action, as in the app: due.tomorrow, moveToWaiting --hide-until +3d,
                                             extendWait.week, checkBack.now, start.pick --date +5d,
                                             moveToInProgress, startNow, markNotDone, restore
-  move <task> --top | --before <task> | --after <task> [--start ...]
+  move <task> --top | --before <task> | --after <task> [--hide-until <date>|none]
                                             drag-and-drop: reorder, or move into another section
   move <task> --upcoming --start <date> [--clear-due]
                                             drop into Upcoming: Open, starting on that date
@@ -55,13 +56,13 @@ Tasks (<task> is an id, an id prefix of 4+ characters, or a title prefix):
   search "query" [--completed] [--flagged]  title and description; never Trash
                                             --completed: include completed, --flagged: only flagged
 
-Status changes never change dates silently. When one would (leaving Waiting with a future
-hide-until date, or going into Waiting with a future start), it fails with the question
-unless --start answers it. Going into Waiting, --start <date>|none sets the hide-until date.
-When that date is after the due date, leaving Waiting only accepts --start clear.
-Moving a task due today or earlier into Upcoming fails the same way unless --clear-due
-removes the due date. Upcoming tasks start after today, and a start can't be after the
-due date. These failures exit with code 2.
+Only Ready and Upcoming tasks have a start date, and only Waiting tasks have a hide-until date.
+--start on a Waiting or In Progress task fails; --hide-until on any other task fails. Status
+changes never ask: going into Waiting or In Progress clears the start date, and leaving Waiting
+clears the hide-until date. Going into Waiting, --hide-until <date>|none answers the Hide until
+picker (none, or leaving it out, is Don't hide). The old --start clear|keep|<date> answers are gone.
+Moving a task due today or earlier into Upcoming fails with exit code 2 unless --clear-due removes
+the due date. Upcoming tasks start after today, and a start can't be after the due date.
 
 Options (every command):
   --today <date>   override today: YYYY-MM-DD or relative to the real today (+1d, -2w, +1m)
@@ -93,6 +94,7 @@ async function main(argv: string[]): Promise<void> {
       desc: { type: 'string' },
       title: { type: 'string' },
       start: { type: 'string' },
+      'hide-until': { type: 'string' },
       due: { type: 'string' },
       status: { type: 'string' },
       flag: { type: 'boolean' },
@@ -164,7 +166,7 @@ async function main(argv: string[]): Promise<void> {
     }
     case 'add':
       return printChanged(
-        await addTask(ctx, arg(0, 'a title'), { description: values.desc, start: values.start, due: values.due, status: values.status, flag: values.flag }),
+        await addTask(ctx, arg(0, 'a title'), { description: values.desc, start: values.start, hideUntil: values['hide-until'], due: values.due, status: values.status, flag: values.flag }),
         'Added',
       );
     case 'show': {
@@ -184,13 +186,13 @@ async function main(argv: string[]): Promise<void> {
     }
     case 'edit':
       return printChanged(
-        await editTask(ctx, arg(0, 'a task'), { title: values.title, description: values.desc, start: values.start, due: values.due, flag }),
+        await editTask(ctx, arg(0, 'a task'), { title: values.title, description: values.desc, start: values.start, hideUntil: values['hide-until'], due: values.due, flag }),
         'Edited',
       );
     case 'status':
-      return printChanged(await setStatus(ctx, arg(0, 'a task'), arg(1, 'a status'), values.start), 'Moved');
+      return printChanged(await setStatus(ctx, arg(0, 'a task'), arg(1, 'a status'), { start: values.start, hideUntil: values['hide-until'] }), 'Moved');
     case 'act':
-      return printChanged(await runAction(ctx, arg(0, 'a task'), arg(1, 'an action'), { date: values.date, start: values.start }), 'Updated');
+      return printChanged(await runAction(ctx, arg(0, 'a task'), arg(1, 'an action'), { date: values.date, start: values.start, hideUntil: values['hide-until'] }), 'Updated');
     case 'move':
       return printChanged(await moveTask(ctx, arg(0, 'a task'), {
             before: values.before,
@@ -199,6 +201,7 @@ async function main(argv: string[]): Promise<void> {
             upcoming: values.upcoming,
             clearDue: values['clear-due'],
             start: values.start,
+            hideUntil: values['hide-until'],
           }), 'Moved');
     case 'done':
       return printChanged(await doneTask(ctx, arg(0, 'a task'), values.on), 'Completed');
@@ -224,7 +227,7 @@ async function main(argv: string[]): Promise<void> {
     }
     case 'import': {
       const file = resolve(process.env.INIT_CWD ?? process.cwd(), arg(0, 'a backup file'));
-      const result = await importAll(ctx.scope, JSON.parse(readFileSync(file, 'utf8')) as Backup, values.reset);
+      const result = await importAll(ctx.scope, JSON.parse(readFileSync(file, 'utf8')) as Backup | BackupV1, values.reset);
       print(result, `Imported ${result.tasks} tasks and ${result.positions} positions.`);
       return;
     }

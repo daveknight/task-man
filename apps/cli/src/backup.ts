@@ -2,11 +2,32 @@ import { TASK_COLUMNS, type Scope, type TaskRow } from '@app/data';
 import { validateTask } from '@app/core';
 import { reset } from './commands.ts';
 
+export type BackupTask = Omit<TaskRow, 'user_id'>;
+
 export interface Backup {
-  version: 1;
+  version: 2;
   exportedAt: string;
-  tasks: Omit<TaskRow, 'user_id'>[];
+  tasks: BackupTask[];
   positions: { view_id: string; task_id: string; sort_key: string }[];
+}
+
+/** Version 1 had no `hide_until`: a Waiting task's start date was its hide-until date. */
+export interface BackupV1 extends Omit<Backup, 'version' | 'tasks'> {
+  version: 1;
+  tasks: Omit<BackupTask, 'hide_until'>[];
+}
+
+/** Maps a version 1 task the way the hide_until migration does. */
+export function upgradeV1Task(row: Omit<BackupTask, 'hide_until'>): BackupTask {
+  if (row.status === 'waiting') return { ...row, hide_until: row.start_date, start_date: null };
+  if (row.status === 'in_progress') return { ...row, hide_until: null, start_date: null };
+  return { ...row, hide_until: null };
+}
+
+export function upgradeBackup(backup: Backup | BackupV1): Backup {
+  if (backup.version === 2) return backup;
+  if (backup.version !== 1) throw new Error(`Unknown backup version ${String((backup as { version: unknown }).version)}`);
+  return { ...backup, version: 2, tasks: backup.tasks.map(upgradeV1Task) };
 }
 
 /** Everything the user owns that Phase 1a stores: tasks (including completed and Trash) and positions. */
@@ -22,21 +43,22 @@ export async function exportAll({ db, userId }: Scope): Promise<Backup> {
     .returns<Backup['positions']>();
   if (positions.error) throw new Error(`export positions: ${positions.error.message}`);
   return {
-    version: 1,
+    version: 2,
     exportedAt: new Date().toISOString(),
     tasks: (tasks.data ?? []).map(({ user_id: _, updated_at: __, ...row }) => row),
     positions: positions.data ?? [],
   };
 }
 
-/** Loads a backup for the user. Ids are kept, so it fails if they already exist unless `replace` wipes first. */
-export async function importAll(scope: Scope, backup: Backup, replace: boolean): Promise<{ tasks: number; positions: number }> {
-  if (backup.version !== 1) throw new Error(`Unknown backup version ${String(backup.version)}`);
+/** Loads a version 2 backup, or a version 1 one mapped like the migration, for the user. Ids are kept, so it fails if they already exist unless `replace` wipes first. */
+export async function importAll(scope: Scope, loaded: Backup | BackupV1, replace: boolean): Promise<{ tasks: number; positions: number }> {
+  const backup = upgradeBackup(loaded);
   for (const row of backup.tasks) {
     const issues = validateTask({
       title: row.title,
       status: row.status,
       startDate: row.start_date,
+      hideUntil: row.hide_until,
       dueDate: row.due_date,
       completedAt: row.completed_at,
       completedOn: row.completed_on,
