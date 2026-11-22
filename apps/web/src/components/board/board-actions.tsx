@@ -235,11 +235,7 @@ function WaitPane({
   commit: (before: Task, after: Task, drop?: DropPlanner) => void;
 }) {
   const { task, drop } = pending;
-  const keep: Preset[] =
-    task.hideUntil && task.hideUntil > today
-      ? [{ id: 'keep', label: `Keep ${shortDate(task.hideUntil, today)}`, icon: 'hideUntil', effect: { kind: 'set', field: 'hideUntil', date: task.hideUntil } }]
-      : [];
-  const group: PresetGroup = { title: 'Hide until', icon: 'waiting', presets: [...waitPresets(today), ...keep] };
+  const group: PresetGroup = { title: 'Hide until', icon: 'waiting', presets: waitPresets(today) };
   const choose = (date: ISODate | null) => {
     onClose();
     commit(task, waitUntil(task, date), drop);
