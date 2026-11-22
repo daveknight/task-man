@@ -58,6 +58,7 @@ const SHOTS: Shot[] = [
   },
   { screen: 'actions', fullPage: true },
   { screen: 'sheet', devices: ['desktop', 'narrow', 'iphone'] },
+  { screen: 'sheet-ready' },
   { screen: 'sheet-waiting' },
   { screen: 'resume-icons', devices: ['desktop'], fullPage: true, bothThemes: true },
 ];

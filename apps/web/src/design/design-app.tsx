@@ -30,8 +30,9 @@ export const DESIGN_SCREENS = {
   hover: 'Desktop hover buttons on a row',
   'context-menu': 'Right-click menu with due-date presets',
   actions: 'Swipe buttons and quick-pick presets for every state',
-  sheet: 'Task sheet (side sheet on desktop, bottom sheet on phones)',
-  'sheet-waiting': 'Task sheet for a Waiting task that needs follow-up',
+  sheet: 'Task sheet for an In Progress task: Due only (side sheet on desktop, bottom sheet on phones)',
+  'sheet-ready': 'Task sheet for an Open task: Start and Due',
+  'sheet-waiting': 'Task sheet for a Waiting task: Hide until and Due',
   'resume-icons': 'Resume icon options',
 } as const;
 
@@ -246,6 +247,8 @@ export function DesignApp({ screen }: { screen: string }) {
       return <BoardScreen seed={seed} today={today} sheetFor="Twitter litigation claim" />;
     case 'resume-icons':
       return <ResumeIconsScreen />;
+    case 'sheet-ready':
+      return <BoardScreen seed={seed} today={today} sheetFor="Read the HOA meeting minutes" />;
     case 'sheet-waiting':
       return <BoardScreen seed={seed} today={today} sheetFor="Reimbursement for conference travel" />;
     default:
