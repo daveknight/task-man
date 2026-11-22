@@ -21,8 +21,8 @@ Design guidelines for TaskMan, drawn from Dave's Figma review feedback and sign-
 
 ## Dates and status
 
-10. **Check-back is the start date.** Waiting may start after its due date. Other statuses may not.
-11. **Changing into Waiting always opens the picker.** Default is "Don't hide", with a tile to keep the current date.
+10. **Only Ready and Upcoming tasks have a start date.** Going into Waiting or In Progress clears it. Hide until is Waiting's own date. It may be after the due date, and it's cleared when a task leaves Waiting.
+11. **Changing into Waiting always opens the picker.** Default is "Don't hide", with a tile to keep the current hide-until date, shown only when the task already has one.
 12. **Due today stays blue.** Presets count from today.
 13. **Dropping a task due today or earlier into Upcoming** explains why and offers "Remove due date" or Cancel.
 
