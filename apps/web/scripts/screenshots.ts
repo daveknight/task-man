@@ -60,9 +60,6 @@ const SHOTS: Shot[] = [
   { screen: 'sheet', devices: ['desktop', 'narrow', 'iphone'] },
   { screen: 'sheet-waiting' },
   { screen: 'resume-icons', devices: ['desktop'], fullPage: true, bothThemes: true },
-  { screen: 'prompt-resume' },
-  { screen: 'prompt-leave-waiting' },
-  { screen: 'prompt-enter-waiting' },
 ];
 
 const out = resolve(values.out!);

@@ -12,8 +12,10 @@ export interface Task {
   description?: string;
   status: Status;
   flagged?: boolean;
-  /** Hide until this day. While the task is Waiting, this is the hide-until date and may fall after the due date. */
+  /** The day an Open task becomes ready. Only Open tasks have one; a future start puts the task in Upcoming. */
   startDate?: ISODate | null;
+  /** Waiting's own date: the task is hidden until later until this day. Only Waiting tasks have one, and it may fall after the due date. */
+  hideUntil?: ISODate | null;
   dueDate?: ISODate | null;
   completedAt?: string | null;
   completedOn?: ISODate | null;

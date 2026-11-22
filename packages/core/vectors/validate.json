@@ -1,6 +1,6 @@
 {
   "function": "validateTask(task)",
-  "description": "Checks every write. expect lists the fields with issues, in any order; empty means valid.",
+  "description": "Checks every write. A start date is valid only on Open tasks (and not after the due date); hideUntil only on Waiting tasks (and may be after the due date). expect lists the fields with issues, in any order; empty means valid.",
   "cases": [
     { "name": "minimal valid task", "task": { "title": "Buy milk", "status": "open" }, "expect": [] },
     { "name": "start equal to due", "task": { "title": "x", "startDate": "2026-11-20", "dueDate": "2026-11-20" }, "expect": [] },
@@ -9,8 +9,15 @@
     { "name": "unknown status", "task": { "title": "x", "status": "done" }, "expect": ["status"] },
     { "name": "start after due", "task": { "title": "x", "startDate": "2026-11-21", "dueDate": "2026-11-20" }, "expect": ["startDate"] },
     { "name": "impossible date", "task": { "title": "x", "dueDate": "2026-02-30" }, "expect": ["dueDate"] },
-    { "name": "waiting: hide-until date (start) may be after due", "task": { "title": "x", "status": "waiting", "startDate": "2026-12-01", "dueDate": "2026-11-20" }, "expect": [] },
-    { "name": "in progress: start after due is rejected", "task": { "title": "x", "status": "in_progress", "startDate": "2026-12-01", "dueDate": "2026-11-20" }, "expect": ["startDate"] },
+    { "name": "waiting: hide-until may be after due", "task": { "title": "x", "status": "waiting", "hideUntil": "2026-12-01", "dueDate": "2026-11-20" }, "expect": [] },
+    { "name": "waiting: hide-until before due", "task": { "title": "x", "status": "waiting", "hideUntil": "2026-11-19", "dueDate": "2026-11-20" }, "expect": [] },
+    { "name": "waiting: a start date is rejected", "task": { "title": "x", "status": "waiting", "startDate": "2026-11-19" }, "expect": ["startDate"] },
+    { "name": "in progress: a start date is rejected", "task": { "title": "x", "status": "in_progress", "startDate": "2026-11-19", "dueDate": "2026-11-30" }, "expect": ["startDate"] },
+    { "name": "in progress: hideUntil is rejected", "task": { "title": "x", "status": "in_progress", "hideUntil": "2026-11-19" }, "expect": ["hideUntil"] },
+    { "name": "open: hideUntil is rejected", "task": { "title": "x", "status": "open", "hideUntil": "2026-11-19" }, "expect": ["hideUntil"] },
+    { "name": "open with no status given: hideUntil is rejected", "task": { "title": "x", "hideUntil": "2026-11-19" }, "expect": ["hideUntil"] },
+    { "name": "open: a start date is valid", "task": { "title": "x", "status": "open", "startDate": "2026-11-19", "dueDate": "2026-11-30" }, "expect": [] },
+    { "name": "waiting: impossible hide-until date", "task": { "title": "x", "status": "waiting", "hideUntil": "2026-02-30" }, "expect": ["hideUntil"] },
     { "name": "completedAt without completedOn", "task": { "title": "x", "completedAt": "2026-11-17T12:00:00Z" }, "expect": ["completedOn"] },
     { "name": "deletedOn without deletedAt", "task": { "title": "x", "deletedOn": "2026-11-17" }, "expect": ["deletedOn"] }
   ]

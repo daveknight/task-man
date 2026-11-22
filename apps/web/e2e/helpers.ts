@@ -22,6 +22,7 @@ export interface CliTask {
   status: string;
   flagged: boolean;
   startDate: string | null;
+  hideUntil: string | null;
   dueDate: string | null;
   completedAt: string | null;
   deletedAt: string | null;

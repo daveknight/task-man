@@ -24,7 +24,7 @@ function QuickAdd({ writes, onClose }: { writes: TaskWrites; onClose: () => void
     if (!trimmed) return;
     setTitle('');
     void writes
-      .add({ id: crypto.randomUUID(), title: trimmed, description: '', status: 'open', flagged: false, startDate: null, dueDate: null })
+      .add({ id: crypto.randomUUID(), title: trimmed, description: '', status: 'open', flagged: false, startDate: null, hideUntil: null, dueDate: null })
       .catch(() => {});
   };
   return (

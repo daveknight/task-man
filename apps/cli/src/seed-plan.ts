@@ -27,6 +27,7 @@ export interface SeedTask {
   description?: string;
   status?: Status;
   start?: string;
+  hideUntil?: string;
   due?: string;
   flagged?: boolean;
   completed?: string;
@@ -81,6 +82,7 @@ export function planSeed(file: SeedFile, today: ISODate, options: PlanOptions): 
     if (due && seed.repeat?.byWeekday?.length) due = nextWeekdayOnOrAfter(due, seed.repeat.byWeekday);
     let start = seed.start ? resolveDate(seed.start, today) : null;
     if (!start && due && seed.repeat?.startOffsetDays != null) start = addDays(due, -seed.repeat.startOffsetDays);
+    const hideUntil = seed.hideUntil ? resolveDate(seed.hideUntil, today) : null;
 
     const completedOn = seed.completed ? resolveDate(seed.completed, today) : null;
     const deletedOn = seed.deleted ? resolveDate(seed.deleted, today) : null;
@@ -93,6 +95,7 @@ export function planSeed(file: SeedFile, today: ISODate, options: PlanOptions): 
       status: seed.status ?? 'open',
       flagged: seed.flagged ?? false,
       start_date: start,
+      hide_until: hideUntil,
       due_date: due,
       repeat: null,
       completed_at: completedOn ? middayOf(completedOn) : null,
@@ -106,6 +109,7 @@ export function planSeed(file: SeedFile, today: ISODate, options: PlanOptions): 
       title: row.title,
       status: row.status,
       startDate: row.start_date,
+      hideUntil: row.hide_until,
       dueDate: row.due_date,
       completedAt: row.completed_at,
       completedOn: row.completed_on,
@@ -122,8 +126,8 @@ export function planSeed(file: SeedFile, today: ISODate, options: PlanOptions): 
 
     tasks.push(row);
     // A future start date means no stored position: Upcoming sorts by start date,
-    // and the task lands at the bottom of Ready when its day comes. Waiting tasks keep theirs.
-    if (!(start && start > today && row.status !== 'waiting')) positioned.push(row.id);
+    // and the task lands at the bottom of Ready when its day comes.
+    if (!(start && start > today)) positioned.push(row.id);
   });
 
   const keys = sortKeysAfter(positioned.length);

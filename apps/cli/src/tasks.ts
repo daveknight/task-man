@@ -22,8 +22,6 @@ import {
   type PositionWrite,
   type Preset,
   type Section,
-  type StartChoice,
-  type StartDecision,
   type Status,
   type Task,
   type UpcomingDropDecision,
@@ -38,33 +36,22 @@ export interface Context {
 }
 
 /**
- * A change needs an answer the script didn't give: a start-date choice for a status change
- * (`--start clear|keep|<date>`), or `--clear-due` for a move into Upcoming of a task due today or earlier.
+ * Moving a task due today or earlier into Upcoming needs an answer the script didn't give: `--clear-due`
+ * removes the due date, since no start date from tomorrow on fits. It's the only question left; status
+ * changes never ask.
  */
 export class DecisionNeeded extends Error {
   constructor(
     readonly task: Task,
-    readonly to: Status | 'upcoming',
-    readonly decision: StartDecision | UpcomingDropDecision,
+    readonly to: 'upcoming',
+    readonly decision: UpcomingDropDecision,
   ) {
-    super(decisionQuestion(task, decision));
+    super(`"${task.title}" is due ${decision.dueDate}. Upcoming tasks start after today, and a start can't be after the due date (${decision.reason}). Pass --clear-due to remove the due date.`);
   }
 }
 
-function decisionQuestion(task: Task, decision: StartDecision | UpcomingDropDecision): string {
-  if (decision.reason === 'due_today_or_earlier') {
-    return `"${task.title}" is due ${decision.dueDate}. Upcoming tasks start after today, and a start can't be after the due date (${decision.reason}). Pass --clear-due to remove the due date.`;
-  }
-  if (decision.reason === 'leaving_waiting_start_after_due') {
-    return (
-      `"${task.title}" is hidden until ${decision.startDate}, after its due date ${decision.dueDate}. ` +
-      `Leaving Waiting clears that start date. Pass --start clear.`
-    );
-  }
-  const opts = decision.options.map((o) => (o === 'set' ? '<date>' : o)).join('|');
-  const what = decision.reason === 'entering_waiting_future_start' ? 'a future start date' : `a hide-until date of ${decision.startDate}`;
-  return `"${task.title}" has ${what} (${decision.reason}). Pass --start ${opts} (default: ${decision.default}).`;
-}
+export const START_ONLY_WHEN_READY = 'Start dates only apply to Ready and Upcoming tasks.';
+const HIDE_UNTIL_ONLY_WAITING = 'Hide until only applies to Waiting tasks.';
 
 export interface Changed {
   task: Task;
@@ -92,13 +79,6 @@ export function findTask(snapshot: Snapshot, ref: string): Task {
   throw new Error(`"${ref}" matches ${matches.length} tasks; use more of the id or title:\n${list}`);
 }
 
-/** `--start`: clear, keep, or a date (absolute or relative to today). */
-export function parseStartChoice(value: string | undefined, today: ISODate): StartChoice | undefined {
-  if (value === undefined) return undefined;
-  if (value === 'clear' || value === 'keep') return value;
-  return { set: resolveDate(value, today) };
-}
-
 /** A date flag: a date, a relative date, or "none" to clear it. */
 export function parseDateFlag(value: string | undefined, today: ISODate): ISODate | null | undefined {
   if (value === undefined) return undefined;
@@ -115,6 +95,7 @@ async function commit(ctx: Context, snapshot: Snapshot, before: Task, after: Tas
 export interface AddOptions {
   description?: string;
   start?: string;
+  hideUntil?: string;
   due?: string;
   status?: string;
   flag?: boolean;
@@ -128,13 +109,19 @@ function parseStatus(value: string): Status {
 
 export async function addTask(ctx: Context, title: string, options: AddOptions): Promise<Changed> {
   const snapshot = await loadSnapshot(ctx.scope);
+  const status = options.status ? parseStatus(options.status) : 'open';
+  const startDate = parseDateFlag(options.start, ctx.today) ?? null;
+  const hideUntil = parseDateFlag(options.hideUntil, ctx.today) ?? null;
+  if (startDate && status !== 'open') throw new Error(START_ONLY_WHEN_READY);
+  if (hideUntil && status !== 'waiting') throw new Error(`${HIDE_UNTIL_ONLY_WAITING} Add it with --status waiting.`);
   const task: Task = {
     id: crypto.randomUUID(),
     title: title.trim(),
     description: options.description ?? '',
-    status: options.status ? parseStatus(options.status) : 'open',
+    status,
     flagged: options.flag ?? false,
-    startDate: parseDateFlag(options.start, ctx.today) ?? null,
+    startDate,
+    hideUntil,
     dueDate: parseDateFlag(options.due, ctx.today) ?? null,
   };
   const positions = planNewTask(snapshot.tasks, snapshot.positions, task, ctx.today);
@@ -146,11 +133,12 @@ export interface EditOptions {
   title?: string;
   description?: string;
   start?: string;
+  hideUntil?: string;
   due?: string;
   flag?: boolean;
 }
 
-/** Field edits. A due date before the start moves the start (except while Waiting), like the app. */
+/** Field edits. A due date before the start moves the start, like the app. */
 export async function editTask(ctx: Context, ref: string, options: EditOptions): Promise<Changed> {
   const snapshot = await loadSnapshot(ctx.scope);
   const before = findTask(snapshot, ref);
@@ -160,7 +148,13 @@ export async function editTask(ctx: Context, ref: string, options: EditOptions):
   if (options.description !== undefined) after.description = options.description;
   if (options.flag !== undefined) after.flagged = options.flag;
   const start = parseDateFlag(options.start, ctx.today);
+  if (start && before.status !== 'open') throw new Error(START_ONLY_WHEN_READY);
   if (start !== undefined) after.startDate = start;
+  const hideUntil = parseDateFlag(options.hideUntil, ctx.today);
+  if (hideUntil && before.status !== 'waiting') {
+    throw new Error(`${HIDE_UNTIL_ONLY_WAITING} Use \`status <task> waiting --hide-until <date>\` to move it to Waiting.`);
+  }
+  if (hideUntil !== undefined) after.hideUntil = hideUntil;
   const due = parseDateFlag(options.due, ctx.today);
   if (due !== undefined) {
     const result = setDueDate(after, due);
@@ -171,33 +165,34 @@ export async function editTask(ctx: Context, ref: string, options: EditOptions):
 }
 
 /**
- * The status menu. Going into Waiting with `--start <date>|none` sets the hide-until date (the
- * app's Hide until picker); otherwise `changeStatus` decides, and `--start` answers its question.
- * When the hide-until date is after the due date, leaving Waiting only accepts `--start clear`.
+ * The status menu. Going into Waiting, `--hide-until <date>|none` is the Hide until picker's answer
+ * (none, or leaving it out, is Don't hide). Status changes never ask and never touch dates beyond what
+ * `changeStatus` clears.
  */
-export async function setStatus(ctx: Context, ref: string, to: string, start?: string): Promise<Changed> {
+export async function setStatus(ctx: Context, ref: string, to: string, options: { start?: string; hideUntil?: string } = {}): Promise<Changed> {
   const snapshot = await loadSnapshot(ctx.scope);
   const before = findTask(snapshot, ref);
-  return commit(ctx, snapshot, before, statusChange(before, parseStatus(to), ctx.today, start));
+  return commit(ctx, snapshot, before, statusChange(before, parseStatus(to), ctx.today, options));
 }
 
-function statusChange(task: Task, to: Status, today: ISODate, start: string | undefined): Task {
-  if (to === 'waiting' && start !== undefined && start !== 'keep' && start !== 'clear') {
-    return waitUntil(task, parseDateFlag(start, today) ?? null);
+/** Why `--start` can't go with a status change. The old `--start clear|keep|<date>` answers are gone. */
+function rejectStart(to: Status, start: string): never {
+  if (to === 'waiting') throw new Error(`Waiting tasks have no start date. Use --hide-until <date>|none for Hide until (not --start ${start}).`);
+  if (start === 'clear' || start === 'keep') {
+    throw new Error(`--start ${start} no longer exists: status changes clear the dates that no longer apply on their own. Waiting's date is --hide-until <date>|none.`);
   }
-  const choice = parseStartChoice(start, today);
-  if (choice !== undefined && choice !== 'clear') {
-    const pending = changeStatus(task, to, today);
-    if (pending.decision?.reason === 'leaving_waiting_start_after_due') {
-      throw new Error(
-        `"${task.title}" is hidden until ${pending.decision.startDate}, after its due date ${pending.decision.dueDate}. ` +
-          `Leaving Waiting only clears the start date. Pass --start clear.`,
-      );
-    }
+  if (to === 'in_progress') throw new Error(START_ONLY_WHEN_READY);
+  throw new Error('Status changes take no --start. Set a start date with `edit <task> --start <date>`, or drop into Upcoming with `move <task> --upcoming --start <date>`.');
+}
+
+function statusChange(task: Task, to: Status, today: ISODate, options: { start?: string; hideUntil?: string }): Task {
+  if (options.start !== undefined) rejectStart(to, options.start);
+  if (options.hideUntil !== undefined && to !== 'waiting') throw new Error(`${HIDE_UNTIL_ONLY_WAITING} It's cleared when a task leaves Waiting.`);
+  if (to === 'waiting') {
+    if (options.hideUntil !== undefined) return waitUntil(task, parseDateFlag(options.hideUntil, today) ?? null);
+    return task.status === 'waiting' ? task : waitUntil(task, null);
   }
-  const result = changeStatus(task, to, today, choice);
-  if (result.decision) throw new DecisionNeeded(task, to, result.decision);
-  return result.task;
+  return changeStatus(task, to);
 }
 
 function presetDate(preset: Preset, date: string | undefined, today: ISODate): ISODate | null {
@@ -215,9 +210,9 @@ function presetDate(preset: Preset, date: string | undefined, today: ISODate): I
  * Runs a row action by id, exactly as the app's swipe, hover and right-click menus do:
  * `<group>.<preset>` (e.g. `due.tomorrow`, `extendWait.saturday`, `checkBack.now`, `due.pick --date 2026-12-01`)
  * or a group without presets (`moveToWaiting`, `moveToInProgress`, `startNow`, `markNotDone`, `restore`).
- * `moveToWaiting` takes the Hide until picker's answer as `--start <date>|none`.
+ * `moveToWaiting` takes the Hide until picker's answer as `--hide-until <date>|none`.
  */
-export async function runAction(ctx: Context, ref: string, action: string, options: { date?: string; start?: string }): Promise<Changed> {
+export async function runAction(ctx: Context, ref: string, action: string, options: { date?: string; start?: string; hideUntil?: string }): Promise<Changed> {
   const snapshot = await loadSnapshot(ctx.scope);
   const before = findTask(snapshot, ref);
   const actions = actionsFor(before, ctx.today);
@@ -231,7 +226,7 @@ export async function runAction(ctx: Context, ref: string, action: string, optio
     const effect = group.effect!;
     if (effect.kind === 'undone') return commit(ctx, snapshot, before, markNotDone(before));
     if (effect.kind === 'restore') return commit(ctx, snapshot, before, restore(before));
-    return commit(ctx, snapshot, before, statusChange(before, effect.to, ctx.today, options.start));
+    return commit(ctx, snapshot, before, statusChange(before, effect.to, ctx.today, options));
   }
   const preset = group.presets.find((p) => p.id === presetId);
   if (!preset) throw new Error(`${group.id} presets: ${group.presets.map((p) => p.id).join(', ')}`);
@@ -251,8 +246,10 @@ export interface MoveOptions {
   upcoming?: boolean;
   /** Into Upcoming: removes a due date of today or earlier, which leaves no room for a later start. */
   clearDue?: boolean;
-  /** The hide-until date when moving into Waiting, the answer when leaving it, or the start date when moving into Upcoming. */
+  /** The start date when moving into Upcoming. */
   start?: string;
+  /** The hide-until date when moving into Waiting; none or omitted is Don't hide. */
+  hideUntil?: string;
 }
 
 /**
@@ -273,7 +270,7 @@ export async function moveTask(ctx: Context, ref: string, options: MoveOptions):
   let after = before;
   if (sectionFor(before, ctx.today) !== section) {
     if (options.top) throw new Error('--top reorders within the task\'s own section');
-    after = statusChange(before, SECTION_STATUS[section]!, ctx.today, options.start);
+    after = statusChange(before, SECTION_STATUS[section]!, ctx.today, { start: options.start, hideUntil: options.hideUntil });
     if (sectionFor(after, ctx.today) !== section) return commit(ctx, snapshot, before, after);
   }
 

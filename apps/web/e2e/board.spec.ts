@@ -160,7 +160,7 @@ test('status change to Waiting asks when to hide it, with Don\'t hide by default
   await expect(pane.locator('[data-preset=noDate]')).toHaveAttribute('data-default', 'true');
   await expect(pane.locator('[data-preset=noDate]')).toHaveText(/Don't hide/);
   await pane.locator('[data-preset=tomorrow]').click();
-  await expect.poll(() => showTask('Buy new watch band').task).toMatchObject({ status: 'waiting', startDate: '2026-11-19' });
+  await expect.poll(() => showTask('Buy new watch band').task).toMatchObject({ status: 'waiting', hideUntil: '2026-11-19', startDate: null });
   await expect(section(page, 'waiting').getByText('Show 3 hidden until later')).toBeVisible();
 });
 
@@ -203,32 +203,27 @@ test('Move to In Progress on a Waiting task', async ({ page }) => {
   expect(showTask('Plumber quote for kitchen sink').task.status).toBe('in_progress');
 });
 
-test('leaving Waiting when the hide date is after the due date only offers clearing it', async ({ page }) => {
-  const title = 'Contractor sign-off on deck permit';
-  await row(page, title).hover();
-  await row(page, title).getByRole('button', { name: 'Move to In Progress' }).click();
-  const prompt = page.locator('[data-slot=start-decision-prompt]');
-  await expect(prompt.locator('[data-slot=dialog-title]')).toHaveText('Move and clear start date?');
-  await expect(prompt.locator('[data-answer]')).toHaveCount(1);
-  await expect(prompt.getByRole('button', { name: 'Yes, clear start date' })).toBeVisible();
-  await expect(prompt.getByRole('button', { name: 'Cancel' })).toBeVisible();
-  await prompt.getByRole('button', { name: 'Yes, clear start date' }).click();
-  await expect.poll(() => showTask(title).task).toMatchObject({ status: 'in_progress', startDate: null, dueDate: TODAY });
-});
+for (const { title, later, hideUntil } of [
+  { title: 'Contractor sign-off on deck permit', later: false, hideUntil: '2026-11-25' },
+  { title: 'Warranty replacement for headphones', later: true, hideUntil: '2026-11-21' },
+]) {
+  test(`Move to In Progress on a Waiting task hidden until ${hideUntil} never asks and clears the date`, async ({ page }) => {
+    expect(showTask(title).task).toMatchObject({ status: 'waiting', hideUntil });
+    if (later) await section(page, 'waiting').getByText(/hidden until later/).click();
+    await row(page, title).hover();
+    await row(page, title).getByRole('button', { name: 'Move to In Progress' }).click();
+    await expect(section(page, 'in_progress').getByText(title)).toBeVisible();
+    await expect.poll(() => showTask(title).task).toMatchObject({ status: 'in_progress', hideUntil: null, startDate: null });
+    await expect(page.locator('[data-slot=start-decision-prompt]')).toHaveCount(0);
+  });
+}
 
-test('leaving Waiting with a future hide date before the due date still offers keep and pick', async ({ page }) => {
+test('dragging a hidden-until Waiting task to Ready lands it in Ready with no question', async ({ page }) => {
   const title = 'Warranty replacement for headphones';
   await section(page, 'waiting').getByText(/hidden until later/).click();
-  await row(page, title).hover();
-  await row(page, title).getByRole('button', { name: 'Move to In Progress' }).click();
-  const prompt = page.locator('[data-slot=start-decision-prompt]');
-  await expect(prompt.locator('[data-slot=dialog-title]')).toHaveText('Move to In Progress');
-  await expect(prompt.locator('[data-answer=clear]')).toContainText('Clear the hide-until date');
-  await expect(prompt).toContainText("It's hidden until");
-  await expect(prompt.locator('[data-answer=keep]')).toBeVisible();
-  await expect(prompt.locator('[data-answer=set]')).toBeVisible();
-  await prompt.getByRole('button', { name: 'Cancel' }).click();
-  expect(showTask(title).task).toMatchObject({ status: 'waiting', startDate: '2026-11-21' });
+  await drag(page, title, { section: 'ready' });
+  await expect.poll(() => showTask(title)).toMatchObject({ placement: 'ready', task: { status: 'open', hideUntil: null, startDate: null } });
+  await expect(page.locator('[data-slot=start-decision-prompt]')).toHaveCount(0);
 });
 
 /** Fully on screen. Quick actions at rest are visually hidden but still in the tab order. */
@@ -326,7 +321,7 @@ for (const choice of ['clear_due', 'cancel'] as const) {
     if (choice === 'cancel') {
       await expect(page.locator('[data-slot=start-pane]')).toHaveCount(0);
       expect(await titlesIn(page, 'waiting')).toContain(title);
-      expect(showTask(title)).toMatchObject({ placement: 'waiting', task: { status: 'waiting', dueDate: TODAY, startDate: '2026-11-25' } });
+      expect(showTask(title)).toMatchObject({ placement: 'waiting', task: { status: 'waiting', dueDate: TODAY, hideUntil: '2026-11-25', startDate: null } });
       return;
     }
     const pane = page.locator('[data-slot=start-pane]');

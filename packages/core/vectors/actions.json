@@ -38,18 +38,18 @@
       "expect": {
         "placement": "waiting",
         "date": ["due", "plus1d:due=2026-11-26", "today:due=2026-11-20", "tomorrow:due=2026-11-21", "nextMonday:due=2026-11-23", "pick:pick due", "clear:due=null"],
-        "state": [["extendWait", "tomorrow:checkBack=2026-11-21", "week:checkBack=2026-11-27", "pick:pick checkBack >=2026-11-20", "noDate:checkBack=null"], ["moveToInProgress -> status:in_progress"]],
+        "state": [["extendWait", "tomorrow:hideUntil=2026-11-21", "week:hideUntil=2026-11-27", "pick:pick hideUntil >=2026-11-20", "noDate:hideUntil=null"], ["moveToInProgress -> status:in_progress"]],
         "delete": "delete"
       }
     },
     {
       "name": "waiting, needs follow-up: Hide until and Move to In Progress",
-      "today": "2026-11-18", "task": { "status": "waiting", "startDate": "2026-11-17" },
+      "today": "2026-11-18", "task": { "status": "waiting", "hideUntil": "2026-11-17" },
       "expect": {
         "placement": "waiting",
         "date": ["due", "today:due=2026-11-18", "tomorrow:due=2026-11-19", "nextMonday:due=2026-11-23", "pick:pick due"],
         "state": [
-          ["extendWait", "tomorrow:checkBack=2026-11-19", "saturday:checkBack=2026-11-21", "week:checkBack=2026-11-25", "pick:pick checkBack >=2026-11-18", "noDate:checkBack=null"],
+          ["extendWait", "tomorrow:hideUntil=2026-11-19", "saturday:hideUntil=2026-11-21", "week:hideUntil=2026-11-25", "pick:pick hideUntil >=2026-11-18", "noDate:hideUntil=null"],
           ["moveToInProgress -> status:in_progress"]
         ],
         "delete": "delete"
@@ -57,10 +57,10 @@
     },
     {
       "name": "hidden until later: Hide until presets from today, Now",
-      "today": "2026-11-18", "task": { "status": "waiting", "startDate": "2026-11-21", "dueDate": "2026-12-01" },
+      "today": "2026-11-18", "task": { "status": "waiting", "hideUntil": "2026-11-21", "dueDate": "2026-12-01" },
       "expect": {
         "placement": "waiting_later",
-        "date": ["checkBack", "tomorrow:checkBack=2026-11-19", "plus3d:checkBack=2026-11-21", "week:checkBack=2026-11-25", "pick:pick checkBack >=2026-11-18", "now:checkBack=2026-11-18"],
+        "date": ["checkBack", "tomorrow:hideUntil=2026-11-19", "plus3d:hideUntil=2026-11-21", "week:hideUntil=2026-11-25", "pick:pick hideUntil >=2026-11-18", "now:hideUntil=2026-11-18"],
         "state": [["moveToInProgress -> status:in_progress"]],
         "delete": "delete"
       }

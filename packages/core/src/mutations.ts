@@ -8,7 +8,7 @@ import type { ISODate, Section, Task } from './types.ts';
 import { validateTask } from './validate.ts';
 
 /** The fields a client may write. Everything else is set by the database or derived. */
-export const EDITABLE_FIELDS = ['title', 'description', 'status', 'flagged', 'startDate', 'dueDate', 'completedAt', 'completedOn', 'deletedAt', 'deletedOn'] as const;
+export const EDITABLE_FIELDS = ['title', 'description', 'status', 'flagged', 'startDate', 'hideUntil', 'dueDate', 'completedAt', 'completedOn', 'deletedAt', 'deletedOn'] as const;
 export type EditableField = (typeof EDITABLE_FIELDS)[number];
 export type TaskPatch = Partial<Pick<Task, EditableField>>;
 
@@ -53,13 +53,14 @@ export function shouldPurge(task: Task, today: ISODate): boolean {
 
 /**
  * Applies a date preset. Due dates keep start <= due (see `setDueDate`); hide-until picks make the
- * task Waiting. A start date after the due date is refused (pickers and presets never offer one).
+ * task Waiting. A start date after the due date, or on a task that isn't Open, is refused (pickers
+ * and presets never offer one).
  */
 export function applyDateEffect<T extends Task>(task: T, effect: Extract<PresetEffect, { kind: 'set' }>, policy: Policy = DEFAULT_POLICY): DueDateChange<T> {
   switch (effect.field) {
     case 'due':
       return setDueDate(task, effect.date, policy);
-    case 'checkBack':
+    case 'hideUntil':
       return { task: waitUntil(task, effect.date) };
     case 'start': {
       const next = { ...task, startDate: effect.date };
@@ -73,7 +74,7 @@ export function applyDateEffect<T extends Task>(task: T, effect: Extract<PresetE
 export type PositionEffect = 'keep' | 'clear' | 'top';
 
 /**
- * The transition table's position column. A future start date outside Waiting clears the position
+ * The transition table's position column. A future start date clears the position
  * (Upcoming sorts by start date, and the task arrives at the bottom of Ready). A status change puts
  * the task at the top of its new section. Completing, deleting, restoring and editing keep it.
  * Drag-and-drop doesn't use this: the task goes where it was dropped (see `planDrop`).
@@ -143,16 +144,16 @@ export interface UpcomingDropDecision {
 
 export type UpcomingDropChoice = 'clear_due';
 
-/** The task as it enters Upcoming (Open, before its start date is set) and the start dates on offer. */
+/** The task as it enters Upcoming (Open, hide-until cleared, before its start date is set) and the start dates on offer. */
 export type UpcomingDrop<T extends Task> = { task: T; presets: Preset[]; decision?: never } | { task?: never; presets?: never; decision: UpcomingDropDecision };
 
 /**
- * A drop into Upcoming, which has no manual order (so no `planDrop` positions). Like `changeStatus`,
- * returns `decision` when the due date leaves no room for a later start; call again with `choice`.
+ * A drop into Upcoming, which has no manual order (so no `planDrop` positions). Returns `decision`
+ * when the due date is today or earlier, which leaves no room for a later start; call again with `choice`.
  * A `choice` given when no decision is needed is ignored.
  */
 export function planUpcomingDrop<T extends Task>(task: T, today: ISODate, choice?: UpcomingDropChoice): UpcomingDrop<T> {
-  let next: T = { ...task, status: 'open' };
+  let next: T = { ...task, status: 'open', hideUntil: null };
   if (task.dueDate && task.dueDate <= today) {
     if (choice !== 'clear_due') return { decision: { reason: 'due_today_or_earlier', dueDate: task.dueDate, options: ['clear_due'] } };
     next = { ...next, dueDate: null };

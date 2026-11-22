@@ -1,6 +1,6 @@
 {
   "function": "sectionFor(task, today) and waitingStateFor(task, today)",
-  "description": "Which board section a task is in. Omitted task fields are null, status defaults to 'open'. expect.waitingState is present only for tasks in the waiting section.",
+  "description": "Which board section a task is in. Only Open tasks have a start date (a future one is Upcoming) and only Waiting tasks have hideUntil (a future one is hidden until later). Omitted task fields are null, status defaults to 'open'. expect.waitingState is present only for tasks in the waiting section.",
   "cases": [
     { "name": "open, no dates", "today": "2026-11-18", "task": {}, "expect": { "section": "ready" } },
     { "name": "open, start today (boundary)", "today": "2026-11-18", "task": { "startDate": "2026-11-18" }, "expect": { "section": "ready" } },
@@ -10,17 +10,15 @@
     { "name": "open, future due date, no start", "today": "2026-11-18", "task": { "dueDate": "2026-12-25" }, "expect": { "section": "ready" } },
     { "name": "open, future start and due", "today": "2026-11-18", "task": { "startDate": "2027-01-17", "dueDate": "2027-04-17" }, "expect": { "section": "upcoming" } },
     { "name": "in progress", "today": "2026-11-18", "task": { "status": "in_progress" }, "expect": { "section": "in_progress" } },
-    { "name": "in progress, start in the past", "today": "2026-11-18", "task": { "status": "in_progress", "startDate": "2026-11-01" }, "expect": { "section": "in_progress" } },
-    { "name": "future start wins over in progress", "today": "2026-11-18", "task": { "status": "in_progress", "startDate": "2026-11-19" }, "expect": { "section": "upcoming" } },
-    { "name": "waiting stays in Waiting with a future start (its hide-until date)", "today": "2026-11-18", "task": { "status": "waiting", "startDate": "2026-11-25" }, "expect": { "section": "waiting", "waitingState": "later" } },
+    { "name": "waiting stays in Waiting with a future hide-until date", "today": "2026-11-18", "task": { "status": "waiting", "hideUntil": "2026-11-25" }, "expect": { "section": "waiting", "waitingState": "later" } },
     { "name": "waiting, no hide-until date", "today": "2026-11-18", "task": { "status": "waiting" }, "expect": { "section": "waiting", "waitingState": "needs_follow_up" } },
-    { "name": "waiting, hide-until today", "today": "2026-11-18", "task": { "status": "waiting", "startDate": "2026-11-18" }, "expect": { "section": "waiting", "waitingState": "needs_follow_up" } },
-    { "name": "waiting, hide-until yesterday", "today": "2026-11-18", "task": { "status": "waiting", "startDate": "2026-11-17" }, "expect": { "section": "waiting", "waitingState": "needs_follow_up" } },
-    { "name": "waiting, hide-until tomorrow", "today": "2026-11-18", "task": { "status": "waiting", "startDate": "2026-11-19" }, "expect": { "section": "waiting", "waitingState": "later" } },
-    { "name": "hidden until later, but due today", "today": "2026-11-18", "task": { "status": "waiting", "startDate": "2026-11-25", "dueDate": "2026-11-18" }, "expect": { "section": "waiting", "waitingState": "needs_follow_up" } },
-    { "name": "hidden until later, but overdue", "today": "2026-11-18", "task": { "status": "waiting", "startDate": "2026-11-25", "dueDate": "2026-11-10" }, "expect": { "section": "waiting", "waitingState": "needs_follow_up" } },
-    { "name": "hidden until later, due tomorrow", "today": "2026-11-18", "task": { "status": "waiting", "startDate": "2026-11-25", "dueDate": "2026-11-19" }, "expect": { "section": "waiting", "waitingState": "later" } },
-    { "name": "waiting, hide-until after the due date that has not arrived", "today": "2026-11-18", "task": { "status": "waiting", "startDate": "2026-11-30", "dueDate": "2026-11-25" }, "expect": { "section": "waiting", "waitingState": "later" } },
+    { "name": "waiting, hide-until today", "today": "2026-11-18", "task": { "status": "waiting", "hideUntil": "2026-11-18" }, "expect": { "section": "waiting", "waitingState": "needs_follow_up" } },
+    { "name": "waiting, hide-until yesterday", "today": "2026-11-18", "task": { "status": "waiting", "hideUntil": "2026-11-17" }, "expect": { "section": "waiting", "waitingState": "needs_follow_up" } },
+    { "name": "waiting, hide-until tomorrow", "today": "2026-11-18", "task": { "status": "waiting", "hideUntil": "2026-11-19" }, "expect": { "section": "waiting", "waitingState": "later" } },
+    { "name": "hidden until later, but due today", "today": "2026-11-18", "task": { "status": "waiting", "hideUntil": "2026-11-25", "dueDate": "2026-11-18" }, "expect": { "section": "waiting", "waitingState": "needs_follow_up" } },
+    { "name": "hidden until later, but overdue", "today": "2026-11-18", "task": { "status": "waiting", "hideUntil": "2026-11-25", "dueDate": "2026-11-10" }, "expect": { "section": "waiting", "waitingState": "needs_follow_up" } },
+    { "name": "hidden until later, due tomorrow", "today": "2026-11-18", "task": { "status": "waiting", "hideUntil": "2026-11-25", "dueDate": "2026-11-19" }, "expect": { "section": "waiting", "waitingState": "later" } },
+    { "name": "waiting, hide-until after the due date that has not arrived", "today": "2026-11-18", "task": { "status": "waiting", "hideUntil": "2026-11-30", "dueDate": "2026-11-25" }, "expect": { "section": "waiting", "waitingState": "later" } },
     { "name": "completed", "today": "2026-11-18", "task": { "completedAt": "2026-11-17T12:00:00Z", "completedOn": "2026-11-17" }, "expect": { "section": "completed" } },
     { "name": "completed keeps its status but shows as completed", "today": "2026-11-18", "task": { "status": "waiting", "completedAt": "2026-11-17T12:00:00Z", "completedOn": "2026-11-17" }, "expect": { "section": "completed" } },
     { "name": "completed wins over a future start", "today": "2026-11-18", "task": { "startDate": "2026-12-01", "completedAt": "2026-11-17T12:00:00Z", "completedOn": "2026-11-17" }, "expect": { "section": "completed" } },
@@ -30,7 +28,7 @@
     { "name": "month boundary: start Dec 1 on Nov 30", "today": "2026-11-30", "task": { "startDate": "2026-12-01" }, "expect": { "section": "upcoming" } },
     { "name": "month boundary: start Dec 1 on Dec 1", "today": "2026-12-01", "task": { "startDate": "2026-12-01" }, "expect": { "section": "ready" } },
     { "name": "year boundary: start Jan 1 on Dec 31", "today": "2026-12-31", "task": { "startDate": "2027-01-01" }, "expect": { "section": "upcoming" } },
-    { "name": "year boundary: hide-until Jan 1 on Dec 31", "today": "2026-12-31", "task": { "status": "waiting", "startDate": "2027-01-01" }, "expect": { "section": "waiting", "waitingState": "later" } },
+    { "name": "year boundary: hide-until Jan 1 on Dec 31", "today": "2026-12-31", "task": { "status": "waiting", "hideUntil": "2027-01-01" }, "expect": { "section": "waiting", "waitingState": "later" } },
     { "name": "leap day start on Feb 28", "today": "2028-02-28", "task": { "startDate": "2028-02-29" }, "expect": { "section": "upcoming" } }
   ]
 }

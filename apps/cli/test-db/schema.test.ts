@@ -144,8 +144,27 @@ describe('sync safety', () => {
   });
 
   it('allows a Waiting task hide-until date after its due date', async () => {
-    const { error } = await addTask(dev, { status: 'waiting', start_date: '2026-11-21', due_date: '2026-11-20' });
+    const { error } = await addTask(dev, { status: 'waiting', hide_until: '2026-11-21', due_date: '2026-11-20' });
     expect(error).toBeNull();
+  });
+
+  it.each(['waiting', 'in_progress'])('rejects a start date on a %s task', async (status) => {
+    const { error } = await addTask(dev, { status, start_date: '2026-11-21' });
+    expect(error?.message).toMatch(/tasks_start_only_when_open/);
+  });
+
+  it.each(['open', 'in_progress'])('rejects hide_until on a %s task', async (status) => {
+    const { error } = await addTask(dev, { status, hide_until: '2026-11-21' });
+    expect(error?.message).toMatch(/tasks_hide_until_only_when_waiting/);
+  });
+
+  it('allows a start date on an Open task, and moving a task to Waiting clears it in the same update', async () => {
+    const { data, error } = await addTask(dev, { status: 'open', start_date: '2026-11-25', due_date: '2026-12-01' });
+    expect(error).toBeNull();
+    const moved = await dev.from('tasks').update({ status: 'waiting', start_date: null, hide_until: '2026-12-10' }).eq('id', data!.id);
+    expect(moved.error).toBeNull();
+    const bad = await dev.from('tasks').update({ status: 'open' }).eq('id', data!.id);
+    expect(bad.error?.message).toMatch(/tasks_hide_until_only_when_waiting/);
   });
 
   it('records each occurrence completion only once', async () => {

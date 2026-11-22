@@ -21,7 +21,7 @@ export function shortDate(date: ISODate, today: ISODate): string {
 
 function details(task: BoardTask, today: ISODate): string {
   const parts: string[] = [];
-  if (task.startDate && task.placement.startsWith('waiting')) parts.push(`hide until ${shortDate(task.startDate, today)}`);
+  if (task.hideUntil && task.placement.startsWith('waiting')) parts.push(`hide until ${shortDate(task.hideUntil, today)}`);
   if (task.startDate && task.placement === 'upcoming') parts.push(`starts ${shortDate(task.startDate, today)}`);
   if (task.dueDate) parts.push(`due ${shortDate(task.dueDate, today)}${task.overdue ? ' (overdue)' : task.dueDate === today ? ' (today)' : ''}`);
   if (task.completedOn) parts.push(`done ${shortDate(task.completedOn, today)}`);

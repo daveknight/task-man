@@ -22,8 +22,6 @@ import {
   waitUntil,
   waitingStateFor,
   weekdayOf,
-  type StartChoice,
-  type StartDecision,
   type Task,
   type UpcomingDropChoice,
   type Weekday,
@@ -40,6 +38,7 @@ function taskFrom(fields: Partial<Task>, id = 'task'): Task {
     title: 'Task',
     status: 'open',
     startDate: null,
+    hideUntil: null,
     dueDate: null,
     completedAt: null,
     completedOn: null,
@@ -139,17 +138,8 @@ describe('transitions.json', () => {
       expect: Partial<Task>;
       startMoved: { from: string; to: string } | null;
     }[];
-    waitUntil: { name: string; task: Partial<Task>; checkBack: string | null; expect: Partial<Task> }[];
-    changeStatus: {
-      name: string;
-      today: string;
-      task: Partial<Task>;
-      to: Task['status'];
-      choice?: StartChoice;
-      expect?: Partial<Task>;
-      expectDecision?: StartDecision;
-      expectError?: boolean;
-    }[];
+    waitUntil: { name: string; task: Partial<Task>; hideUntil: string | null; expect: Partial<Task> }[];
+    changeStatus: { name: string; task: Partial<Task>; to: Task['status']; expect: Partial<Task> }[];
   }>('transitions.json');
 
   it.each(vectors.setDueDate)('setDueDate: $name', ({ task, dueDate, expect: expected, startMoved }) => {
@@ -158,22 +148,16 @@ describe('transitions.json', () => {
     expect(result.startMoved ?? null).toEqual(startMoved);
   });
 
-  it.each(vectors.waitUntil)('waitUntil: $name', ({ task, checkBack, expect: expected }) => {
-    expect(waitUntil(taskFrom(task), checkBack)).toMatchObject(expected);
+  it.each(vectors.waitUntil)('waitUntil: $name', ({ task, hideUntil, expect: expected }) => {
+    expect(waitUntil(taskFrom(task), hideUntil)).toMatchObject(expected);
   });
 
-  it.each(vectors.changeStatus)('changeStatus: $name', ({ today, task, to, choice, expect: expected, expectDecision, expectError }) => {
+  it.each(vectors.changeStatus)('changeStatus: $name', ({ task, to, expect: expected }) => {
     const t = taskFrom(task);
-    if (expectDecision) {
-      expect(changeStatus(t, to, today)).toEqual({ decision: expectDecision });
-      return;
-    }
-    if (expectError) {
-      expect(() => changeStatus(t, to, today, choice)).toThrow();
-      return;
-    }
-    expect(changeStatus(t, to, today, choice).task).toMatchObject(expected!);
-    if (to === 'in_progress') expect(resume(t, today, choice)).toEqual(changeStatus(t, to, today, choice));
+    const changed = changeStatus(t, to);
+    expect(changed).toMatchObject(expected);
+    expect(validateTask(changed)).toEqual([]);
+    if (to === 'in_progress') expect(resume(t)).toEqual(changed);
   });
 });
 
@@ -268,7 +252,7 @@ describe('positions.json', () => {
       expect({ decision: result.decision }).toEqual(expected);
       return;
     }
-    expect({ task: { status: result.task.status, dueDate: result.task.dueDate }, presets: result.presets.map((p) => p.id) }).toEqual(expected);
+    expect({ task: { status: result.task.status, dueDate: result.task.dueDate, hideUntil: result.task.hideUntil ?? null }, presets: result.presets.map((p) => p.id) }).toEqual(expected);
   });
 
   it.each(vectors.shouldPurge)('shouldPurge: $name', ({ today, task, expect: expected }) => {

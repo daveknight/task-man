@@ -31,8 +31,8 @@ describe.each(PINNED)('seed/tasks.json on $weekday $today', ({ today }) => {
     expect(actual).toEqual(file.tasks.map((t) => ({ title: t.title, placement: t.expect })));
   });
 
-  it('positions every task except Upcoming ones (a future start outside Waiting), in file order', () => {
-    const upcomingIds = new Set(tasks.filter((t) => t.status !== 'waiting' && t.startDate && t.startDate > today).map((t) => t.id));
+  it('positions every task except Upcoming ones (a future start date), in file order', () => {
+    const upcomingIds = new Set(tasks.filter((t) => t.startDate && t.startDate > today).map((t) => t.id));
     expect(seeded.positions.map((p) => p.task_id)).toEqual(tasks.filter((t) => !upcomingIds.has(t.id)).map((t) => t.id));
   });
 

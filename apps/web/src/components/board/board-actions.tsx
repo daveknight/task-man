@@ -7,14 +7,12 @@ import {
   restore,
   setDueDate,
   softDelete,
-  startPresets,
   waitPresets,
   waitUntil,
   type ActionGroup,
   type ISODate,
   type PositionWrite,
   type Preset,
-  type StartDecision,
   type Status,
   type Task,
   type UpcomingDropDecision,
@@ -25,7 +23,6 @@ import { Button } from '@/components/ui/button';
 import type { TaskWrites } from '@/data/board-data';
 import { longDate, shortDate } from '@/lib/day-label';
 import { PresetPanel, type PresetGroup } from './preset-panel';
-import { StartDecisionPrompt, STATUS_LABELS } from './start-decision-prompt';
 import { Surface } from './surface';
 
 /** Where a dragged task lands, worked out once the status change has settled. */
@@ -47,7 +44,7 @@ export interface BoardActions {
   setStatus: (task: Task, to: Status, drop?: DropPlanner) => void;
   /** Dropped into Upcoming: asks for a future start date (first offering to remove a due date of today or earlier), and makes the task Open. */
   pickStart: (task: Task, drop?: DropPlanner) => void;
-  setField: (task: Task, field: 'start' | 'due' | 'checkBack', date: ISODate | null) => void;
+  setField: (task: Task, field: 'start' | 'due' | 'hideUntil', date: ISODate | null) => void;
   edit: (task: Task, fields: Partial<Pick<Task, 'title' | 'description' | 'flagged'>>) => void;
   reorder: (task: Task, drop: PositionWrite[]) => void;
   remove: (task: Task) => void;
@@ -63,10 +60,9 @@ export function useBoardActions(): BoardActions | null {
 
 type Pending =
   | { kind: 'wait'; task: Task; drop?: DropPlanner }
-  | { kind: 'decision'; task: Task; to: Status; decision: StartDecision; drop?: DropPlanner }
   | { kind: 'upcomingDecision'; task: Task; decision: UpcomingDropDecision; drop?: DropPlanner }
   /** `upcoming` is a drop into Upcoming: the task as it enters (from `planUpcomingDrop`) and its start presets. */
-  | { kind: 'start'; task: Task; to: Status | null; upcoming?: { task: Task; presets: Preset[] }; max?: ISODate; drop?: DropPlanner }
+  | { kind: 'start'; task: Task; upcoming: { task: Task; presets: Preset[] }; max?: ISODate; drop?: DropPlanner }
   | { kind: 'presets'; task: Task; group: ActionGroup; pick?: Preset };
 
 const quiet = () => {};
@@ -101,11 +97,9 @@ export function BoardActionsProvider({
         setPending({ kind: 'wait', task, drop });
         return;
       }
-      const result = changeStatus(task, to, today);
-      if (result.decision) setPending({ kind: 'decision', task, to, decision: result.decision, drop });
-      else commit(task, result.task, drop);
+      commit(task, changeStatus(task, to), drop);
     },
-    [commit, today],
+    [commit],
   );
 
   const actions = useMemo<BoardActions>(() => {
@@ -151,7 +145,7 @@ export function BoardActionsProvider({
         if (field === 'due') {
           const result = setDueDate(task, date);
           commit(task, result.task, undefined, result.startMoved ? `Start moved to ${shortDate(result.startMoved.to, today)}` : undefined);
-        } else if (field === 'checkBack') commit(task, waitUntil(task, date));
+        } else if (field === 'hideUntil') commit(task, waitUntil(task, date));
         else commit(task, { ...task, startDate: date });
       },
       edit: (task, fields) => commit(task, { ...task, ...fields }),
@@ -171,26 +165,6 @@ export function BoardActionsProvider({
     <BoardActionsContext.Provider value={actions}>
       {children}
       {pending?.kind === 'wait' && <WaitPane pending={pending} today={today} onClose={close} commit={commit} />}
-      {pending?.kind === 'decision' && (
-        <StartDecisionPrompt
-          task={pending.task}
-          to={pending.to}
-          decision={pending.decision}
-          today={today}
-          open
-          onOpenChange={(open) => !open && close()}
-          onChoose={(answer) => {
-            if (answer === 'set') {
-              const due = pending.decision.dueDate;
-              setPending({ kind: 'start', task: pending.task, to: pending.to, ...(due ? { max: due } : {}), drop: pending.drop });
-              return;
-            }
-            const result = changeStatus(pending.task, pending.to, today, answer);
-            close();
-            if (result.task) commit(pending.task, result.task, pending.drop);
-          }}
-        />
-      )}
       {pending?.kind === 'upcomingDecision' && (
         <Surface
           open
@@ -245,7 +219,7 @@ export function BoardActionsProvider({
 
 function upcomingStart(task: Task, planned: { task: Task; presets: Preset[] }, drop?: DropPlanner): Pending {
   const due = planned.task.dueDate;
-  return { kind: 'start', task, to: null, upcoming: { task: planned.task, presets: planned.presets }, ...(due ? { max: due } : {}), drop };
+  return { kind: 'start', task, upcoming: { task: planned.task, presets: planned.presets }, ...(due ? { max: due } : {}), drop };
 }
 
 /** Hide until: shown whenever a task's status changes to Waiting (status menu or drag). Don't hide is the default. */
@@ -261,11 +235,7 @@ function WaitPane({
   commit: (before: Task, after: Task, drop?: DropPlanner) => void;
 }) {
   const { task, drop } = pending;
-  const keep: Preset[] =
-    task.startDate && task.startDate > today
-      ? [{ id: 'keep', label: `Keep ${shortDate(task.startDate, today)}`, icon: 'startDate', effect: { kind: 'set', field: 'checkBack', date: task.startDate } }]
-      : [];
-  const group: PresetGroup = { title: 'Hide until', icon: 'waiting', presets: [...waitPresets(today), ...keep] };
+  const group: PresetGroup = { title: 'Hide until', icon: 'waiting', presets: waitPresets(today) };
   const choose = (date: ISODate | null) => {
     onClose();
     commit(task, waitUntil(task, date), drop);
@@ -290,7 +260,7 @@ function WaitPane({
   );
 }
 
-/** Pick a start date: dropping into Upcoming, or "Pick a start date…" when leaving Waiting. */
+/** Pick a start date for a drop into Upcoming. */
 function StartPane({
   pending,
   today,
@@ -302,38 +272,27 @@ function StartPane({
   onClose: () => void;
   commit: (before: Task, after: Task, drop?: DropPlanner) => void;
 }) {
-  const { task, to, upcoming, max, drop } = pending;
-  const capped = { ...task, dueDate: max ?? null, status: 'open' as const };
+  const { task, upcoming, max, drop } = pending;
   const description = max
     ? `On or before the due date, ${longDate(max, today)}.`
-    : task.dueDate && upcoming && !upcoming.task.dueDate
+    : task.dueDate && !upcoming.task.dueDate
       ? 'Its due date is removed when you pick a start date.'
       : undefined;
-  const presets: Preset[] = upcoming
-    ? upcoming.presets
-    : startPresets(capped, today)
-        .filter((p) => p.id !== 'clear')
-        .map((p) => (p.effect.kind === 'pick' ? { ...p, effect: { ...p.effect, min: today } } : p));
   const choose = (date: ISODate) => {
     onClose();
-    if (upcoming) {
-      commit(task, { ...upcoming.task, startDate: date }, drop);
-      return;
-    }
-    const result = changeStatus(task, to ?? task.status, today, { set: date });
-    if (result.task) commit(task, result.task, drop);
+    commit(task, { ...upcoming.task, startDate: date }, drop);
   };
   return (
     <Surface
       open
       onOpenChange={(open) => !open && onClose()}
-      title={upcoming ? 'Start later' : `Move to ${STATUS_LABELS[to ?? 'open']}`}
+      title="Start later"
       description={description ?? task.title}
       descriptionClassName={description ? undefined : 'sr-only'}
       slot="start-pane"
     >
       <PresetPanel
-        group={{ title: 'Start', icon: 'startDate', presets }}
+        group={{ title: 'Start', icon: 'startDate', presets: upcoming.presets }}
         onPreset={(p) => p.effect.kind === 'set' && p.effect.date && choose(p.effect.date)}
         onPickDate={(_, date) => choose(date)}
       />

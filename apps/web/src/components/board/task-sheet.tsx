@@ -269,9 +269,10 @@ export function TaskEditor({ task, today, onClose }: { task: Task; today: ISODat
       )}
 
       <RowList className="ring-1 ring-border/60">
-        {task.status === 'waiting' ? (
-          <DateField icon="waiting" label="Hide until" clearLabel="Don't hide" date={task.startDate} today={today} min={today} onChange={(d) => actions?.setField(task, 'checkBack', d)} />
-        ) : (
+        {task.status === 'waiting' && (
+          <DateField icon="waiting" label="Hide until" clearLabel="Don't hide" date={task.hideUntil} today={today} min={today} onChange={(d) => actions?.setField(task, 'hideUntil', d)} />
+        )}
+        {task.status === 'open' && (
           <DateField
             icon="startDate"
             label="Start"

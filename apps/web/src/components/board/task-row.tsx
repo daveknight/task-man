@@ -48,11 +48,11 @@ function TrailingMeta({ id, task, today, onClick }: { id: string; task: Task; to
   const open = !task.completedAt && !task.deletedAt;
   const overdue = open && !!task.dueDate && task.dueDate < today;
   const dueToday = open && task.dueDate === today;
-  const startShown = waiting === 'later' && !!task.startDate;
-  if (!startShown && !task.dueDate && !task.flagged) return null;
+  const hiddenUntil = waiting === 'later' ? task.hideUntil : null;
+  if (!hiddenUntil && !task.dueDate && !task.flagged) return null;
   return (
     <span id={id} data-slot="trailing-meta" className="flex shrink-0 items-center gap-2" onClick={onClick}>
-      {waiting === 'later' && task.startDate && <DateMeta icon="waiting" date={task.startDate} today={today} />}
+      {hiddenUntil && <DateMeta icon="waiting" date={hiddenUntil} today={today} />}
       {task.dueDate && (
         <DateMeta icon="dueDate" date={task.dueDate} today={today} tone={overdue ? 'text-overdue font-medium' : dueToday ? 'text-link font-medium' : undefined} />
       )}
