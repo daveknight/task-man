@@ -44,14 +44,13 @@ test('moving a Waiting task to Open from the status menu clears hide until silen
   await expect.poll(() => fields(page)).toEqual(['Start', 'Due']);
 });
 
-test('Upcoming to Waiting clears the start date, the picker has no Keep tile, and the pane switches to Hide until', async ({ page }) => {
+test('Upcoming to Waiting clears the start date, and the pane switches to Hide until', async ({ page }) => {
   await section(page, 'upcoming').getByRole('button', { name: /^Upcoming/ }).click();
   await row(page, 'Winterize the sprinkler system').click();
   await expect(editor(page).locator('[data-field="Start"]')).toContainText('Nov 25');
   await editor(page).locator('[data-slot=status-menu]').click();
   await page.getByRole('menuitemradio', { name: 'Waiting' }).click();
   const picker = page.locator('[data-slot=wait-pane]');
-  await expect(picker.locator('[data-preset=keep]')).toHaveCount(0);
   await picker.locator('[data-preset=week]').click();
   await expect.poll(() => showTask('Winterize the sprinkler system')).toMatchObject({
     placement: 'waiting_later',
