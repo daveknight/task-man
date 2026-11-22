@@ -62,7 +62,8 @@ test('sections bleed to the screen edges, and section titles line up with task t
 
 test('rows leave quick actions to the swipe buttons, so the title has the room', async ({ page }) => {
   for (const title of ['Twitter litigation claim', 'Plumber quote for kitchen sink', 'Renew passport']) {
-    await expect(row(page, title).getByRole('button')).toHaveCount(1);
-    await expect(row(page, title).getByRole('button')).toHaveAccessibleName(new RegExp(`^${title}`));
+    const buttons = row(page, title).locator('button:not([data-slot=drag-handle])');
+    await expect(buttons).toHaveCount(1);
+    await expect(buttons).toHaveAccessibleName(new RegExp(`^${title}`));
   }
 });

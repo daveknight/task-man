@@ -30,3 +30,12 @@ Design guidelines for TaskMan, drawn from Dave's Figma review feedback and sign-
 
 14. **Use Apple's system colors exactly,** including the documented contrast exemptions.
 15. **Quick action icons in a task list row carry no color until you hover them.** On hover they take their action's color (today: Due orange, Move to Waiting blue, Delete red). This applies only to the quick actions; the flag, date icons, chevrons, toolbar and pane icons carry status or are chrome. No extra badges, such as Follow up.
+
+## Rows and motion
+
+16. **The list doesn't move when you select a task.** At 1024px and up, the room for the detail pane (400px) is always reserved, so the unselected list sits left of center and stays put as the pane slides in and out.
+17. **Day words replace weekdays.** Yesterday, Today and Tomorrow stand in for the day of the week. Rows show the word alone ("Today"); the detail pane has more room and adds the date ("Today, Nov 21").
+18. **A row is dragged by its handle, and only by its handle.** The handle sits in its own small column left of the checkbox, shows a grab cursor, and follows guideline 15 (text color, blue on hover). Pressing anywhere else on the row selects, edits or swipes as usual. Rows that can't be dragged leave the column empty so titles stay lined up.
+19. **A dropped row is highlighted for 2 seconds, then the highlight fades out.**
+20. **Deleted rows slide away, and what's below slides up.** A section's last row takes the heading with it. Folds, slides and fades all use the same 200ms ease-out and snap with reduced motion.
+21. **Typing a title in the list updates the open detail pane as you type.** Escape puts it back in both places.

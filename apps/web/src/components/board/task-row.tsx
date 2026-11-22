@@ -16,6 +16,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { dayLabel, longDate } from '@/lib/day-label';
+import { useDropped } from '@/lib/transient';
 import { useMediaQuery } from '@/lib/use-media-query';
 import { cn } from '@/lib/utils';
 import { useBoardActions, type BoardActions } from './board-actions';
@@ -31,6 +32,8 @@ export interface TaskRowProps {
   className?: string;
   style?: CSSProperties;
   selected?: boolean;
+  /** The drag handle, in the column left of the checkbox. Rows that can't be dragged leave the column empty so titles still line up. */
+  handle?: ReactNode;
 }
 
 function DateMeta({ icon, date, today, tone }: { icon: 'dueDate' | 'waiting'; date: ISODate; today: ISODate; tone?: string }) {
@@ -288,21 +291,32 @@ export function TaskRowContent({
   rowActions,
   hover,
   editableTitle,
+  handle,
 }: TaskRowProps & { rowActions: RowActions; hover?: boolean; editableTitle?: boolean }) {
   const actions = useBoardActions();
   const metaId = useId();
   const done = !!task.completedAt;
+  const dropped = useDropped(task.id);
   return (
     <div
       data-slot="task-row"
       data-task-id={task.id}
       data-selected={selected || undefined}
       className={cn(
-        'group/row relative flex min-h-row items-center gap-row-gap bg-card px-row-x outline-none data-selected:bg-accent',
+        'group/row relative flex min-h-row items-center gap-row-gap bg-card pr-row-x outline-none data-selected:bg-accent',
         className,
       )}
       style={style}
     >
+      <span
+        data-slot="drop-highlight"
+        data-active={dropped || undefined}
+        aria-hidden
+        className="pointer-events-none absolute inset-0 bg-link/15 opacity-0 transition-opacity duration-700 ease-out data-active:opacity-100 data-active:duration-0 motion-reduce:transition-none"
+      />
+      <span data-slot="drag-handle-area" className="flex w-handle shrink-0 items-center justify-center self-stretch">
+        {handle}
+      </span>
       <Checkbox
         aria-label={`Complete ${task.title}`}
         checked={done}

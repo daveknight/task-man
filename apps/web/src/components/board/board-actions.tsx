@@ -22,6 +22,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import type { TaskWrites } from '@/data/board-data';
 import { longDate, shortDate } from '@/lib/day-label';
+import { flashDropped, leaveThen } from '@/lib/transient';
 import { PresetPanel, type PresetGroup } from './preset-panel';
 import { Surface } from './surface';
 
@@ -45,7 +46,8 @@ export interface BoardActions {
   /** Dropped into Upcoming: asks for a future start date (first offering to remove a due date of today or earlier), and makes the task Open. */
   pickStart: (task: Task, drop?: DropPlanner) => void;
   setField: (task: Task, field: 'start' | 'due' | 'hideUntil', date: ISODate | null) => void;
-  edit: (task: Task, fields: Partial<Pick<Task, 'title' | 'description' | 'flagged'>>) => void;
+  /** Resolves once the write has settled, whether or not it succeeded. */
+  edit: (task: Task, fields: Partial<Pick<Task, 'title' | 'description' | 'flagged'>>) => Promise<void>;
   reorder: (task: Task, drop: PositionWrite[]) => void;
   remove: (task: Task) => void;
   removeForever: (task: Task) => void;
@@ -82,11 +84,11 @@ export function BoardActionsProvider({
   const close = () => setPending(null);
 
   const commit = useCallback(
-    (before: Task, after: Task, drop?: DropPlanner, note?: string) => {
+    (before: Task, after: Task, drop?: DropPlanner, note?: string) =>
       writes.change(before, after, { drop: drop?.(after) }).then(() => {
+        if (drop) flashDropped(after.id);
         if (note) toast(note, { action: { label: 'Undo', onClick: () => void writes.change(after, before).catch(quiet) } });
-      }, quiet);
-    },
+      }, quiet),
     [writes],
   );
 
@@ -152,12 +154,14 @@ export function BoardActionsProvider({
       reorder: (task, drop) => commit(task, task, () => drop),
       remove: (task) => {
         const after = softDelete(task, new Date().toISOString(), today);
-        writes.change(task, after).then(
-          () => toast(`Moved “${task.title}” to Trash`, { action: { label: 'Undo', onClick: () => void writes.change(after, restore(after)).catch(quiet) } }),
-          quiet,
+        void leaveThen(task.id, () =>
+          writes.change(task, after).then(
+            () => toast(`Moved “${task.title}” to Trash`, { action: { label: 'Undo', onClick: () => void writes.change(after, restore(after)).catch(quiet) } }),
+            quiet,
+          ),
         );
       },
-      removeForever: (task) => void writes.remove(task).catch(quiet),
+      removeForever: (task) => void leaveThen(task.id, () => writes.remove(task).catch(quiet)),
     };
   }, [commit, onOpen, setStatus, today, writes]);
 

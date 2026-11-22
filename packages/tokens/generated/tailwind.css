@@ -71,12 +71,14 @@
   --spacing-toolbar: var(--size-toolbar);
   --spacing-control: var(--size-control);
   --spacing-checkbox: var(--size-checkbox);
+  --spacing-handle: var(--size-handle);
   --spacing-icon: var(--size-icon);
   --spacing-swipe-button: var(--size-swipe-button);
   --spacing-row-x: var(--space-row-x);
   --spacing-row-gap: var(--space-row-gap);
   --spacing-section-gap: var(--space-section-gap);
   --spacing-separator-inset: var(--space-separator-inset);
+  --spacing-task-separator-inset: var(--space-task-separator-inset);
   --radius-sm: var(--corner-sm);
   --radius-md: var(--corner-md);
   --radius-lg: var(--corner-lg);

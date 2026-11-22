@@ -29,7 +29,7 @@ function QuickAdd({ writes, onClose }: { writes: TaskWrites; onClose: () => void
   };
   return (
     <RowList className="mb-section-gap max-sm:-mx-row-x max-sm:rounded-none">
-      <label className="flex min-h-row items-center gap-row-gap px-row-x">
+      <label className="flex min-h-row items-center gap-row-gap pr-row-x pl-task-lead">
         <span className="flex size-checkbox items-center justify-center text-link">
           <Icon name="add" weight="bold" className="size-icon" />
         </span>
@@ -148,7 +148,12 @@ export function App() {
             {shown && data && <BoardView board={shown} today={today} positions={online ? data.positions : undefined} selectedId={twoPane || sheetOpen ? selectedId : null} />}
           </div>
         </main>
-        {twoPane && <TaskPane task={selected} today={today} onClose={() => setSelectedId(null)} />}
+        {/* The pane's room is always reserved, so the list stays put when a task is selected. */}
+        {twoPane && (
+          <div className="flex w-[400px] shrink-0 justify-end">
+            <TaskPane task={selected} today={today} onClose={() => setSelectedId(null)} />
+          </div>
+        )}
       </div>
       {view === 'board' && <AddTaskFab disabled={!online} onAdd={() => setAdding(true)} />}
       {!twoPane && <TaskSheet task={selected} today={today} open={sheetOpen && !!selected} onOpenChange={setSheetOpen} />}

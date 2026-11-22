@@ -32,6 +32,19 @@ Tick a box when a round has the state. Add new states under the right area as fe
 - [ ] Task sheet, bottom sheet: “Renew passport” – phone
 - [ ] Phone board shows no row quick actions – phone
 
+## Lists and motion
+
+From the list polish PR. All desktop 1440 unless noted.
+
+- [ ] Unselected list sits left of center with the pane's room reserved, and doesn't move when “Renew passport” is selected
+- [ ] Drag handles on every draggable row; hover turns one blue
+- [ ] Drag in progress, picked up by the handle
+- [ ] Just-dropped row highlighted
+- [ ] Delete mid-animation, rows below sliding up
+- [ ] Detail pane dates: “Today, Nov 18” (dentist), “Tomorrow, Nov 19” (library books)
+- [ ] Inline title edit with the pane following the typed text
+- [ ] Phone board with handle column – phone
+
 ## Light and dark
 
 - [ ] Every item in this file in both light and dark, unless the item names one theme

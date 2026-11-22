@@ -12,12 +12,13 @@ const settled = (page: Page) => page.waitForFunction(() => document.getAnimation
 /** Drags with the mouse in steps, so dnd-kit sees a real drag. */
 async function drag(page: Page, from: string, to: { title?: string; section?: string }, position: 'above' | 'below' = 'above') {
   await settled(page);
-  const source = await row(page, from).boundingBox();
+  const source = await row(page, from).getByRole('button', { name: /^Reorder/ }).boundingBox();
   const target = to.title ? await row(page, to.title).boundingBox() : await section(page, to.section!).locator('[data-drop-target]').boundingBox();
   if (!source || !target) throw new Error('row not visible');
-  await page.mouse.move(source.x + 40, source.y + source.height / 2);
+  const grab = { x: source.x + source.width / 2, y: source.y + source.height / 2 };
+  await page.mouse.move(grab.x, grab.y);
   await page.mouse.down();
-  await page.mouse.move(source.x + 40, source.y + source.height / 2 + 10, { steps: 4 });
+  await page.mouse.move(grab.x, grab.y + 10, { steps: 4 });
   const y = to.title ? target.y + (position === 'above' ? 4 : target.height - 4) : target.y + target.height / 2;
   await page.mouse.move(target.x + 40, y, { steps: 15 });
   await page.waitForTimeout(150);
@@ -390,11 +391,12 @@ test('row titles edit in place: Enter and blur save, Escape cancels', async ({ p
 const pane = (page: Page) => page.locator('[data-slot=task-pane]');
 const editorTitle = (page: Page) => page.locator('[data-slot=task-editor]').getByRole('textbox', { name: 'Title' });
 
-test('no detail pane shows until a task is selected, and the board uses the full width', async ({ page }) => {
+test('no detail pane shows until a task is selected, and its room stays reserved', async ({ page }) => {
   await expect(pane(page)).toHaveCount(0);
   await expect(page.getByText('Select a task to see its details')).toHaveCount(0);
   const main = (await page.locator('main').boundingBox())!;
-  expect(main.x + main.width / 2).toBeCloseTo(640, -1);
+  // Centered in the window minus the 400px the pane will take, not in the whole window.
+  expect(main.x + main.width / 2).toBeCloseTo(440, -1);
 });
 
 test('clicking a title selects the row, loads the pane and leaves the title ready to edit', async ({ page }) => {
@@ -434,7 +436,7 @@ test('clicking off the list closes the pane and clears the selection', async ({ 
   await expect(page.locator('[data-slot=task-row][data-selected]')).toHaveCount(0);
   await expect(pane(page)).toHaveCount(0);
   const main = (await page.locator('main').boundingBox())!;
-  expect(main.x + main.width / 2).toBeCloseTo(640, -1);
+  expect(main.x + main.width / 2).toBeCloseTo(440, -1);
 });
 
 test('the pane slides in and out, keeping the last task while it leaves', async ({ page }) => {

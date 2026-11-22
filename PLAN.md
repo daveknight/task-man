@@ -50,10 +50,14 @@ Not on the board by default: completed tasks (a "Show completed" toggle in the m
 ### Ordering and drag-and-drop
 
 - You can drag to reorder within a section. Dragging between In Progress, Waiting and Ready changes the status. Dropping into Waiting opens the Hide until picker. Dropping into Upcoming opens the start-date picker (Tomorrow, +1 week, +2 weeks, Pick date, from tomorrow and never after the due date; a Waiting or In Progress task becomes Open, and its hide-until date is cleared without asking). A task due today or earlier can't start later, so that drop, and only that drop, asks: **Remove due date** clears the due date and goes on to the start-date picker, and **Cancel** leaves the task where it started (core's `planUpcomingDrop` returns this as a decision, like `changeStatus`; the CLI's `move --upcoming --start <date>` exits with code 2 unless `--clear-due` answers it). Dropping onto a collapsed section isn't allowed. Empty In Progress, Waiting and Ready sections stay hidden, and appear as drop targets only while dragging.
+- **Dragging starts at a handle.** Every draggable row has a small handle column left of the checkbox (`DotsSixVertical`, the text color, blue on hover, grab cursor), and a drag starts only when you press (touch: press and hold) on it. Keyboard users focus the handle and press Space. Rows that can't be dragged (Completed, Trash, offline) leave the column empty so titles line up, and section titles line up with them.
+- **After a drop, the row is highlighted for 2 seconds, then the highlight fades out** (with reduced motion it just ends). It shows once the move has been saved, including a drop that first needed a Hide until or start-date answer.
 - Order is stored **per view**: a `task_positions(view_id, task_id, sort_key)` table with fractional-index string keys, so one move writes one row. The board is `view_id = 'main'`, and future filtered views get their own order for free.
 - New tasks go to the top of Ready (or of the section they land in).
 - **Tasks arriving on their own go to the bottom of Ready.** That covers a start date arriving, and the next occurrence of a recurring task when it has no start date or its start date is today or earlier. A next occurrence with a future start date goes to Upcoming instead.
 - How that works without a background job: a task with a future start date has no stored position, and Upcoming is sorted by start date (soonest first). A task in Ready with no stored position sorts below all positioned tasks, by start date (empty last), then creation time, then id, so the order is always the same on every device. It gets a real position the first time you drag it. Completing a recurring occurrence and setting a future start date both clear the stored position.
+
+- **Deleting animates.** The row collapses and fades while the rows below slide up into the gap, then the delete is saved (at once with reduced motion or offline). Deleting the last task in a section takes the section's heading and gap with it. It's the same 200ms ease-out as the section fold. Undo brings the row back without animating.
 
 ### Row actions (swipe, and right-click on desktop)
 
@@ -80,7 +84,7 @@ One shared function in `core`, `actionsFor(task, today)`, picks the actions from
 
 ### Task fields
 
-- **Title:** the only text shown in the list row.
+- **Title:** the only text shown in the list row. On wide screens it edits in place, and while you type the open detail pane shows the same text (Escape restores both).
 - **Description:** stored as Markdown text. The editor auto-formats lists: typing `- `, `* ` or `1. ` at the start of a line makes a list, Enter continues it, Enter on an empty item ends it, and Tab or Shift+Tab indents. The list row doesn't mark tasks that have a description.
 - **Start date, hide until, due date:** optional, blank by default. The start date is only for Open tasks and hide until only for Waiting tasks, so the sheet shows Start and Due for Open, Hide until and Due for Waiting, and Due only for In Progress.
 - **Flag:** a single on/off toggle for priority or "keep an eye on this," off by default. It's the flag button in the task sheet's header (as in TickTick) and a swipe action. A flagged row shows an orange flag. Flagging doesn't move a task; order stays manual. Search can filter to flagged tasks, and a future saved view could show only flagged ones. Completing a recurring occurrence keeps the flag.
@@ -270,6 +274,7 @@ Fallbacks if Supabase ever stops working for this: custom PHP and MySQL on Dream
 
 - **Components:** shadcn/ui with Base UI as the base (`shadcn init`'s default). Components are copied into `apps/web/src/components/ui` and owned by us, so restyling is editing files, not overriding a library. Add components only when a screen needs them.
 - **The Phase 1a set:** Collapsible (sections and "Show N hidden until later"), Checkbox, Popover (quick picks and swipe presets), Calendar (date pickers), Dropdown Menu and Context Menu (status menu, right-click actions), for the task sheet a pane that slides in beside the board on wide windows (1024 px and up), a Sheet over the board on mid-width ones and a Drawer (bottom sheet) on phones, Dialog, Input, Textarea, Toggle (flag), Badge, Tooltip, Separator, Scroll Area, Command (search) and Sonner (toasts with Undo). Swipe actions in mobile Safari and drag-and-drop (dnd-kit) are our own code, styled with the same tokens.
+- **Detail pane and dates:** at 1024 px and up the list's width is fixed with 400 px always reserved on the right, so the unselected list is centered in the space left of the pane and doesn't move when a task is selected. The pane's date fields show Yesterday, Today and Tomorrow with the date ("Today, Nov 21") in place of the weekday; other days read "Fri, Nov 27". Rows show the word alone.
 - **Look and density:** the system font stack (`-apple-system, BlinkMacSystemFont, system-ui, sans-serif`), which shows SF Pro on Apple devices. Never bundle SF Pro font files: Apple's license doesn't allow it on the web. 13 to 14 px text and 38 px rows with a mouse, 46 px rows on touch screens (`pointer: coarse`, keeping touch targets at least 44 px), round checkboxes, inset separators and grouped sections like iOS lists.
 - **Light and dark:** shadcn's `.dark` class on `<html>`, set from an Appearance setting (System, Light, Dark; default System, following `prefers-color-scheme`). The installed web app's `theme-color` and status bar follow it.
 - **Icons:** Phosphor (`@phosphor-icons/react`, MIT), the closest licensed match to SF Symbols. Regular weight by default, Fill for selected or active states. Lucide, shadcn's default, is replaced.
@@ -295,6 +300,7 @@ One table in `packages/tokens` maps each meaning to its icon on each platform, s
 | In Progress / start now | `Play` | `play` |
 | Move to In Progress (from Waiting) | `PlayCircle` | `play.circle` |
 | Flag | `Flag` (Fill when on) | `flag` / `flag.fill` |
+| Drag handle (reorder) | `DotsSixVertical` | `line.3.horizontal` |
 | Repeats | `Repeat` | `repeat` |
 | Trash | `Trash` | `trash` |
 | Capture | `Sparkle` | `sparkles` |

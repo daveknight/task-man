@@ -18,6 +18,11 @@
   }
 }
 
+/** Where a task row's checkbox column starts: its drag handle column and the gap after it. */
+@utility pl-task-lead {
+  padding-left: calc(var(--size-handle) + var(--space-row-gap));
+}
+
 /*
  * Centers a single line of text on its visual middle (halfway between the cap-height and x-height
  * centers) instead of its line box, whose position depends on each font's ascent and descent.
