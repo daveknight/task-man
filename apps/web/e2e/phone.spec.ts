@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { findTask, openBoard, reseed, row, section, showTask, titlesIn } from './helpers';
+import { findTask, openBoard, recordDrop, reseed, row, section, showTask, titlesIn } from './helpers';
 
 test.beforeEach(async ({ page }) => {
   reseed();
@@ -66,4 +66,42 @@ test('rows leave quick actions to the swipe buttons, so the title has the room',
     await expect(buttons).toHaveCount(1);
     await expect(buttons).toHaveAccessibleName(new RegExp(`^${title}`));
   }
+});
+
+test('pressing and holding the handle drags, and the overlay settles into the new position', async ({ page }) => {
+  const title = 'Draft holiday card list';
+  const before = await titlesIn(page, 'in_progress');
+  expect(before[2]).toBe(title);
+  await page.waitForFunction(() => document.getAnimations().length === 0);
+  const grip = (await row(page, title).getByRole('button', { name: /^Reorder/ }).boundingBox())!;
+  const first = (await row(page, before[0]!).boundingBox())!;
+  const cdp = await page.context().newCDPSession(page);
+  const touch = (type: 'touchStart' | 'touchMove' | 'touchEnd', x: number, y: number) =>
+    cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x, y }] });
+  const x = grip.x + grip.width / 2;
+  const y = grip.y + grip.height / 2;
+  await touch('touchStart', x, y);
+  await page.waitForTimeout(450);
+  for (let i = 1; i <= 12; i++) {
+    await touch('touchMove', x, y + ((first.y + 4 - y) * i) / 12);
+    await page.waitForTimeout(16);
+  }
+  await page.waitForTimeout(150);
+  const recording = await recordDrop(page, title);
+  await touch('touchEnd', x, first.y + 4);
+  await expect.poll(() => titlesIn(page, 'in_progress')).toEqual([title, before[0], before[1]]);
+  await page.waitForFunction(() => document.getAnimations().length === 0);
+  const frames = await recording.stop();
+  const landed = (await row(page, title).boundingBox())!.y;
+  const overlay = frames.map((f) => f.overlay).filter((o): o is number => o !== null);
+  expect(overlay.length).toBeGreaterThan(0);
+  expect(Math.max(...overlay)).toBeLessThanOrEqual(landed + 20);
+  expect(Math.abs(overlay[overlay.length - 1]! - landed)).toBeLessThanOrEqual(4);
+});
+
+test('with no hover the drag handle stays visible, and keeps its column', async ({ page }) => {
+  const grip = row(page, 'Draft holiday card list').getByRole('button', { name: /^Reorder/ });
+  expect(await page.evaluate(() => matchMedia('(hover: none)').matches)).toBe(true);
+  expect(await grip.evaluate((el) => Number(getComputedStyle(el).opacity))).toBe(1);
+  expect((await grip.boundingBox())!.width).toBeGreaterThan(0);
 });

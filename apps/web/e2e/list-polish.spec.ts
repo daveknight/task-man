@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { cli, findTask, openBoard, reseed, row, section, showTask, titlesIn } from './helpers';
+import { cli, findTask, openBoard, recordDrop, reseed, row, section, showTask, titlesIn } from './helpers';
 
 test.beforeEach(async ({ page }) => {
   reseed();
@@ -13,7 +13,7 @@ const settled = (page: Page) => page.waitForFunction(() => document.getAnimation
 const handle = (page: Page, title: string) => row(page, title).getByRole('button', { name: /^Reorder/ });
 
 /** Presses the handle and drags it over another row in steps, so dnd-kit sees a real drag. */
-async function dragByHandle(page: Page, from: string, onto: string) {
+async function dragByHandle(page: Page, from: string, onto: string, onRelease?: () => Promise<void>) {
   await settled(page);
   const grip = (await handle(page, from).boundingBox())!;
   const target = (await row(page, onto).boundingBox())!;
@@ -24,6 +24,7 @@ async function dragByHandle(page: Page, from: string, onto: string) {
   await page.mouse.move(x, y + 10, { steps: 4 });
   await page.mouse.move(x + 40, target.y + 4, { steps: 15 });
   await page.waitForTimeout(150);
+  await onRelease?.();
   await page.mouse.up();
 }
 
@@ -208,6 +209,40 @@ test.describe('drag handle', () => {
     expect(await color()).toBe(blue);
   });
 
+  test('the grip shows only while the row is hovered, the handle has keyboard focus, or it is dragged, and never moves the title', async ({ page }) => {
+    const title = 'Fix squeaky closet door';
+    const grip = handle(page, title);
+    const opacity = () => grip.evaluate((el) => Number(getComputedStyle(el).opacity));
+    const titleX = async () => (await row(page, title).locator('[data-slot=task-title]').boundingBox())!.x;
+    await page.mouse.move(0, 0);
+    await expect.poll(opacity).toBe(0);
+    const resting = await titleX();
+
+    await row(page, title).hover();
+    await expect.poll(opacity).toBe(1);
+    expect(await titleX()).toBe(resting);
+    await page.mouse.move(0, 0);
+    await expect.poll(opacity).toBe(0);
+
+    // Hidden, it still takes the press, so a drag can start from where the grip will appear.
+    await row(page, title).getByRole('checkbox').focus();
+    await page.keyboard.press('Shift+Tab');
+    await expect(grip).toBeFocused();
+    await expect.poll(opacity).toBe(1);
+    await page.keyboard.press('Tab');
+    await expect.poll(opacity).toBe(0);
+
+    const box = (await grip.boundingBox())!;
+    const target = (await row(page, 'Buy new watch band').boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 2, box.y - 10, { steps: 4 });
+    await page.mouse.move(box.x + 40, target.y + 4, { steps: 12 });
+    await expect(page.locator('[data-slot=drag-handle][data-dragging]')).toHaveCount(1);
+    await expect.poll(() => page.locator('[data-slot=drag-handle][data-dragging]').evaluate((el) => Number(getComputedStyle(el).opacity))).toBe(1);
+    await page.mouse.up();
+  });
+
   test('pressing and dragging anywhere else on the row does not drag it', async ({ page }) => {
     const before = await titlesIn(page, 'ready');
     await settled(page);
@@ -245,6 +280,46 @@ test.describe('drag handle', () => {
     await section(page, 'completed').getByRole('button', { name: /^Completed/ }).click();
     await expect(section(page, 'completed').locator('[data-slot=task-row]').first()).toBeVisible();
     await expect(section(page, 'completed').locator('[data-slot=drag-handle]')).toHaveCount(0);
+  });
+});
+
+test.describe('drop', () => {
+  test('the dragged overlay settles into the new position instead of flying back', async ({ page }) => {
+    const before = await titlesIn(page, 'ready');
+    const moved = before[2]!;
+    let recording: Awaited<ReturnType<typeof recordDrop>>;
+    await dragByHandle(page, moved, before[0]!, async () => {
+      recording = await recordDrop(page, moved);
+    });
+    await expect.poll(() => titlesIn(page, 'ready')).toEqual([moved, ...before.filter((t) => t !== moved)]);
+    await settled(page);
+    const frames = await recording!.stop();
+    const landed = (await row(page, moved).boundingBox())!.y;
+    const overlay = frames.map((f) => f.overlay).filter((y): y is number => y !== null);
+    expect(overlay.length).toBeGreaterThan(0);
+    // It was dropped above where it started, so it must never head back down past where it lands.
+    expect(Math.max(...overlay)).toBeLessThanOrEqual(landed + 20);
+    expect(Math.abs(overlay[overlay.length - 1]! - landed)).toBeLessThanOrEqual(4);
+    // The list's own copy never shows at the old spot at full strength once released.
+    const list = frames.map((f) => f.list).filter((y): y is number => y !== null);
+    expect(Math.min(...list.slice(-3))).toBeCloseTo(landed, 0);
+  });
+});
+
+test.describe('drop into another section', () => {
+  test('the overlay settles into the section it was dropped in', async ({ page }) => {
+    let recording: Awaited<ReturnType<typeof recordDrop>>;
+    await dragByHandle(page, 'Replace furnace filter', 'Draft holiday card list', async () => {
+      recording = await recordDrop(page, 'Replace furnace filter');
+    });
+    await expect(section(page, 'in_progress').locator('[data-slot=task-row]', { hasText: 'Replace furnace filter' })).toBeVisible();
+    await settled(page);
+    const frames = await recording!.stop();
+    const landed = (await row(page, 'Replace furnace filter').boundingBox())!.y;
+    const overlay = frames.map((f) => f.overlay).filter((y): y is number => y !== null);
+    expect(overlay.length).toBeGreaterThan(0);
+    expect(Math.max(...overlay)).toBeLessThanOrEqual(landed + 20);
+    expect(Math.abs(overlay[overlay.length - 1]! - landed)).toBeLessThanOrEqual(4);
   });
 });
 
