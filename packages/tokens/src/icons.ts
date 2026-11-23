@@ -35,6 +35,7 @@ export const icons = {
   appearanceDark: { phosphor: 'Moon', sfSymbol: 'moon' },
   expand: { phosphor: 'CaretRight', sfSymbol: 'chevron.right' },
   collapse: { phosphor: 'CaretDown', sfSymbol: 'chevron.down' },
+  reorder: { phosphor: 'DotsSixVertical', sfSymbol: 'line.3.horizontal' },
   close: { phosphor: 'X', sfSymbol: 'xmark' },
   offline: { phosphor: 'WifiSlash', sfSymbol: 'wifi.slash' },
 } as const satisfies Record<string, IconSpec>;

@@ -17,8 +17,9 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
 import { Toggle } from '@/components/ui/toggle';
-import { longDate } from '@/lib/day-label';
+import { paneDate } from '@/lib/day-label';
 import { useOnline } from '@/lib/online';
+import { useLiveTitle } from '@/lib/transient';
 import { useMediaQuery } from '@/lib/use-media-query';
 import { cn } from '@/lib/utils';
 import { useBoardActions } from './board-actions';
@@ -69,7 +70,7 @@ function DateField({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger className="w-full text-left outline-none hover:bg-muted focus-visible:bg-muted" data-field={label}>
         <FieldRow icon={icon} label={label} tone={date ? tone : undefined}>
-          {date ? longDate(date, today) : 'None'}
+          {date ? paneDate(date, today) : 'None'}
         </FieldRow>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-auto p-2">
@@ -159,6 +160,7 @@ export function TaskEditor({ task, today, onClose }: { task: Task; today: ISODat
   const open = !done && !inTrash;
   const overdue = open && !!task.dueDate && task.dueDate < today;
   const { set: setTitle, ...title } = useDraft(task.title, (value) => (value.trim() ? actions?.edit(task, { title: value.trim() }) : setTitle(task.title)));
+  const typedInList = useLiveTitle(task.id);
   const { set: setDescription, ...description } = useDraft(task.description ?? '', (value) => actions?.edit(task, { description: value }));
 
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
@@ -235,6 +237,7 @@ export function TaskEditor({ task, today, onClose }: { task: Task; today: ISODat
 
       <Textarea
         {...title}
+        value={typedInList ?? title.value}
         aria-label="Title"
         readOnly={!online}
         rows={1}
@@ -268,7 +271,7 @@ export function TaskEditor({ task, today, onClose }: { task: Task; today: ISODat
         </div>
       )}
 
-      <RowList className="ring-1 ring-border/60">
+      <RowList fields className="ring-1 ring-border/60">
         {task.status === 'waiting' && (
           <DateField icon="waiting" label="Hide until" clearLabel="Don't hide" date={task.hideUntil} today={today} min={today} onChange={(d) => actions?.setField(task, 'hideUntil', d)} />
         )}

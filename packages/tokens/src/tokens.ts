@@ -174,6 +174,8 @@ export const size = {
   toolbar: { fine: 48, coarse: 52 },
   control: { fine: 28, coarse: 44 },
   checkbox: { fine: 18, coarse: 22 },
+  /** The drag handle's column, left of the checkbox. */
+  handle: { fine: 18, coarse: 24 },
   icon: { fine: 16, coarse: 18 },
   /** Icon buttons revealed by a swipe, inside the row. */
   'swipe-button': { fine: 30, coarse: 36 },
@@ -187,6 +189,8 @@ export const space = {
   'section-gap': { fine: 20, coarse: 28 },
   /** Where an inset separator starts: row padding, checkbox and gap. */
   'separator-inset': { fine: 40, coarse: 50 },
+  /** Where a task row's separator starts: handle column, gap, checkbox and gap. */
+  'task-separator-inset': { fine: 56, coarse: 70 },
 } as const satisfies Record<string, Density>;
 
 /** Corner radii in px. */

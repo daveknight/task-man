@@ -175,7 +175,7 @@ function ResumePanel({ dark }: { dark?: boolean }) {
       {RESUME_GROUPS.map(({ metaphor, options }) => (
         <div key={metaphor} className="pt-2">
           <h3 className="px-row-x pb-1 text-footnote font-semibold text-section-header">{metaphor}</h3>
-          <RowList>
+          <RowList fields>
             {options.map(({ letter, phosphor, sf, icon: Candidate }) => (
               <div key={letter} className="flex min-h-row items-center gap-row-gap bg-card px-row-x" data-option={letter}>
                 <Checkbox aria-label="Complete" />
@@ -218,7 +218,7 @@ function Index() {
     <main className="mx-auto flex max-w-2xl flex-col gap-4 p-6">
       <h1 className="text-large-title font-bold">Phase 1a design screens</h1>
       <p className="text-muted-foreground">Static screens from seed/tasks.json at a pinned day. Nothing here saves.</p>
-      <RowList>
+      <RowList fields>
         {(Object.keys(DESIGN_SCREENS) as DesignScreen[]).map((key) => (
           <a key={key} href={`/design/${key}`} className="flex min-h-row items-center px-row-x text-link hover:bg-muted">
             {DESIGN_SCREENS[key]}

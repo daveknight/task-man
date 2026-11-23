@@ -1,6 +1,7 @@
 import type { Task } from '@app/core';
-import { useLayoutEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 import { useOnline } from '@/lib/online';
+import { setLiveTitle } from '@/lib/transient';
 import { cn } from '@/lib/utils';
 import { useBoardActions } from './board-actions';
 
@@ -8,6 +9,7 @@ const oneLine = (text: string) => text.replace(/\s*[\r\n]+\s*/g, ' ');
 
 /**
  * The row title, edited in place on desktop. Saves on Enter or blur; Escape puts the title back.
+ * While it's typed in, the detail pane shows the same text, so both stay in step.
  * A plain-text contentEditable rather than an input, so the title stays the row's text and the
  * browser's own undo works while typing. React never renders the text, so it can't fight the caret.
  */
@@ -26,6 +28,8 @@ export function InlineTitle({ task, className }: { task: Task; className?: strin
 
   const focused = () => document.activeElement === ref.current;
 
+  useEffect(() => () => setLiveTitle(null), []);
+
   return (
     <span
       ref={ref}
@@ -41,9 +45,8 @@ export function InlineTitle({ task, className }: { task: Task; className?: strin
       // Once editing, a drag selects text and a right-click gets the browser's menu, not the row's.
       onMouseDown={(e) => focused() && e.stopPropagation()}
       onContextMenu={(e) => focused() && e.stopPropagation()}
+      onInput={(e) => setLiveTitle({ id: task.id, text: oneLine(e.currentTarget.textContent ?? '') })}
       onKeyDown={(e) => {
-        // The row's keyboard drag starts on Space and Enter from anywhere inside it.
-        if (e.key === ' ' || e.key === 'Enter') e.stopPropagation();
         if (e.key === 'Enter') {
           e.preventDefault();
           e.currentTarget.blur();
@@ -66,7 +69,8 @@ export function InlineTitle({ task, className }: { task: Task; className?: strin
         cancelled.current = false;
         el.textContent = keep ? title : task.title;
         el.scrollLeft = 0;
-        if (keep) actions?.edit(task, { title });
+        if (keep) void actions?.edit(task, { title }).finally(() => setLiveTitle(null));
+        else setLiveTitle(null);
       }}
       className={cn(
         'relative min-w-4 truncate text-body optical-center outline-none',

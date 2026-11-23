@@ -71,6 +71,7 @@
   --size-toolbar: 48px;
   --size-control: 28px;
   --size-checkbox: 18px;
+  --size-handle: 18px;
   --size-icon: 16px;
   --size-swipe-button: 30px;
   --space-unit: 4px;
@@ -78,6 +79,7 @@
   --space-row-gap: 10px;
   --space-section-gap: 20px;
   --space-separator-inset: 40px;
+  --space-task-separator-inset: 56px;
 }
 
 .dark {
@@ -144,6 +146,7 @@
     --size-toolbar: 52px;
     --size-control: 44px;
     --size-checkbox: 22px;
+    --size-handle: 24px;
     --size-icon: 18px;
     --size-swipe-button: 36px;
     --space-unit: 4px;
@@ -151,5 +154,6 @@
     --space-row-gap: 12px;
     --space-section-gap: 28px;
     --space-separator-inset: 50px;
+    --space-task-separator-inset: 70px;
   }
 }

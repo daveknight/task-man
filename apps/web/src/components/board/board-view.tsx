@@ -28,11 +28,13 @@ import {
   type DragStartEvent,
 } from '@dnd-kit/core';
 import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import type { DraggableAttributes, DraggableSyntheticListeners } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import { useState, type ReactNode } from 'react';
 import { Icon } from '@/components/icon';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { usePersistedBoolean } from '@/lib/persisted';
+import { useLeaving, useLeavingIds } from '@/lib/transient';
 import { cn } from '@/lib/utils';
 import { useBoardActions } from './board-actions';
 import { TaskRow, TaskRowContent } from './task-row';
@@ -49,12 +51,13 @@ export const SECTION_TITLES: Record<Section, string> = {
 const SECTION_STATUS: Partial<Record<Section, Status>> = { in_progress: 'in_progress', waiting: 'waiting', ready: 'open' };
 
 /** An inset grouped card whose rows get iOS-style separators inset past the checkbox. */
-export function RowList({ children, className }: { children: ReactNode; className?: string }) {
+export function RowList({ children, className, fields }: { children: ReactNode; className?: string; /** Field rows (icon and label) instead of task rows, whose separators start further in. */ fields?: boolean }) {
   return (
     <div
       className={cn(
         'overflow-hidden rounded-xl bg-card',
-        '*:relative [&>*+*]:before:absolute [&>*+*]:before:top-0 [&>*+*]:before:right-0 [&>*+*]:before:left-separator-inset [&>*+*]:before:z-10 [&>*+*]:before:h-px [&>*+*]:before:bg-border',
+        '*:relative [&>*+*]:before:absolute [&>*+*]:before:top-0 [&>*+*]:before:right-0 [&>*+*]:before:z-10 [&>*+*]:before:h-px [&>*+*]:before:bg-border',
+        fields ? '[&>*+*]:before:left-separator-inset' : '[&>*+*]:before:left-task-separator-inset',
         className,
       )}
     >
@@ -97,20 +100,70 @@ export interface BoardViewProps {
 
 type RowProps = { task: Task; today: ISODate; context?: ActionContext; selected?: boolean };
 
-function SortableRow(props: RowProps) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: props.task.id });
+/** The handle is the only place a drag starts, so the rest of the row stays free for clicking and editing. */
+function DragHandle({
+  title,
+  attributes,
+  listeners,
+  activator,
+}: {
+  title: string;
+  attributes: DraggableAttributes;
+  listeners: DraggableSyntheticListeners;
+  activator: (node: HTMLElement | null) => void;
+}) {
   return (
-    <div ref={setNodeRef} style={{ transform: CSS.Translate.toString(transform), transition }} className={cn(isDragging && 'opacity-40')} {...attributes} {...listeners}>
-      <TaskRow {...props} />
+    <button
+      type="button"
+      ref={activator}
+      {...attributes}
+      {...listeners}
+      aria-label={`Reorder ${title}`}
+      data-slot="drag-handle"
+      // A touch on the handle must not start the row's swipe.
+      onPointerDown={(e) => e.stopPropagation()}
+      className="flex size-full cursor-grab touch-none items-center justify-center rounded-sm text-foreground outline-none hover:text-link focus-visible:text-link focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset active:cursor-grabbing"
+    >
+      <Icon name="reorder" weight="bold" className="size-3.5" />
+    </button>
+  );
+}
+
+/** A row that slides up out of the list when its task is deleted, so what's below follows it. */
+function LeaveFold({ id, children }: { id: string; children: ReactNode }) {
+  const leaving = useLeaving(id);
+  return (
+    <div
+      data-leaving={leaving || undefined}
+      className={cn('grid grid-cols-[minmax(0,1fr)] grid-rows-[1fr] transition-[grid-template-rows,opacity] data-leaving:grid-rows-[0fr] data-leaving:opacity-0', FOLD_MOTION)}
+    >
+      <div data-leaving={leaving || undefined} className="min-h-0 data-leaving:overflow-hidden">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function SortableRow(props: RowProps) {
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: props.task.id });
+  const handle = <DragHandle title={props.task.title} attributes={attributes} listeners={listeners} activator={setActivatorNodeRef} />;
+  return (
+    <div ref={setNodeRef} style={{ transform: CSS.Translate.toString(transform), transition }} className={cn(isDragging && 'opacity-40')}>
+      <LeaveFold id={props.task.id}>
+        <TaskRow {...props} handle={handle} />
+      </LeaveFold>
     </div>
   );
 }
 
 function DraggableRow(props: RowProps) {
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: props.task.id });
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, isDragging } = useDraggable({ id: props.task.id });
+  const handle = <DragHandle title={props.task.title} attributes={attributes} listeners={listeners} activator={setActivatorNodeRef} />;
   return (
-    <div ref={setNodeRef} className={cn(isDragging && 'opacity-40')} {...attributes} {...listeners}>
-      <TaskRow {...props} />
+    <div ref={setNodeRef} className={cn(isDragging && 'opacity-40')}>
+      <LeaveFold id={props.task.id}>
+        <TaskRow {...props} handle={handle} />
+      </LeaveFold>
     </div>
   );
 }
@@ -118,7 +171,28 @@ function DraggableRow(props: RowProps) {
 function PlainRow(props: RowProps) {
   return (
     <div>
-      <TaskRow {...props} />
+      <LeaveFold id={props.task.id}>
+        <TaskRow {...props} />
+      </LeaveFold>
+    </div>
+  );
+}
+
+/** When the last task in a section is deleted, the whole section (heading and gap included) slides away with it. */
+function SectionLeave({ section, children }: { section: BoardSection; children: ReactNode }) {
+  const leavingIds = useLeavingIds();
+  const leaving = section.tasks.length > 0 && !section.later?.length && section.tasks.every((t) => leavingIds.has(t.id));
+  return (
+    <div
+      data-leaving={leaving || undefined}
+      className={cn(
+        'grid grid-cols-[minmax(0,1fr)] grid-rows-[1fr] transition-[grid-template-rows,margin-bottom] data-leaving:-mb-section-gap data-leaving:grid-rows-[0fr]',
+        FOLD_MOTION,
+      )}
+    >
+      <div data-leaving={leaving || undefined} className="min-h-0 data-leaving:overflow-hidden">
+        {children}
+      </div>
     </div>
   );
 }
@@ -153,7 +227,7 @@ function SectionView({
           It is a row tall either way, so the title and caret stay put when the section opens or closes. */}
       <CollapsibleTrigger
         className={cn(
-          'flex min-h-row w-full items-center gap-row-gap rounded-xl max-sm:rounded-none px-row-x text-left text-subhead font-semibold text-section-header outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50',
+          'flex min-h-row w-full items-center gap-row-gap rounded-xl max-sm:rounded-none pr-row-x pl-task-lead text-left text-subhead font-semibold text-section-header outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50',
           FOLD_MOTION,
           !open && 'bg-card hover:bg-card-hover',
         )}
@@ -180,11 +254,11 @@ function SectionView({
               rows
             )}
             {section.count === 0 && dragging && (
-              <div className="flex min-h-row items-center px-row-x text-footnote text-muted-foreground">Drop here</div>
+              <div className="flex min-h-row items-center pr-row-x pl-task-lead text-footnote text-muted-foreground">Drop here</div>
             )}
             {later.length > 0 && (
               <Collapsible open={laterOpen} onOpenChange={setLaterOpen} data-later>
-                <CollapsibleTrigger className="flex min-h-row w-full items-center gap-row-gap px-row-x text-left text-body text-muted-foreground outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/50">
+                <CollapsibleTrigger className="flex min-h-row w-full items-center gap-row-gap pr-row-x pl-task-lead text-left text-body text-muted-foreground outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/50">
                   <span className="flex size-checkbox items-center justify-center">
                     <Icon name="waiting" className="size-icon" />
                   </span>
@@ -194,7 +268,7 @@ function SectionView({
                   <Caret open={laterOpen} />
                 </CollapsibleTrigger>
                 <Fold>
-                  <div className="*:relative [&>*]:before:absolute [&>*]:before:top-0 [&>*]:before:right-0 [&>*]:before:left-separator-inset [&>*]:before:z-10 [&>*]:before:h-px [&>*]:before:bg-border">
+                  <div className="*:relative [&>*]:before:absolute [&>*]:before:top-0 [&>*]:before:right-0 [&>*]:before:left-task-separator-inset [&>*]:before:z-10 [&>*]:before:h-px [&>*]:before:bg-border">
                     {later.map((t) => Row(t, draggableKind))}
                   </div>
                 </Fold>
@@ -247,7 +321,7 @@ export function BoardView({ board, positions, ...props }: BoardViewProps) {
     if (!to || to === 'waiting_later' && from === 'waiting_later') return;
     const target: Section = to === 'waiting_later' ? 'waiting' : to;
     if (target === 'upcoming') {
-      if (from !== 'upcoming') actions.pickStart(task);
+      if (from !== 'upcoming') actions.pickStart(task, () => undefined);
       return;
     }
     if (!REORDERABLE.includes(target)) return;
@@ -271,7 +345,9 @@ export function BoardView({ board, positions, ...props }: BoardViewProps) {
     // On phones the sections bleed to the screen edges; headers and rows keep their own padding, so titles still line up.
     <div className="flex flex-col gap-section-gap max-sm:-mx-row-x max-sm:overflow-x-clip" data-slot="board">
       {sections.map((section) => (
-        <SectionView key={section.id} section={section} dnd={dnd} dragging={!!active} {...props} />
+        <SectionLeave key={section.id} section={section}>
+          <SectionView section={section} dnd={dnd} dragging={!!active} {...props} />
+        </SectionLeave>
       ))}
     </div>
   );
@@ -288,7 +364,16 @@ export function BoardView({ board, positions, ...props }: BoardViewProps) {
       <DragOverlay>
         {active && (
           <div className="overflow-hidden rounded-lg shadow-lg ring-1 ring-border">
-            <TaskRowContent task={active} today={props.today} rowActions={actionsFor(active, props.today)} />
+            <TaskRowContent
+              task={active}
+              today={props.today}
+              rowActions={actionsFor(active, props.today)}
+              handle={
+                <span className="flex size-full cursor-grabbing items-center justify-center text-link">
+                  <Icon name="reorder" weight="bold" className="size-3.5" />
+                </span>
+              }
+            />
           </div>
         )}
       </DragOverlay>

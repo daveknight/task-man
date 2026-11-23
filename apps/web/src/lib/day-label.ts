@@ -32,3 +32,9 @@ export function dayLabel(date: ISODate, today: ISODate): string {
 export function weekdayShort(date: ISODate): string {
   return WEEKDAYS[parts(date).weekday]!;
 }
+
+/** The detail pane's date: "Today, Nov 21" for yesterday, today and tomorrow (they replace the weekday), else "Fri, Nov 27". */
+export function paneDate(date: ISODate, today: ISODate): string {
+  const label = dayLabel(date, today);
+  return label === 'Today' || label === 'Tomorrow' || label === 'Yesterday' ? `${label}, ${shortDate(date, today)}` : longDate(date, today);
+}

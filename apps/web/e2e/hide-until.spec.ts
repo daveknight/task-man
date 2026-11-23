@@ -17,7 +17,7 @@ test('the detail pane shows Start and Due for Open, Hide until and Due for Waiti
   await row(page, 'Reimbursement for conference travel').click();
   await expect(editor(page).getByRole('textbox', { name: 'Title' })).toHaveValue('Reimbursement for conference travel');
   expect(await fields(page)).toEqual(['Hide until', 'Due']);
-  await expect(editor(page).locator('[data-field="Hide until"]')).toContainText('Tue, Nov 17');
+  await expect(editor(page).locator('[data-field="Hide until"]')).toContainText('Yesterday, Nov 17');
 
   await row(page, 'Twitter litigation claim').click();
   await expect(editor(page).getByRole('textbox', { name: 'Title' })).toHaveValue(/Twitter litigation claim/);
@@ -94,11 +94,12 @@ test('dragging a hidden-until Waiting task into Upcoming goes straight to the st
   await section(page, 'upcoming').getByRole('button', { name: /^Upcoming/ }).click();
   const title = 'Warranty replacement for headphones';
   await page.waitForFunction(() => document.getAnimations().length === 0);
-  const source = (await row(page, title).boundingBox())!;
+  const source = (await row(page, title).getByRole('button', { name: /^Reorder/ }).boundingBox())!;
   const target = (await section(page, 'upcoming').locator('[data-drop-target]').boundingBox())!;
-  await page.mouse.move(source.x + 40, source.y + source.height / 2);
+  const grab = { x: source.x + source.width / 2, y: source.y + source.height / 2 };
+  await page.mouse.move(grab.x, grab.y);
   await page.mouse.down();
-  await page.mouse.move(source.x + 40, source.y + source.height / 2 + 10, { steps: 4 });
+  await page.mouse.move(grab.x, grab.y + 10, { steps: 4 });
   await page.mouse.move(target.x + 40, target.y + target.height / 2, { steps: 15 });
   await page.waitForTimeout(150);
   await page.mouse.up();
