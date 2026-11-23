@@ -29,6 +29,28 @@ jobs:
         run: npm run test -w @app/cli
       - name: Web app builds
         run: npm run build -w @app/web
+      - name: The production build has no dev credentials in it
+        run: "! grep -rIl 'dev-password' apps/web/dist"
+
+  hosted-safety:
+    name: Hosted safety (migrations deploy to the real database on merge)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Config and seed checks, and on pull requests the migration history checks
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            npm run check:hosted -- --base "origin/${{ github.base_ref }}"
+          else
+            npm run check:hosted
+          fi
 
   database:
     name: Migrations, RLS and seed checks (local Supabase)

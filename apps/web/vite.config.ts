@@ -22,7 +22,17 @@ function localSupabase(): { url: string; anonKey: string } {
   }
 }
 
+/** A production build on Vercel must point at the hosted project, never at nothing or at a local stack. */
+function assertHostedConfig(url: string | undefined, anonKey: string | undefined) {
+  if (process.env.VERCEL_ENV !== 'production') return;
+  if (!url || !anonKey) {
+    throw new Error('Production builds need VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY (Vercel, Settings, Environment Variables, Production).');
+  }
+  if (/127\.0\.0\.1|localhost/.test(url)) throw new Error('VITE_SUPABASE_URL points at a local stack; a production build needs the hosted project URL.');
+}
+
 export default defineConfig(({ command, mode }) => {
+  if (command === 'build' && mode === 'production') assertHostedConfig(process.env.VITE_SUPABASE_URL, process.env.VITE_SUPABASE_ANON_KEY);
   const supabase = command === 'serve' || mode === 'localpreview' ? localSupabase() : { url: process.env.VITE_SUPABASE_URL ?? '', anonKey: process.env.VITE_SUPABASE_ANON_KEY ?? '' };
   return {
     plugins: [
