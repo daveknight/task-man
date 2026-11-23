@@ -1,0 +1,24 @@
+name: Keep alive
+
+# A free Supabase project pauses after a week without activity. One tiny request a day prevents that.
+on:
+  schedule:
+    - cron: '47 11 * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ask the API for one task id (the public key sees none, but the request counts as activity)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          status=$(curl -sS -o /dev/null -w '%{http_code}' --retry 3 --retry-delay 10 --retry-all-errors \
+            "$SUPABASE_URL/rest/v1/tasks?select=id&limit=1" -H "apikey: $SUPABASE_ANON_KEY")
+          echo "Supabase answered $status"
+          test "$status" = "200"

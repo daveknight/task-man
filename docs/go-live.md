@@ -50,3 +50,13 @@ supabase db push                                    # shows what it will apply a
 ```
 
 then turn **Deploy to production** back on.
+
+## Backups and keep-alive
+
+A private GitHub repo, `task-man-backup`, holds two scheduled workflows. Its template is [`backup-repo-template/`](../backup-repo-template/): copy it into the new repo's root.
+
+- **Nightly backup:** exports every task (including completed and Trash) and the board order to `backup/tasks.json` and commits it, over a read-only database connection (`npm run backup:export`). The file records when it was taken, so there is a commit every night; that keeps the repo "active", because GitHub switches off scheduled workflows in repos with no commits for 60 days.
+- **Keep alive:** one request a day to the Supabase API, so the free project isn't paused for inactivity.
+- **The read-only role:** the migration `20261123000000_backup_reader_role.sql` creates `backup_reader` with no login. After it has deployed, set its password once in the Supabase **SQL Editor** (`alter role backup_reader with login password '...';`) and build the connection string from **Connect**, **Session pooler** (GitHub's servers can't use the direct connection: it is IPv6 only on the free plan). The user in that string is `backup_reader.<project-ref>`. The role can read every table and write nothing, and unlike the service key it can't touch auth or storage.
+- **Restore:** `npm run backup:restore` (see the template's README). CI proves the whole loop on every pull request (`apps/cli/test-db/backup-roundtrip.test.ts`): seed, export through the read-only role, wipe, restore, export again, compare.
+- When a migration adds a table with user data, the same PR has to add it to the backup (`apps/cli/src/backup-db.ts`) and to the `backup_reader` grants and policies; a test fails until it does.
