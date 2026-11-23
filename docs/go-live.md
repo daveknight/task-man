@@ -4,14 +4,14 @@ Everything here uses Supabase's free plan and Vercel's free Hobby plan. Developm
 
 | Piece | Where | How it gets there |
 |---|---|---|
-| Web app | Vercel project `task-man`, free `*.vercel.app` address | Vercel builds `main` on every push, using [`vercel.json`](../vercel.json) |
+| Web app | Vercel project `task-man`, free `*.vercel.app` address | Vercel builds `main` on every push, using [`apps/web/vercel.json`](../apps/web/vercel.json) |
 | Database schema | Supabase project `aihwgaginnmrrcasmhwt` | The Supabase GitHub integration applies `supabase/migrations/` when something merges to `main` |
 | Auth settings (sign-ups off, redirect URLs) | Supabase dashboard | By hand, once (below). `supabase/config.toml` is local only |
 | Your user | Supabase dashboard | By hand, once |
 
 ## Vercel
 
-- **Root Directory** is empty (the repo root); `vercel.json` sets the install command, `npm run build -w @app/web`, the output directory `apps/web/dist` and the single-page-app rewrite. Node.js 22.x.
+- **Root Directory** is `apps/web` (already set). Vercel finds the npm workspaces lockfile at the repo root, installs there and runs the Vite build. [`apps/web/vercel.json`](../apps/web/vercel.json) only adds the single-page-app rewrite, caching and security headers; it deliberately sets no build, install or output settings. Keep it in `apps/web`, the project's root directory. Node.js 22.x.
 - **Environment Variables**, **Production only**: `VITE_SUPABASE_URL` (the Project URL) and `VITE_SUPABASE_ANON_KEY` (the anon or publishable key). Both are public by design. Never put the `service_role` or secret key anywhere in Vercel.
 - Preview deployments have no Supabase variables on purpose, so a pull request preview can't reach real data; the app says it has no Supabase address. A Production build without the variables fails with a message saying so.
 - The service worker (`sw.js`) is served with no caching, so a new deploy reaches installed copies on their next open.
