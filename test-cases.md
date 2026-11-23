@@ -45,6 +45,8 @@ From the list polish PR. All desktop 1440 unless noted.
 - [ ] Delete mid-animation, rows below sliding up
 - [ ] Detail pane dates: “Today, Nov 18” (dentist), “Tomorrow, Nov 19” (library books)
 - [ ] Inline title edit with the pane following the typed text
+- [ ] Handle grip hidden at rest and shown on the hovered row only; shown with keyboard focus – desktop 1440
+- [ ] Dragged overlay settling into its new position – desktop 1440
 - [ ] Phone board with handle column – phone
 
 ## Light and dark

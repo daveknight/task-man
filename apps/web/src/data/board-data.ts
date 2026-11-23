@@ -1,11 +1,16 @@
 import { applyPlan, planChange, planNewTask, type ISODate, type PositionWrite, type Task } from '@app/core';
 import { deleteForever, insertTask, loadSnapshot, searchTasks, writeChange, type Scope, type SearchOptions, type Snapshot } from '@app/data';
-import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, notifyManager, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
 import { ensureDevSession, supabase, supabaseConfigured } from '@/supabase';
 
 const SNAPSHOT_KEY = ['snapshot'] as const;
+
+// React Query hands cache changes to components on a zero-delay timer by default. A dropped row would then
+// render in its old place first, and the drag overlay's drop animation, which measures that render, would
+// fly back to it. Delivering changes in the same tick keeps the board in step with the user's action.
+notifyManager.setScheduler((callback) => callback());
 
 let scopePromise: Promise<Scope> | null = null;
 
@@ -54,8 +59,12 @@ export function useTaskWrites(today: ISODate) {
         throw new Error('offline');
       }
       const previous = current();
-      await client.cancelQueries({ queryKey: SNAPSHOT_KEY });
+      // The board must change in the same tick as the user's action. A drag's drop animation measures
+      // where the row ended up the moment the drag ends, so awaiting before this would send the
+      // overlay back to the row's old place. Cancelling without reverting keeps the optimistic data.
+      const cancelled = client.cancelQueries({ queryKey: SNAPSHOT_KEY }, { revert: false });
       client.setQueryData(SNAPSHOT_KEY, optimistic);
+      await cancelled;
       try {
         await write(await scope());
       } catch (error) {

@@ -106,11 +106,13 @@ function DragHandle({
   attributes,
   listeners,
   activator,
+  dragging,
 }: {
   title: string;
   attributes: DraggableAttributes;
   listeners: DraggableSyntheticListeners;
   activator: (node: HTMLElement | null) => void;
+  dragging: boolean;
 }) {
   return (
     <button
@@ -120,9 +122,12 @@ function DragHandle({
       {...listeners}
       aria-label={`Reorder ${title}`}
       data-slot="drag-handle"
+      data-dragging={dragging || undefined}
       // A touch on the handle must not start the row's swipe.
       onPointerDown={(e) => e.stopPropagation()}
-      className="flex size-full cursor-grab touch-none items-center justify-center rounded-sm text-foreground outline-none hover:text-link focus-visible:text-link focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset active:cursor-grabbing"
+      // Its column is always reserved, but the grip shows only while the row is hovered, the handle has keyboard focus
+      // or it is being dragged. Screens with no hover (phones) show it all the time.
+      className="flex size-full cursor-grab touch-none items-center justify-center rounded-sm text-foreground opacity-0 transition-opacity duration-150 outline-none group-hover/row:opacity-100 hover:text-link focus-visible:text-link focus-visible:opacity-100 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset active:cursor-grabbing data-dragging:opacity-100 motion-reduce:transition-none [@media(hover:none)]:opacity-100"
     >
       <Icon name="reorder" weight="bold" className="size-3.5" />
     </button>
@@ -146,7 +151,7 @@ function LeaveFold({ id, children }: { id: string; children: ReactNode }) {
 
 function SortableRow(props: RowProps) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: props.task.id });
-  const handle = <DragHandle title={props.task.title} attributes={attributes} listeners={listeners} activator={setActivatorNodeRef} />;
+  const handle = <DragHandle title={props.task.title} attributes={attributes} listeners={listeners} activator={setActivatorNodeRef} dragging={isDragging} />;
   return (
     <div ref={setNodeRef} style={{ transform: CSS.Translate.toString(transform), transition }} className={cn(isDragging && 'opacity-40')}>
       <LeaveFold id={props.task.id}>
@@ -158,7 +163,7 @@ function SortableRow(props: RowProps) {
 
 function DraggableRow(props: RowProps) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, isDragging } = useDraggable({ id: props.task.id });
-  const handle = <DragHandle title={props.task.title} attributes={attributes} listeners={listeners} activator={setActivatorNodeRef} />;
+  const handle = <DragHandle title={props.task.title} attributes={attributes} listeners={listeners} activator={setActivatorNodeRef} dragging={isDragging} />;
   return (
     <div ref={setNodeRef} className={cn(isDragging && 'opacity-40')}>
       <LeaveFold id={props.task.id}>

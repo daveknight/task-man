@@ -66,3 +66,35 @@ export async function titlesIn(page: Page, id: string): Promise<string[]> {
     .locator('[data-slot=task-row]')
     .evaluateAll((rows) => rows.filter((r) => !r.closest('[data-later]')).map((r) => r.querySelector('[data-slot=task-title]')?.textContent?.trim() ?? ''));
 }
+
+/**
+ * Starts recording, every frame, where the dragged row's overlay and the row in the list sit. Call
+ * before releasing the pointer, then `stop` once the drop has settled for the samples.
+ */
+export async function recordDrop(page: Page, title: string) {
+  await page.evaluate((text) => {
+    const w = window as unknown as { drop: { overlay: number | null; list: number | null }[]; dropOn: boolean };
+    w.drop = [];
+    w.dropOn = true;
+    const tick = () => {
+      const sample: { overlay: number | null; list: number | null } = { overlay: null, list: null };
+      for (const r of document.querySelectorAll('[data-slot=task-row]')) {
+        if (!r.textContent?.includes(text)) continue;
+        let fixed = false;
+        for (let e: Element | null = r; e; e = e.parentElement) if (getComputedStyle(e).position === 'fixed') fixed = true;
+        sample[fixed ? 'overlay' : 'list'] = r.getBoundingClientRect().y;
+      }
+      w.drop.push(sample);
+      if (w.dropOn) requestAnimationFrame(tick);
+    };
+    tick();
+  }, title);
+  return {
+    stop: () =>
+      page.evaluate(() => {
+        const w = window as unknown as { drop: { overlay: number | null; list: number | null }[]; dropOn: boolean };
+        w.dropOn = false;
+        return w.drop;
+      }),
+  };
+}
