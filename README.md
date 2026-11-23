@@ -10,7 +10,7 @@ Personal task manager for todos. "TaskMan" is a working name: it lives in `APP_N
 | `packages/tokens` | Design tokens (light and dark colors from Apple's system palette, type scale, spacing, row heights) and the Phosphor/SF Symbols icon map. `npm run generate -w @app/tokens` writes `generated/tokens.css` and the Tailwind theme `generated/tailwind.css` |
 | `packages/data` | Supabase reads and writes shared by the CLI and the web app (`loadSnapshot`, `writeChange`, `insertTask`, `searchTasks`, row mapping) |
 | `apps/cli` | Agent and seeding CLI: every Phase 1a action, through the same `core` rules and `@app/data` writes as the app. Local Supabase only |
-| `apps/web` | Vite + React with shadcn/ui on Base UI (components in `src/components/ui`, owned by us), Tailwind on the tokens, Phosphor icons. Signs in as the dev user in dev; the board, task sheet, search and Trash. Static Phase 1a design screens at `/design` in dev |
+| `apps/web` | Vite + React with shadcn/ui on Base UI (components in `src/components/ui`, owned by us), Tailwind on the tokens, Phosphor icons. Login screen (email and password, password reset, sign out); signs in as the dev user in local dev; the board, task sheet, search and Trash. Static Phase 1a design screens at `/design` in dev |
 | `supabase/` | Local Supabase config, migrations, and `seed.sql` (the dev user) |
 | `seed/` | Fixture tasks with hand-written expectations, and AI-capture examples |
 
@@ -31,6 +31,8 @@ Design screens (no database needed): `npm run web`, then open http://127.0.0.1:5
 To try the installable app (manifest, service worker, offline read-only mode), stop the dev server and run `npm run preview:local -w @app/web`: a production build against local Supabase, signed in as the dev user, on the same port. Offline, it opens with the last-loaded board and a banner, and nothing can be changed until it's back online. The app icon is `apps/web/public/icon.svg`; after changing it, `npm run icons -w @app/web` renders the PNG sizes.
 
 The dev user is `dev@example.com` / `dev-password` (local only). The web app signs in as it automatically in `vite dev`, so every query runs through row-level security exactly as in production.
+
+To see the real login screen locally, open http://127.0.0.1:5179/?autosignin=off (or choose Sign out in the board menu, which does the same until you open `?autosignin=on`). Production builds never sign in automatically, and the dev credentials are only ever in `.env.development` and `.env.localpreview`. Password reset emails land in the local Mailpit inbox at http://127.0.0.1:54324.
 
 ## CLI
 

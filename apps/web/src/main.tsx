@@ -3,6 +3,7 @@ import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client
 import { StrictMode, Suspense, lazy } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App.tsx';
+import { AuthGate } from './auth/auth-gate.tsx';
 import { TooltipProvider } from './components/ui/tooltip.tsx';
 import { persistOptions } from './data/persist.ts';
 import { AppearanceProvider } from './lib/appearance.tsx';
@@ -25,7 +26,9 @@ createRoot(document.getElementById('root')!).render(
               <DesignApp screen={path.split('/')[2] ?? ''} />
             </Suspense>
           ) : (
-            <App />
+            <AuthGate>
+              <App />
+            </AuthGate>
           )}
         </TooltipProvider>
       </AppearanceProvider>

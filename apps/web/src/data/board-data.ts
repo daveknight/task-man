@@ -3,7 +3,7 @@ import { deleteForever, insertTask, loadSnapshot, searchTasks, writeChange, type
 import { keepPreviousData, notifyManager, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
-import { ensureDevSession, supabase, supabaseConfigured } from '@/supabase';
+import { currentSession, supabase, supabaseConfigured } from '@/supabase';
 
 const SNAPSHOT_KEY = ['snapshot'] as const;
 
@@ -12,12 +12,9 @@ const SNAPSHOT_KEY = ['snapshot'] as const;
 // fly back to it. Delivering changes in the same tick keeps the board in step with the user's action.
 notifyManager.setScheduler((callback) => callback());
 
-let scopePromise: Promise<Scope> | null = null;
-
-/** The signed-in user's scope. Locally, signs in as the dev user. */
-function scope(): Promise<Scope> {
-  scopePromise ??= ensureDevSession().then((session) => ({ db: supabase, userId: session.userId }));
-  return scopePromise;
+/** The signed-in user's scope; every query runs as that user, through row-level security. */
+async function scope(): Promise<Scope> {
+  return { db: supabase, userId: (await currentSession()).userId };
 }
 
 export function useSnapshot() {

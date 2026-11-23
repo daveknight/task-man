@@ -100,3 +100,14 @@ All desktop 1440 unless noted.
 | `Open PRs 15–18 — Nov 20, 2026` | Quick actions and Hide until (#15), quick actions layout (#16), inline title edit (#17), section collapse (#18) |
 
 These pages predate the naming rule above.
+
+## Login
+
+From Phase 1b. Static screens at `/design/login`, `/design/login-error`, `/design/login-forgot`, `/design/login-sent` and `/design/login-new-password`. All are one centered column, so capture desktop 1440 and phone in light and dark.
+
+- [ ] Login: sign in, empty – desktop 1440, phone
+- [ ] Login: wrong email or password – desktop 1440, phone
+- [ ] Login: reset password – desktop 1440, phone
+- [ ] Login: reset email sent – desktop 1440, phone
+- [ ] Login: choose a new password – desktop 1440, phone
+- [ ] Board menu with the account email and Sign out – desktop 1440

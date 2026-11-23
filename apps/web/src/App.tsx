@@ -1,5 +1,6 @@
 import { APP_NAME, buildBoard, type Task } from '@app/core';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useAuth } from './auth/auth-gate.tsx';
 import { BoardActionsProvider } from './components/board/board-actions.tsx';
 import { BoardView, RowList } from './components/board/board-view.tsx';
 import { SearchDialog } from './components/board/search-dialog.tsx';
@@ -52,6 +53,7 @@ function QuickAdd({ writes, onClose }: { writes: TaskWrites; onClose: () => void
 }
 
 export function App() {
+  const auth = useAuth();
   const today = useToday();
   const snapshot = useSnapshot();
   const writes = useTaskWrites(today);
@@ -107,7 +109,9 @@ export function App() {
   }, []);
 
   const error = !supabaseConfigured
-    ? 'Local Supabase is not running. Start it with `npm run db:start`, then restart the dev server.'
+    ? import.meta.env.DEV
+      ? 'Local Supabase is not running. Start it with `npm run db:start`, then restart the dev server.'
+      : 'This build has no Supabase address. It needs VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.'
     : snapshot.error && !data
       ? snapshot.error.message
       : null;
@@ -126,7 +130,7 @@ export function App() {
               onSearch={() => setSearching(true)}
               onAdd={() => setAdding(true)}
               addDisabled={!online}
-              menu={{ showCompleted, onShowCompletedChange: setShowCompleted, onTrash: () => setView('trash') }}
+              menu={{ showCompleted, onShowCompletedChange: setShowCompleted, onTrash: () => setView('trash'), account: auth.email ? { email: auth.email, onSignOut: () => void auth.signOut() } : undefined }}
             />
           )}
           <div className="pt-2">

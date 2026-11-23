@@ -60,6 +60,11 @@ const SHOTS: Shot[] = [
   { screen: 'sheet', devices: ['desktop', 'narrow', 'iphone'] },
   { screen: 'sheet-ready' },
   { screen: 'sheet-waiting' },
+  { screen: 'login' },
+  { screen: 'login-error' },
+  { screen: 'login-forgot' },
+  { screen: 'login-sent' },
+  { screen: 'login-new-password' },
   { screen: 'resume-icons', devices: ['desktop'], fullPage: true, bothThemes: true },
 ];
 
