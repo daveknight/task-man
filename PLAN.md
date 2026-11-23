@@ -310,7 +310,8 @@ One table in `packages/tokens` maps each meaning to its icon on each platform, s
 - **Web screens:** the Obra shadcn/ui kit, Community edition (free; CC BY 4.0, so credit Obra Studio in the repo's design notes), with its color variables re-pointed to our tokens and the Phosphor plugin for icons.
 - **Native screens:** Apple's official iOS 27 and macOS 27 UI kits (free, from Apple Design Resources), with the SF Symbols app for icons.
 - **Before building each UI phase,** its new screens are designed in light and dark. The web kit is used from Phase 1a, and the Apple kits from Phase 3.
-- Token values are changed in `packages/tokens` first, then mirrored into the Figma variables, so code stays the source of truth.
+- Token values are changed in `packages/tokens` first, so code stays the source of truth. They're mirrored into the Figma variables only when Dave asks.
+- Agents create or update anything in Figma (screens, screenshots, variables) only when Dave explicitly asks, never as a routine part of a PR or task.
 
 ### Testing
 

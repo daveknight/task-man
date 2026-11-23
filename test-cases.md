@@ -2,6 +2,8 @@
 
 The screens and states to capture for each Figma review round. This file is the list of states. For how to capture them and place them in Figma, follow the [`figma-review`](.cursor/skills/figma-review/SKILL.md) skill.
 
+Review rounds happen only when Dave explicitly asks for one. Adding states here as features land doesn't mean capturing them in Figma; that waits for his request. Local screenshots for a PR are fine without it.
+
 ## Figma page naming
 
 New review pages are named **`YYYY-MM-DD: {description of phase or PRs}`**, for example `2026-11-20: Open PRs 15–18`. Put the same date on the page as a canvas title. Add a new page for each round and never edit existing pages.
