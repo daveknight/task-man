@@ -1,6 +1,6 @@
 ---
 name: figma-review
-description: Capture TaskMan screens as real browser screenshots and place them in Figma for Dave to review and comment on. Use when asked to put screens, states, a phase or PRs in Figma for review.
+description: Capture TaskMan screens as real browser screenshots and place them in Figma for Dave to review and comment on. Use only when Dave explicitly asks to put screens, states, a phase or PRs in Figma for review; never as a routine step of a PR or task.
 ---
 
 # Figma review
@@ -11,6 +11,7 @@ Figma file: https://www.figma.com/design/T2uWdMZE3ptRelGfMFCMlN
 
 ## Rules
 
+- **Only when Dave asks.** Run a review round, or create or update anything in Figma, only when Dave explicitly requests it. Don't do it as a routine part of a PR or task, and don't offer to as a default next step. Local screenshots saved to files for a PR don't need his request; pushing them to Figma does.
 - Place screenshots as **plain images**. Don't use native layers, `generate_figma_design`, or HTML-to-design imports: they misplace text and Dave doesn't need editable layers.
 - Make a **new page** named `YYYY-MM-DD: {description of phase or PRs}`, and add the same date as a canvas title on the page. **Never edit existing pages.**
 - Put **one image per state**, with a text label directly above it that matches the image name, and group the images by the areas in `test-cases.md`.
