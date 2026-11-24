@@ -156,7 +156,7 @@ function GroupButton({
 
 /** What the always-visible Waiting buttons do. A hide-until date is "Hide until", not a second name for waiting. */
 function followUpTooltip(group: ActionGroup): string {
-  if (group.id === 'extendWait') return 'Hide until a later date';
+  if (group.id === 'extendWait') return 'Hide until later';
   return group.title;
 }
 
@@ -249,7 +249,7 @@ export function RowContextMenu({ task, rowActions, today, children }: { task: Ta
   const active = rowActions.placement !== 'completed' && rowActions.placement !== 'trash';
   return (
     <ContextMenu>
-      <ContextMenuTrigger render={<div />}>{children}</ContextMenuTrigger>
+      <ContextMenuTrigger render={<div className="group/ctx" />}>{children}</ContextMenuTrigger>
       <ContextMenuContent className="min-w-52">
         {active && (
           <>
@@ -303,7 +303,7 @@ export function TaskRowContent({
       data-task-id={task.id}
       data-selected={selected || undefined}
       className={cn(
-        'group/row relative flex min-h-row items-center gap-row-gap bg-card pr-row-x outline-none data-selected:bg-accent',
+        'group/row relative flex min-h-row items-center gap-row-gap bg-card pr-row-x outline-none data-selected:bg-accent group-data-popup-open/ctx:bg-accent',
         className,
       )}
       style={style}

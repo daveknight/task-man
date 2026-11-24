@@ -60,7 +60,7 @@ All desktop 1440.
 
 - [ ] Row hover on a Ready task: Due, Move to Waiting and Delete quick actions
 - [ ] Row hover on an In Progress task: Move to Waiting
-- [ ] Row hover on a Waiting task: closed-eye button with the “Hide until a later date” tooltip
+- [ ] Row hover on a Waiting task: closed-eye button with the “Hide until later” tooltip
 - [ ] Due presets: Due button on “Get car tires rotated”
 - [ ] Quick actions sit just left of the dates and flag
 

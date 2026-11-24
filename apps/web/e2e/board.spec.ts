@@ -183,12 +183,50 @@ test('Ready rows offer Move to Waiting, not Hide until, and it opens the Hide un
   await expect.poll(() => showTask('Buy new watch band').task).toMatchObject({ status: 'waiting', startDate: null });
 });
 
+const background = (r: Locator) => r.evaluate((el) => getComputedStyle(el).backgroundColor);
+
+test('the row with an open context menu is highlighted in every section, and clears when it closes', async ({ page }) => {
+  const sections = await page.locator('[data-section]').evaluateAll((els) => els.map((el) => el.getAttribute('data-section')!));
+  let checked = 0;
+  for (const id of sections) {
+    const target = section(page, id).locator('[data-slot=task-row]:visible').first();
+    if ((await target.count()) === 0) continue;
+    checked++;
+    const other = section(page, id).locator('[data-slot=task-row]:visible').nth(1);
+    const resting = await background(target);
+    await target.click({ button: 'right' });
+    await expect(page.getByRole('menu')).toBeVisible();
+    await expect.poll(() => background(target)).not.toBe(resting);
+    if ((await other.count()) > 0) expect(await background(other)).toBe(resting);
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('menu')).toHaveCount(0);
+    await expect.poll(() => background(target)).toBe(resting);
+  }
+  expect(checked).toBeGreaterThanOrEqual(3);
+});
+
+test('the context menu highlight matches the selected row and leaves its selection alone', async ({ page }) => {
+  const watch = row(page, 'Buy new watch band');
+  const resting = await background(watch);
+  await watch.click();
+  await expect(watch).toHaveAttribute('data-selected', 'true');
+  const selected = await background(watch);
+  expect(selected).not.toBe(resting);
+  await watch.click({ button: 'right' });
+  await expect(page.getByRole('menu')).toBeVisible();
+  expect(await background(watch)).toBe(selected);
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('menu')).toHaveCount(0);
+  await expect(watch).toHaveAttribute('data-selected', 'true');
+  expect(await background(watch)).toBe(selected);
+});
+
 test('Waiting row buttons show what they do', async ({ page }) => {
   const plumber = row(page, 'Plumber quote for kitchen sink');
   const tip = page.locator('[data-slot=tooltip-content][data-open]');
   await plumber.hover();
   await plumber.getByRole('button', { name: 'Hide until' }).hover();
-  await expect(tip).toHaveText('Hide until a later date');
+  await expect(tip).toHaveText('Hide until later');
   await plumber.getByRole('button', { name: 'Hide until' }).click();
   await expect(page.locator('[data-slot=preset-panel]')).toBeVisible();
   await page.keyboard.press('Escape');
