@@ -5,6 +5,7 @@ export * from './board.ts';
 export * from './dates.ts';
 export * from './list-format.ts';
 export * from './policy.ts';
+export * from './repeat.ts';
 export * from './sections.ts';
 export * from './sort-keys.ts';
 export * from './subtasks.ts';

@@ -14,6 +14,7 @@ Language-neutral JSON cases for the shared rules. The TypeScript `core` runs the
 | `validate.json` | `validateTask` |
 | `subtasks.json` | `sortSubtasks`, `subtaskCount`, `normalizeSubtaskTitle`, `planAddSubtask`, `planEditSubtask`, `planMoveSubtask`, `planRemoveSubtask`, `resetSubtasks` (keys come from `keyBetween`, so every platform writes the same `sortKey`) |
 | `tags.json` | `normalizeTagName`, `checkTagName`, `sortTags`, `tagsMatching`, `orderTaskTags`, `tagChips`, `filterByTags` (AND), `tagCounts`, `planCreateTag`, `planRenameTag`, `planDeleteTag`, `applyTagChange`, `applyTaskTagChange`, `parseTagList`, `planTaskTags` |
+| `repeat.json` | `validateRepeat`, `nextDueDate`, `planOccurrence`, `planUndoOccurrence`, `localDate` (time zones and DST) |
 
 Conventions:
 

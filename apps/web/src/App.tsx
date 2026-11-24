@@ -149,7 +149,7 @@ export function App() {
                 {view === 'trash' ? 'Trash is empty' : 'No tasks yet.'}
               </p>
             )}
-            {shown && data && <BoardView board={shown} today={today} positions={online ? data.positions : undefined} selectedId={twoPane || sheetOpen ? selectedId : null} />}
+            {shown && data && <BoardView board={shown} today={today} positions={online ? data.positions : undefined} selectedId={twoPane || sheetOpen ? selectedId : null} actionContext={(task) => ({ recurring: task.repeat != null })} />}
           </div>
         </main>
         {/* The pane's room is always reserved, so the list stays put when a task is selected. */}

@@ -40,7 +40,7 @@ export interface SeedResult {
   positions: number;
   subtasks: number;
   tags: number;
-  skipped: { repeat: number };
+  skipped: Record<string, number>;
 }
 
 export async function seed(

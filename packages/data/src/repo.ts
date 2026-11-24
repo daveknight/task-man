@@ -1,6 +1,8 @@
-import { MAIN_VIEW_ID, orderTaskTags, sortSubtasks, sortTags, type ChangePlan, type ISODate, type PositionWrite, type Subtask, type SubtaskChange, type Tag, type TagChange, type TagLink, type Task, type TaskTagChange } from '@app/core';
+import { MAIN_VIEW_ID, assertValid, orderTaskTags, sortSubtasks, sortTags, taskPatch, type ChangePlan, type ISODate, type OccurrencePlan, type OccurrenceRecord, type PositionWrite, type Subtask, type SubtaskChange, type Tag, type TagChange, type TagLink, type Task, type TaskTagChange, type UndoPlan } from '@app/core';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
+  COMPLETION_COLUMNS,
+  completionFromRow,
   patchToRow,
   rowForInsert,
   subtaskFromRow,
@@ -12,6 +14,7 @@ import {
   TASK_TAG_COLUMNS,
   taskFromRow,
   taskTagRows,
+  type CompletionRow,
   type SubtaskRow,
   type TagRow,
   type TaskRow,
@@ -33,6 +36,8 @@ export interface Snapshot {
   positions: Map<string, string>;
   /** Every tag, in name order, including ones no task has. */
   tags: Tag[];
+  /** Completions and skips, oldest first, so the last one for a task is the one undo restores. */
+  completions: OccurrenceRecord[];
 }
 
 function fail(what: string, error: { message: string } | null): void {
@@ -106,14 +111,33 @@ function withTags(tasks: Task[], links: readonly Pick<TaskTagRow, 'task_id' | 't
   return tasks.map((t) => ({ ...t, tags: orderTaskTags(byTask.get(t.id) ?? []) }));
 }
 
+async function selectCompletions({ db, userId }: Scope): Promise<CompletionRow[]> {
+  const rows: CompletionRow[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await db
+      .from('task_completions')
+      .select(COMPLETION_COLUMNS)
+      .eq('user_id', userId)
+      .order('created_at')
+      .order('id')
+      .range(from, from + PAGE - 1)
+      .returns<CompletionRow[]>();
+    fail('select completions', error);
+    rows.push(...(data ?? []));
+    if ((data?.length ?? 0) < PAGE) break;
+  }
+  return rows;
+}
+
 export async function loadSnapshot(scope: Scope): Promise<Snapshot> {
   const { db, userId } = scope;
-  const [tasks, positions, subtasks, tags, links] = await Promise.all([
+  const [tasks, positions, subtasks, tags, links, completions] = await Promise.all([
     db.from('tasks').select(TASK_COLUMNS).eq('user_id', userId).returns<TaskRow[]>(),
     db.from('task_positions').select('task_id,sort_key').eq('user_id', userId).eq('view_id', MAIN_VIEW_ID).returns<{ task_id: string; sort_key: string }[]>(),
     selectSubtasks(scope),
     selectTags(scope),
     selectTaskTags(scope),
+    selectCompletions(scope),
   ]);
   fail('select tasks', tasks.error);
   fail('select positions', positions.error);
@@ -121,7 +145,49 @@ export async function loadSnapshot(scope: Scope): Promise<Snapshot> {
     tasks: withTags(withSubtasks((tasks.data ?? []).map(taskFromRow), subtasks), links, tags),
     positions: new Map((positions.data ?? []).map((p) => [p.task_id, p.sort_key])),
     tags,
+    completions: completions.map(completionFromRow),
   };
+}
+
+/** Records one completion or skip, then advances the task (or completes it, when the repeat ends). */
+export async function writeOccurrence(scope: Scope, before: Task, plan: OccurrencePlan): Promise<void> {
+  assertValid(plan.task);
+  const { db, userId } = scope;
+  const record = plan.record;
+  fail(
+    'record occurrence',
+    (
+      await db.from('task_completions').insert({
+        id: record.id,
+        user_id: userId,
+        task_id: record.taskId,
+        occurrence_due: record.occurrenceDue,
+        kind: record.kind,
+        completed_on: record.completedOn,
+        completed_at: record.completedAt,
+        snapshot: record.snapshot,
+      })
+    ).error,
+  );
+  await writeChange(scope, before.id, { patch: taskPatch(before, plan.task), positions: [], clearPosition: plan.clearPosition });
+  for (const id of plan.resetSubtaskIds) {
+    await writeSubtaskChange(scope, before.id, { kind: 'edit', id, patch: { done: false } });
+  }
+}
+
+/** Deletes the history row and puts the task, its subtasks and its position back. */
+export async function writeUndoOccurrence(scope: Scope, current: Task, plan: UndoPlan): Promise<void> {
+  assertValid(plan.task);
+  const { db, userId } = scope;
+  fail('undo occurrence', (await db.from('task_completions').delete().eq('user_id', userId).eq('id', plan.completionId)).error);
+  await writeChange(scope, plan.task.id, {
+    patch: taskPatch(current, plan.task),
+    positions: plan.sortKey ? [{ taskId: plan.task.id, sortKey: plan.sortKey }] : [],
+    clearPosition: plan.sortKey == null,
+  });
+  for (const edit of plan.subtaskDone) {
+    await writeSubtaskChange(scope, plan.task.id, { kind: 'edit', id: edit.id, patch: { done: edit.done } });
+  }
 }
 
 export async function writePositions({ db, userId }: Scope, writes: readonly PositionWrite[]): Promise<void> {

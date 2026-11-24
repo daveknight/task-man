@@ -1,0 +1,140 @@
+{
+  "validateRepeat": [
+    { "name": "schedule daily", "rule": { "mode": "schedule", "freq": "daily", "interval": 1 }, "expect": [] },
+    { "name": "schedule weekly with weekdays", "rule": { "mode": "schedule", "freq": "weekly", "interval": 1, "byWeekday": ["mon", "tue", "wed", "thu", "fri"] }, "expect": [] },
+    { "name": "monthly on the 31st", "rule": { "mode": "schedule", "freq": "monthly", "interval": 1, "monthly": { "day": 31 } }, "expect": [] },
+    { "name": "monthly on the last day", "rule": { "mode": "schedule", "freq": "monthly", "interval": 1, "monthly": { "day": -1 } }, "expect": [] },
+    { "name": "monthly on the 2nd Tuesday", "rule": { "mode": "schedule", "freq": "monthly", "interval": 1, "monthly": { "nth": 2, "weekday": "tue" } }, "expect": [] },
+    { "name": "monthly on the last Friday", "rule": { "mode": "schedule", "freq": "monthly", "interval": 1, "monthly": { "nth": -1, "weekday": "fri" } }, "expect": [] },
+    { "name": "after completion", "rule": { "mode": "after_completion", "freq": "weekly", "interval": 5, "ends": { "afterCount": 3 }, "startOffsetDays": 0 }, "expect": [] },
+    { "name": "dates with an inclusive end date", "rule": { "mode": "dates", "dates": ["2026-11-18", "2026-12-01"], "ends": { "onDate": "2026-12-01" } }, "expect": [] },
+    { "name": "ends never", "rule": { "mode": "schedule", "freq": "yearly", "interval": 1, "ends": { "never": true } }, "expect": [] },
+    { "name": "missing mode", "rule": {}, "expect": ["mode"] },
+    { "name": "unknown mode", "rule": { "mode": "hourly" }, "expect": ["mode"] },
+    { "name": "after completion rejects weekdays", "rule": { "mode": "after_completion", "freq": "weekly", "interval": 1, "byWeekday": ["mon"] }, "expect": ["byWeekday"] },
+    { "name": "after completion rejects monthly and dates", "rule": { "mode": "after_completion", "freq": "monthly", "interval": 1, "monthly": { "day": 1 }, "dates": ["2026-11-18"] }, "expect": ["monthly", "dates"] },
+    { "name": "dates mode rejects freq and interval", "rule": { "mode": "dates", "dates": ["2026-11-18"], "freq": "daily", "interval": 1 }, "expect": ["freq", "interval"] },
+    { "name": "daily rejects weekdays", "rule": { "mode": "schedule", "freq": "daily", "interval": 1, "byWeekday": ["mon"] }, "expect": ["byWeekday"] },
+    { "name": "weekly rejects a day of the month", "rule": { "mode": "schedule", "freq": "weekly", "interval": 1, "monthly": { "day": 2 } }, "expect": ["monthly"] },
+    { "name": "yearly rejects monthly", "rule": { "mode": "schedule", "freq": "yearly", "interval": 1, "monthly": { "day": 29 } }, "expect": ["monthly"] },
+    { "name": "schedule rejects a dates list", "rule": { "mode": "schedule", "freq": "daily", "interval": 1, "dates": ["2026-11-18"] }, "expect": ["dates"] },
+    { "name": "interval must be at least 1", "rule": { "mode": "schedule", "freq": "daily", "interval": 0 }, "expect": ["interval"] },
+    { "name": "day 32 is not a day", "rule": { "mode": "schedule", "freq": "monthly", "interval": 1, "monthly": { "day": 32 } }, "expect": ["monthly"] },
+    { "name": "nth 5 is not a week", "rule": { "mode": "schedule", "freq": "monthly", "interval": 1, "monthly": { "nth": 5, "weekday": "tue" } }, "expect": ["monthly"] },
+    { "name": "monthly is a day or an nth weekday", "rule": { "mode": "schedule", "freq": "monthly", "interval": 1, "monthly": { "day": 2, "nth": 1, "weekday": "tue" } }, "expect": ["monthly"] },
+    { "name": "afterCount starts at 1", "rule": { "mode": "schedule", "freq": "daily", "interval": 1, "ends": { "afterCount": 0 } }, "expect": ["ends"] },
+    { "name": "ends is only one of the three", "rule": { "mode": "schedule", "freq": "daily", "interval": 1, "ends": { "onDate": "2026-12-01", "afterCount": 2 } }, "expect": ["ends"] },
+    { "name": "offset cannot be negative", "rule": { "mode": "schedule", "freq": "daily", "interval": 1, "startOffsetDays": -1 }, "expect": ["startOffsetDays"] },
+    { "name": "dates list cannot be empty or repeat a day", "rule": { "mode": "dates", "dates": ["2026-11-18", "2026-11-18"] }, "expect": ["dates"] },
+    { "name": "a weekday listed twice", "rule": { "mode": "schedule", "freq": "weekly", "interval": 1, "byWeekday": ["mon", "mon"] }, "expect": ["byWeekday"] }
+  ],
+  "nextDue": [
+    { "name": "monthly on the 31st clamps to February, then returns to the 31st", "rule": { "mode": "schedule", "freq": "monthly", "interval": 1, "monthly": { "day": 31 } }, "steps": [{ "due": "2026-01-31", "on": "2026-01-31", "expect": "2026-02-28" }, { "due": "2026-02-28", "on": "2026-02-28", "expect": "2026-03-31" }, { "due": "2026-03-31", "on": "2026-03-31", "expect": "2026-04-30" }] },
+    { "name": "monthly on the 31st in a leap year lands on Feb 29", "rule": { "mode": "schedule", "freq": "monthly", "interval": 1, "monthly": { "day": 31 } }, "due": "2028-01-31", "on": "2028-01-31", "expect": "2028-02-29" },
+    { "name": "last day of the month", "rule": { "mode": "schedule", "freq": "monthly", "interval": 1, "monthly": { "day": -1 } }, "steps": [{ "due": "2026-01-31", "on": "2026-01-31", "expect": "2026-02-28" }, { "due": "2026-02-28", "on": "2026-02-28", "expect": "2026-03-31" }, { "due": "2026-04-30", "on": "2026-04-30", "expect": "2026-05-31" }] },
+    { "name": "2nd Tuesday, including a late completion that skips December", "rule": { "mode": "schedule", "freq": "monthly", "interval": 1, "monthly": { "nth": 2, "weekday": "tue" } }, "steps": [{ "due": "2026-11-10", "on": "2026-11-10", "expect": "2026-12-08" }, { "due": "2026-11-10", "on": "2026-12-20", "expect": "2027-01-12" }] },
+    { "name": "last Friday", "rule": { "mode": "schedule", "freq": "monthly", "interval": 1, "monthly": { "nth": -1, "weekday": "fri" } }, "due": "2026-11-27", "on": "2026-11-27", "expect": "2026-12-25" },
+    { "name": "Feb 29 yearly lands on Feb 28, and every 4 years stays on Feb 29", "rule": { "mode": "schedule", "freq": "yearly", "interval": 1 }, "steps": [{ "due": "2024-02-29", "on": "2024-02-29", "expect": "2025-02-28" }, { "due": "2024-02-29", "on": "2024-02-29", "rule": { "mode": "schedule", "freq": "yearly", "interval": 4 }, "expect": "2028-02-29" }] },
+    { "name": "every weekday skips the weekend", "rule": { "mode": "schedule", "freq": "weekly", "interval": 1, "byWeekday": ["mon", "tue", "wed", "thu", "fri"] }, "steps": [{ "due": "2026-11-20", "on": "2026-11-20", "expect": "2026-11-23" }, { "due": "2026-11-18", "on": "2026-11-21", "expect": "2026-11-23" }] },
+    { "name": "weeks start Monday: every 2 weeks on Monday, from a Sunday, is the Monday 8 days later", "rule": { "mode": "schedule", "freq": "weekly", "interval": 2, "byWeekday": ["mon"] }, "due": "2026-11-15", "on": "2026-11-15", "expect": "2026-11-23" },
+    { "name": "every 2 weeks on Monday and Wednesday stays in the anchor week, then skips one", "rule": { "mode": "schedule", "freq": "weekly", "interval": 2, "byWeekday": ["mon", "wed"] }, "steps": [{ "due": "2026-11-02", "on": "2026-11-02", "expect": "2026-11-04" }, { "due": "2026-11-04", "on": "2026-11-04", "expect": "2026-11-16" }] },
+    { "name": "schedule catches up past missed days instead of piling them up", "rule": { "mode": "schedule", "freq": "daily", "interval": 2 }, "due": "2026-11-01", "on": "2026-11-18", "expect": "2026-11-19" },
+    { "name": "monthly schedule completed late jumps to the first matching day that is not already past", "rule": { "mode": "schedule", "freq": "monthly", "interval": 1 }, "due": "2026-10-14", "on": "2026-11-18", "expect": "2026-12-14" },
+    { "name": "quarterly schedule completed late", "rule": { "mode": "schedule", "freq": "monthly", "interval": 3 }, "due": "2026-10-14", "on": "2026-11-18", "expect": "2027-01-14" },
+    { "name": "after completion counts from the day it was done, not the old due date", "rule": { "mode": "after_completion", "freq": "weekly", "interval": 1 }, "due": "2026-11-16", "on": "2026-11-20", "expect": "2026-11-27" },
+    { "name": "after completion monthly clamps a 31st", "rule": { "mode": "after_completion", "freq": "monthly", "interval": 1 }, "due": "2026-01-31", "on": "2026-01-31", "expect": "2026-02-28" },
+    { "name": "after completion finished early still lands after the old due date", "rule": { "mode": "after_completion", "freq": "daily", "interval": 1 }, "due": "2026-03-20", "on": "2026-03-18", "expect": "2026-03-21" },
+    { "name": "dates mode takes the next listed day after the old due date that is still today or later", "rule": { "mode": "dates", "dates": ["2026-11-01", "2026-11-18", "2026-12-01"] }, "steps": [{ "due": "2026-11-01", "on": "2026-11-18", "expect": "2026-11-18" }, { "due": "2026-11-01", "on": "2026-11-19", "expect": "2026-12-01" }] },
+    { "name": "dates mode runs out", "rule": { "mode": "dates", "dates": ["2026-11-01", "2026-11-10"] }, "due": "2026-11-10", "on": "2026-11-18", "expect": null },
+    { "name": "a weekly step can land on the end date; planOccurrence decides that the date is still included", "rule": { "mode": "schedule", "freq": "weekly", "interval": 1 }, "due": "2026-11-18", "on": "2026-11-18", "expect": "2026-11-25" }
+  ],
+  "occurrence": [
+    {
+      "name": "completing moves an in-progress waiting-free task forward, keeps the flag and clears the position",
+      "task": { "status": "in_progress", "flagged": true, "dueDate": "2026-11-18", "startDate": null, "hideUntil": null, "repeat": { "mode": "schedule", "freq": "weekly", "interval": 1 }, "subtasks": [{ "id": "a", "title": "Budget review", "done": true, "sortKey": "a" }, { "id": "b", "title": "Rebalance", "done": false, "sortKey": "b" }] },
+      "kind": "done",
+      "on": "2026-11-18",
+      "historyCount": 0,
+      "sortKey": "pos",
+      "expect": { "outcome": "advance", "dueDate": "2026-11-25", "startDate": null, "status": "open", "flagged": true, "hideUntil": null, "completedOn": null, "subtasksDone": [false, false], "clearPosition": true, "kind": "done" }
+    },
+    {
+      "name": "a start offset of 1 puts the next occurrence in Upcoming the day before; 0 means the start date is the due date",
+      "task": { "status": "waiting", "dueDate": "2026-11-19", "hideUntil": "2026-11-20", "startDate": null, "repeat": { "mode": "schedule", "freq": "weekly", "interval": 1, "startOffsetDays": 1 } },
+      "kind": "done",
+      "on": "2026-11-18",
+      "historyCount": 0,
+      "sortKey": "pos",
+      "expect": { "outcome": "advance", "dueDate": "2026-11-26", "startDate": "2026-11-25", "status": "open", "hideUntil": null, "completedOn": null, "clearPosition": true, "kind": "done" }
+    },
+    {
+      "name": "no offset means no start date, and an offset of 0 equals the due date",
+      "task": { "dueDate": "2026-11-18", "repeat": { "mode": "after_completion", "freq": "daily", "interval": 2, "startOffsetDays": 0 } },
+      "kind": "skip",
+      "on": "2026-11-18",
+      "historyCount": 0,
+      "sortKey": null,
+      "expect": { "outcome": "advance", "dueDate": "2026-11-20", "startDate": "2026-11-20", "status": "open", "hideUntil": null, "completedOn": null, "clearPosition": true, "kind": "skip" }
+    },
+    {
+      "name": "skip counts toward afterCount and the last one completes the task for good",
+      "task": { "dueDate": "2026-11-18", "repeat": { "mode": "schedule", "freq": "daily", "interval": 1, "ends": { "afterCount": 2 } }, "subtasks": [{ "id": "a", "title": "One", "done": true, "sortKey": "a" }] },
+      "kind": "skip",
+      "on": "2026-11-18",
+      "historyCount": 1,
+      "sortKey": "pos",
+      "expect": { "outcome": "end", "dueDate": "2026-11-18", "status": "open", "completedOn": "2026-11-18", "subtasksDone": [true], "clearPosition": false, "kind": "skip" }
+    },
+    {
+      "name": "the first of two still advances",
+      "task": { "dueDate": "2026-11-18", "repeat": { "mode": "schedule", "freq": "daily", "interval": 1, "ends": { "afterCount": 2 } } },
+      "kind": "done",
+      "on": "2026-11-18",
+      "historyCount": 0,
+      "sortKey": null,
+      "expect": { "outcome": "advance", "dueDate": "2026-11-19", "startDate": null, "completedOn": null, "clearPosition": true, "kind": "done" }
+    },
+    {
+      "name": "a dates list that runs out completes like a normal task",
+      "task": { "status": "in_progress", "dueDate": "2026-12-01", "repeat": { "mode": "dates", "dates": ["2026-11-18", "2026-12-01"] } },
+      "kind": "done",
+      "on": "2026-12-01",
+      "historyCount": 0,
+      "sortKey": "pos",
+      "expect": { "outcome": "end", "dueDate": "2026-12-01", "status": "in_progress", "completedOn": "2026-12-01", "clearPosition": false, "kind": "done" }
+    },
+    {
+      "name": "onDate is inclusive, so the occurrence on that day still happens",
+      "task": { "dueDate": "2026-11-18", "repeat": { "mode": "schedule", "freq": "weekly", "interval": 1, "ends": { "onDate": "2026-11-25" } } },
+      "kind": "done",
+      "on": "2026-11-18",
+      "historyCount": 0,
+      "sortKey": null,
+      "expect": { "outcome": "advance", "dueDate": "2026-11-25", "completedOn": null, "clearPosition": true, "kind": "done" }
+    },
+    {
+      "name": "the day after onDate ends the series",
+      "task": { "dueDate": "2026-11-25", "repeat": { "mode": "schedule", "freq": "weekly", "interval": 1, "ends": { "onDate": "2026-11-25" } } },
+      "kind": "done",
+      "on": "2026-11-25",
+      "historyCount": 1,
+      "sortKey": "pos",
+      "expect": { "outcome": "end", "dueDate": "2026-11-25", "completedOn": "2026-11-25", "clearPosition": false, "kind": "done" }
+    }
+  ],
+  "undo": [
+    { "name": "undo puts back the due date, the done subtask and the position", "kind": "done" },
+    { "name": "undo refuses once the due date was edited", "kind": "done", "edit": "due", "expectError": true },
+    { "name": "undo of a series that ended clears the completion", "kind": "done", "end": true }
+  ],
+  "localDate": [
+    { "name": "the morning before Pacific daylight time starts", "instant": "2026-03-08T09:30:00.000Z", "timeZone": "America/Los_Angeles", "expect": "2026-03-08" },
+    { "name": "the hour Pacific daylight time skips", "instant": "2026-03-08T10:30:00.000Z", "timeZone": "America/Los_Angeles", "expect": "2026-03-08" },
+    { "name": "late evening in Los Angeles is still the previous calendar day", "instant": "2026-03-08T07:30:00.000Z", "timeZone": "America/Los_Angeles", "expect": "2026-03-07" },
+    { "name": "the hour before Pacific standard time returns", "instant": "2026-11-01T08:30:00.000Z", "timeZone": "America/Los_Angeles", "expect": "2026-11-01" },
+    { "name": "the repeated hour after Pacific standard time returns", "instant": "2026-11-01T09:30:00.000Z", "timeZone": "America/Los_Angeles", "expect": "2026-11-01" },
+    { "name": "11:30pm in Los Angeles is not the UTC day", "instant": "2026-11-18T07:30:00.000Z", "timeZone": "America/Los_Angeles", "expect": "2026-11-17" },
+    { "name": "the same instant is the 18th in Auckland and in UTC", "instant": "2026-11-18T07:30:00.000Z", "timeZone": "Pacific/Auckland", "expect": "2026-11-18" },
+    { "name": "UTC keeps the UTC calendar day", "instant": "2026-11-18T07:30:00.000Z", "timeZone": "UTC", "expect": "2026-11-18" }
+  ]
+}

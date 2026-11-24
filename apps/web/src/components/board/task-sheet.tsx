@@ -155,7 +155,7 @@ function useDraft(value: string, save: (value: string) => void) {
 export function TaskEditor({ task, today, onClose }: { task: Task; today: ISODate; onClose?: () => void }) {
   const actions = useBoardActions();
   const online = useOnline();
-  const rowActions = actionsFor(task, today);
+  const rowActions = actionsFor(task, today, { recurring: task.repeat != null });
   const waiting = rowActions.placement === 'waiting' || rowActions.placement === 'waiting_later';
   const inTrash = !!task.deletedAt;
   const done = !!task.completedAt;

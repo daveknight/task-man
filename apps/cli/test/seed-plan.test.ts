@@ -45,14 +45,19 @@ describe.each(PINNED)('seed/tasks.json on $weekday $today', ({ today }) => {
     }
   });
 
-  it('applies repeat date effects without storing the repeat', () => {
+  it('stores each repeat and still applies its date effects', () => {
     const byTitle = new Map(tasks.map((t) => [t.title, t]));
     const garbage = byTitle.get('Take out garbage')!;
     expect(garbage.startDate).toBe(today);
+    expect(garbage.repeat).toMatchObject({ mode: 'schedule', freq: 'weekly', interval: 1, startOffsetDays: 1 });
     const standUp = byTitle.get('Stand-up notes')!;
     expect(['sat', 'sun']).not.toContain(weekdayOf(standUp.dueDate!));
-    expect(seeded.tasks.every((t) => t.repeat === null)).toBe(true);
-    expect(seeded.skipped).toEqual({ repeat: 9 });
+    expect(standUp.repeat).toMatchObject({ mode: 'schedule', byWeekday: ['mon', 'tue', 'wed', 'thu', 'fri'] });
+    const taxes = byTitle.get('Pay estimated quarterly taxes')!;
+    expect(taxes.repeat?.mode).toBe('dates');
+    expect(taxes.repeat?.dates?.every((date) => /^\d{4}-\d{2}-\d{2}$/.test(date))).toBe(true);
+    expect(tasks.filter((t) => t.repeat).map((t) => t.repeat!.mode).sort()).toEqual(['after_completion', 'after_completion', 'dates', 'schedule', 'schedule', 'schedule', 'schedule', 'schedule', 'schedule']);
+    expect(seeded.skipped).toEqual({});
   });
 });
 
