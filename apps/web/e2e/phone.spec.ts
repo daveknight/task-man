@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { findTask, openBoard, recordDrop, reseed, row, section, showTask, titlesIn } from './helpers';
+import { findTask, openBoard, recordDrop, reseed, row, section, showTask, tagNames, titlesIn } from './helpers';
 
 test.beforeEach(async ({ page }) => {
   reseed();
@@ -182,4 +182,71 @@ test('subtasks in the bottom sheet: the grip is always shown, tick and add work,
   await page.keyboard.press('Enter');
   await page.keyboard.press('Escape');
   await expect.poll(() => showTask(title).subtaskCount).toEqual({ done: 1, total: 2 });
+});
+
+test('phone rows show no tag chips, the sheet lists them, and the picker is a bottom sheet', async ({ page }) => {
+  const title = 'Finance quarterly action items';
+  await expect(row(page, title)).toBeVisible();
+  await expect(page.locator('[data-slot=task-row] [data-slot=tag-chip]:visible')).toHaveCount(0);
+
+  await row(page, title).getByText(title).tap();
+  const editor = page.locator('[data-slot=drawer-content] [data-slot=task-editor]');
+  await expect(editor.locator('[data-field=Tags] [data-slot=tag-chip]')).toHaveText(tagNames(title));
+
+  await editor.locator('[data-field=Tags]').tap();
+  const sheet = page.locator('[data-slot=tag-sheet]');
+  await expect(sheet.getByText('Tags', { exact: true })).toBeVisible();
+  await expect(sheet.getByRole('button', { name: 'Done' })).toBeVisible();
+  await expect(sheet.locator('[data-slot=tag-count]')).toHaveCount(0);
+
+  await sheet.getByRole('option', { name: 'work', exact: true }).tap();
+  await expect.poll(() => tagNames(title)).toContain('work');
+  await sheet.getByPlaceholder('Search or create tag').fill('garden');
+  await sheet.locator('[data-slot=tag-create]').tap();
+  await expect.poll(() => tagNames(title)).toContain('garden');
+
+  await sheet.getByRole('button', { name: 'Done' }).tap();
+  await expect(sheet).toHaveCount(0);
+  await expect(editor.locator('[data-field=Tags]')).toContainText('garden');
+});
+
+test('phone repeat: the row icon, a presets sheet, and custom in a bottom sheet', async ({ page }) => {
+  await expect(row(page, 'Take out garbage').locator('[data-slot=repeat-icon]')).toBeVisible();
+
+  const bare = 'Replace furnace filter';
+  await row(page, bare).getByText(bare).tap();
+  const editor = page.locator('[data-slot=task-editor]');
+  await editor.locator('[data-field=Repeat]').tap();
+  const sheet = page.locator('[data-slot=repeat-sheet]');
+  await expect(sheet.getByText('Repeat', { exact: true })).toBeVisible();
+  await expect(sheet.locator('[data-preset=daily]')).toBeVisible();
+  await sheet.locator('[data-preset=daily]').tap();
+  await expect.poll(() => showTask(bare).task.dueDate).toBe('2026-11-18');
+  await sheet.getByRole('button', { name: 'Close' }).tap();
+  await expect(sheet).toHaveCount(0);
+  await expect(editor.locator('[data-slot=repeat-value]')).toHaveText('Daily');
+
+  await editor.locator('[data-field=Repeat]').tap();
+  await sheet.locator('[data-preset=custom]').tap();
+  const custom = page.locator('[data-slot=repeat-custom]');
+  await expect(custom.getByText('Custom', { exact: true })).toBeVisible();
+  await custom.getByRole('button', { name: 'Repeat', exact: true }).tap();
+  await expect(sheet.locator('[data-preset=daily]')).toHaveAttribute('aria-pressed', 'true');
+  await sheet.locator('[data-preset=custom]').tap();
+  await custom.getByRole('button', { name: 'Frequency' }).tap();
+  await page.getByRole('menuitemradio', { name: 'month', exact: true }).tap();
+  await custom.locator('[data-monthly=last]').tap();
+  await custom.getByRole('button', { name: 'Done' }).tap();
+  await expect.poll(() => showTask(bare).task.repeat).toMatchObject({ freq: 'monthly', monthly: { day: -1 } });
+  await expect(editor.locator('[data-slot=repeat-value]')).toHaveText('Monthly on the last day');
+});
+
+test('phone search: the Tags filter narrows results, and result rows show no chips', async ({ page }) => {
+  await page.getByRole('button', { name: 'Search', exact: true }).tap();
+  await page.getByRole('button', { name: 'Tags' }).tap();
+  await page.locator('[data-slot=tags-menu]').getByRole('menuitemcheckbox', { name: /^finance/ }).tap();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('[data-slot=command-item][data-task-id]').first()).toBeVisible();
+  await expect(page.locator('[data-slot=command-item] [data-slot=tag-chip]:visible')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Remove tag finance' })).toBeVisible();
 });

@@ -13,7 +13,31 @@ import {
   isValidSortKey,
   keyBetween,
   applySubtaskChange,
+  applyTagChange,
+  applyTaskTagChange,
+  checkTagName,
+  filterByTags,
+  normalizeTagName,
+  orderTaskTags,
+  parseTagList,
+  planCreateTag,
+  planDeleteTag,
+  planRenameTag,
+  planTaskTags,
+  sortTags,
+  tagChips,
+  tagCounts,
+  tagsMatching,
+  type Tag,
+  type TagChange,
+  type TagLink,
+  type TaskTagChange,
   nextWeekdayOnOrAfter,
+  localDate,
+  nextDueDate,
+  planOccurrence,
+  planUndoOccurrence,
+  validateRepeat,
   normalizeSubtaskTitle,
   planAddSubtask,
   planEditSubtask,
@@ -33,6 +57,7 @@ import {
   subtaskCount,
   type Subtask,
   type SubtaskChange,
+  type RepeatRule,
   type Task,
   type UpcomingDropChoice,
   type Weekday,
@@ -336,5 +361,197 @@ describe('subtasks.json', () => {
 
   it.each(vectors.resetSubtasks)('resetSubtasks: $name', ({ subtasks, expect: expected }) => {
     expect(resetSubtasks(subtasks)).toEqual(expected);
+  });
+});
+
+describe('tags.json', () => {
+  type TaskSpec = { id: string; tags?: string[]; completedAt?: string; deletedAt?: string };
+  const tag = (id: string): Tag => ({ id, name: id });
+  const tasksFrom = (specs: TaskSpec[]) => specs.map((t) => ({ ...taskFrom({ completedAt: t.completedAt ?? null, deletedAt: t.deletedAt ?? null }, t.id), ...(t.tags ? { tags: t.tags.map(tag) } : {}) }));
+  const label = (t: Tag) => `${t.id}:${t.name}`;
+  const vectors = load<{
+    normalizeTagName: { input: string; expect: string | null }[];
+    checkTagName: { name: string; tags: Tag[]; selfId?: string; input: string; expect: { ok: boolean; name?: string; reason?: string } }[];
+    sortTags: { name: string; tags: Tag[]; expect: string[] }[];
+    tagsMatching: { name: string; tags: Tag[]; text: string; expect: string[] }[];
+    orderTaskTags: { name: string; links: TagLink[]; expect: string[] }[];
+    tagChips: { name: string; tags: string[]; max?: number; expect: { visible: string[]; overflow: number } }[];
+    filterByTags: { name: string; tasks: TaskSpec[]; tagIds: string[]; expect: string[] }[];
+    tagCounts: { name: string; tags: Tag[]; tasks: TaskSpec[]; expect: [string, number][] }[];
+    planCreateTag: { name: string; tags: Tag[]; id: string; input: string; expect?: { tag: Tag; change: TagChange | null }; expectError?: boolean }[];
+    planRenameTag: { name: string; tags: Tag[]; id: string; input: string; expect?: TagChange | null; expectError?: boolean }[];
+    applyTagChange: { name: string; tags: Tag[]; tasks: TaskSpec[]; change: TagChange; expect: { tags: string[]; tasks: Record<string, string[]> } }[];
+    applyTaskTagChange: { name: string; tags?: Tag[]; change: TaskTagChange; expect: string[] }[];
+    parseTagList: { input: string; expect: string[] }[];
+    planTaskTags: { name: string; catalog: Tag[]; current: Tag[]; names: string[]; ids: string[]; expect?: { creates: string[]; attach: string[]; detach: string[]; tags: string[] }; expectError?: boolean }[];
+  }>('tags.json');
+
+  it.each(vectors.normalizeTagName)('normalizeTagName($input)', ({ input, expect: expected }) => {
+    expect(normalizeTagName(input)).toBe(expected);
+  });
+
+  it.each(vectors.checkTagName)('checkTagName: $name', ({ tags, selfId, input, expect: expected }) => {
+    const result = checkTagName(input, tags, selfId);
+    expect(result.ok).toBe(expected.ok);
+    if (result.ok) expect(result.name).toBe(expected.name);
+    else expect(result.reason).toBe(expected.reason);
+  });
+
+  it.each(vectors.sortTags)('sortTags: $name', ({ tags, expect: expected }) => {
+    expect(sortTags(tags).map((t) => t.id)).toEqual(expected);
+  });
+
+  it.each(vectors.tagsMatching)('tagsMatching: $name', ({ tags, text, expect: expected }) => {
+    expect(tagsMatching(tags, text).map((t) => t.id)).toEqual(expected);
+  });
+
+  it.each(vectors.orderTaskTags)('orderTaskTags: $name', ({ links, expect: expected }) => {
+    expect(orderTaskTags(links).map((t) => t.id)).toEqual(expected);
+  });
+
+  it.each(vectors.tagChips)('tagChips: $name', ({ tags, max, expect: expected }) => {
+    const chips = tagChips(tags.map(tag), max);
+    expect({ visible: chips.visible.map((t) => t.id), overflow: chips.overflow }).toEqual(expected);
+  });
+
+  it.each(vectors.filterByTags)('filterByTags: $name', ({ tasks, tagIds, expect: expected }) => {
+    expect(filterByTags(tasksFrom(tasks), tagIds).map((t) => t.id)).toEqual(expected);
+  });
+
+  it.each(vectors.tagCounts)('tagCounts: $name', ({ tags, tasks, expect: expected }) => {
+    expect(tagCounts(tasksFrom(tasks), tags).map((c) => [c.tag.id, c.count])).toEqual(expected);
+  });
+
+  it.each(vectors.planCreateTag)('planCreateTag: $name', ({ tags, id, input, expect: expected, expectError }) => {
+    if (expectError) return expect(() => planCreateTag(tags, { id, name: input })).toThrow();
+    expect(planCreateTag(tags, { id, name: input })).toEqual(expected);
+  });
+
+  it.each(vectors.planRenameTag)('planRenameTag: $name', ({ tags, id, input, expect: expected, expectError }) => {
+    if (expectError) return expect(() => planRenameTag(tags, id, input)).toThrow();
+    expect(planRenameTag(tags, id, input)).toEqual(expected);
+  });
+
+  it.each(vectors.applyTagChange)('applyTagChange: $name', ({ tags, tasks, change, expect: expected }) => {
+    const result = applyTagChange({ tags, tasks: tasksFrom(tasks).map((t, i) => ({ ...t, tags: tasks[i]!.tags?.map((id) => tags.find((g) => g.id === id)!) })) }, change);
+    expect(result.tags.map(label)).toEqual(expected.tags);
+    expect(Object.fromEntries(result.tasks.map((t) => [t.id, (t.tags ?? []).map(label)]))).toEqual(expected.tasks);
+  });
+
+  it('planDeleteTag refuses a tag that does not exist', () => {
+    expect(planDeleteTag([{ id: 'a', name: 'a' }], 'a')).toEqual({ kind: 'delete', id: 'a' });
+    expect(() => planDeleteTag([], 'a')).toThrow();
+  });
+
+  it.each(vectors.applyTaskTagChange)('applyTaskTagChange: $name', ({ tags, change, expect: expected }) => {
+    expect(applyTaskTagChange(tags, change).map(label)).toEqual(expected);
+  });
+
+  it.each(vectors.parseTagList)('parseTagList($input)', ({ input, expect: expected }) => {
+    expect(parseTagList(input)).toEqual(expected);
+  });
+
+  it.each(vectors.planTaskTags)('planTaskTags: $name', ({ catalog, current, names, ids, expect: expected, expectError }) => {
+    const queue = [...ids];
+    const newId = () => queue.shift() ?? 'unexpected-id';
+    if (expectError) return expect(() => planTaskTags(catalog, current, names, newId)).toThrow();
+    const plan = planTaskTags(catalog, current, names, newId);
+    expect({ creates: plan.creates.map((c) => label(c.tag)), attach: plan.attach.map(label), detach: plan.detach, tags: plan.tags.map(label) }).toEqual(expected);
+    expect(queue).toEqual([]);
+  });
+});
+
+describe('repeat.json', () => {
+  const vectors = load<{
+    validateRepeat: { name: string; rule: unknown; expect: string[] }[];
+    nextDue: { name: string; rule: RepeatRule; due?: string; on?: string; expect?: string | null; steps?: { due: string; on: string; expect: string | null; rule?: RepeatRule }[] }[];
+    occurrence: {
+      name: string;
+      task: Partial<Task>;
+      kind: 'done' | 'skip';
+      on: string;
+      historyCount: number;
+      sortKey: string | null;
+      expect: {
+        outcome: 'advance' | 'end';
+        dueDate: string;
+        startDate?: string | null;
+        status?: string;
+        flagged?: boolean;
+        hideUntil?: string | null;
+        completedOn: string | null;
+        subtasksDone?: boolean[];
+        clearPosition: boolean;
+        kind: 'done' | 'skip';
+      };
+    }[];
+    localDate: { name: string; instant: string; timeZone: string; expect: string }[];
+  }>('repeat.json');
+
+  it.each(vectors.validateRepeat)('validateRepeat: $name', ({ rule, expect: expected }) => {
+    expect(validateRepeat(rule).map((i) => i.field).sort()).toEqual([...expected].sort());
+  });
+
+  it.each(vectors.nextDue)('nextDueDate: $name', ({ rule, due, on, expect: expected, steps }) => {
+    const runs = steps ?? [{ due: due!, on: on!, expect: expected!, rule: undefined }];
+    for (const step of runs) {
+      expect(nextDueDate(step.rule ?? rule, step.due, step.on)).toBe(step.expect);
+    }
+  });
+
+  it.each(vectors.occurrence)('planOccurrence: $name', ({ task, kind, on, historyCount, sortKey, expect: expected }) => {
+    const planned = planOccurrence({ id: 'occ', task: taskFrom(task), kind, on, now: '2026-11-18T19:00:00.000Z', historyCount, sortKey });
+    expect(planned.outcome).toBe(expected.outcome);
+    expect(planned.task.dueDate).toBe(expected.dueDate);
+    expect(planned.task.status).toBe(expected.status ?? 'open');
+    expect(planned.task.hideUntil ?? null).toBe(expected.hideUntil ?? null);
+    expect(planned.task.completedOn ?? null).toBe(expected.completedOn);
+    expect(planned.clearPosition).toBe(expected.clearPosition);
+    expect(planned.record.kind).toBe(expected.kind);
+    expect(planned.record.occurrenceDue).toBe(task.dueDate);
+    if (expected.startDate !== undefined) expect(planned.task.startDate ?? null).toBe(expected.startDate);
+    if (expected.flagged !== undefined) expect(planned.task.flagged).toBe(expected.flagged);
+    if (expected.subtasksDone) expect((planned.task.subtasks ?? []).map((s) => s.done)).toEqual(expected.subtasksDone);
+    if (expected.outcome === 'advance') {
+      expect(planned.task.completedAt).toBeNull();
+      expect(planned.task.dueDate! > task.dueDate!).toBe(true);
+    } else {
+      expect(planned.task.completedAt).toBe('2026-11-18T19:00:00.000Z');
+      expect(planned.resetSubtaskIds).toEqual([]);
+    }
+  });
+
+  it('undo restores the previous occurrence and refuses an edit', () => {
+    const task = taskFrom({
+      dueDate: '2026-11-18',
+      flagged: true,
+      repeat: { mode: 'schedule', freq: 'weekly', interval: 1 },
+      subtasks: [
+        { id: 'a', title: 'Budget review', done: true, sortKey: 'a' },
+        { id: 'b', title: 'Rebalance', done: false, sortKey: 'b' },
+      ],
+    });
+    const planned = planOccurrence({ id: 'occ', task, kind: 'done', on: '2026-11-18', now: '2026-11-18T19:00:00.000Z', historyCount: 0, sortKey: 'pos' });
+    const restored = planUndoOccurrence(planned.task, planned.record, 0, null);
+    expect(restored.task.dueDate).toBe('2026-11-18');
+    expect(restored.task.subtasks?.map((s) => s.done)).toEqual([true, false]);
+    expect(restored.task.flagged).toBe(true);
+    expect(restored.sortKey).toBe('pos');
+    expect(restored.subtaskDone).toEqual([{ id: 'a', done: true }]);
+    expect(() => planUndoOccurrence({ ...planned.task, dueDate: '2026-12-01' }, planned.record, 0, null)).toThrow(/edited/);
+  });
+
+  it('undo of a finished series clears the completion and keeps the position', () => {
+    const task = taskFrom({ dueDate: '2026-11-18', repeat: { mode: 'dates', dates: ['2026-11-18'] } });
+    const planned = planOccurrence({ id: 'occ', task, kind: 'done', on: '2026-11-18', now: '2026-11-18T19:00:00.000Z', historyCount: 0, sortKey: 'pos' });
+    expect(planned.outcome).toBe('end');
+    const restored = planUndoOccurrence(planned.task, planned.record, 0, 'pos');
+    expect(restored.task.completedAt).toBeNull();
+    expect(restored.task.dueDate).toBe('2026-11-18');
+    expect(restored.sortKey).toBe('pos');
+  });
+
+  it.each(vectors.localDate)('localDate: $name', ({ instant, timeZone, expect: expected }) => {
+    expect(localDate(new Date(instant), timeZone)).toBe(expected);
   });
 });

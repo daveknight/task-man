@@ -10,6 +10,7 @@
     "A waiting task's hideUntil is its own date (it may be after the due date). Only Open tasks have a 'start'; Waiting and In Progress tasks never do. 'waiting' = visible in the Waiting section (no hide-until date, or it or the due date has arrived). 'waiting_later' = tucked behind the section's 'Show N hidden until later' row.",
     "flagged: true marks the single priority flag. It never changes a task's section or order.",
     "afterPurge: whether a Trash task survives the next purge-trash ('kept' or 'removed'). Purge removes tasks whose deletion day is more than 30 days ago.",
+    "tags (top level) is the tag catalog; a task's tags are names from it (a name not listed there is created too). A task keeps its tags in the order listed, which is the order of its chips.",
     "Seeds are checked in CI at a pinned --today (a Wednesday, plus a Saturday run), so weekday-dependent repeats like 'Stand-up notes' give stable results."
   ],
   "tags": [
@@ -20,7 +21,8 @@
     "kids",
     "car",
     "work",
-    "someday"
+    "someday",
+    "outdoors"
   ],
   "tasks": [
     {
@@ -194,11 +196,19 @@
     {
       "expect": "ready",
       "title": "Back up the family photo library to the external drive and verify the copy actually opens before deleting anything from the phone",
-      "description": "Long title on purpose, to check truncation in the list view."
+      "description": "Long title on purpose, to check truncation in the list view.",
+      "tags": [
+        "errands",
+        "home"
+      ]
     },
     {
       "expect": "ready",
-      "title": "Plan Saturday hike 🥾"
+      "title": "Plan Saturday hike 🥾",
+      "tags": [
+        "outdoors",
+        "kids"
+      ]
     },
     {
       "expect": "ready",
@@ -382,7 +392,9 @@
       "title": "Finance quarterly action items",
       "due": "-35d",
       "tags": [
-        "finance"
+        "finance",
+        "health",
+        "home"
       ],
       "repeat": {
         "freq": "monthly",

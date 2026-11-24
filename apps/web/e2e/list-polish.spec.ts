@@ -75,7 +75,7 @@ test.describe('dates in the pane', () => {
     await row(page, 'Call the dentist to move cleaning').click();
     await expect(field(page, 'Due')).toContainText('Today, Nov 18');
     await expect(field(page, 'Due')).not.toContainText('Wed');
-    await row(page, 'Return library books').click();
+    await row(page, 'Return library books').locator('[data-slot=task-title]').click();
     await expect(field(page, 'Due')).toContainText('Tomorrow, Nov 19');
     await expect(field(page, 'Due')).not.toContainText('Thu');
   });

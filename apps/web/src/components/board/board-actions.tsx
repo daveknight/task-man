@@ -4,18 +4,28 @@ import {
   changeStatus,
   complete,
   markNotDone,
+  planOccurrence,
+  planUndoOccurrence,
+  planCreateTag,
+  planDeleteTag,
+  planRenameTag,
   planUpcomingDrop,
   restore,
   setDueDate,
   softDelete,
+  startForDue,
   waitPresets,
   waitUntil,
+  withRepeat,
   type ActionGroup,
   type ISODate,
   type PositionWrite,
   type Preset,
   type Status,
   type SubtaskChange,
+  type Tag,
+  type OccurrencePlan,
+  type RepeatRule,
   type Task,
   type UpcomingDropDecision,
 } from '@app/core';
@@ -48,11 +58,21 @@ export interface BoardActions {
   /** Dropped into Upcoming: asks for a future start date (first offering to remove a due date of today or earlier), and makes the task Open. */
   pickStart: (task: Task, drop?: DropPlanner) => void;
   setField: (task: Task, field: 'start' | 'due' | 'hideUntil', date: ISODate | null) => void;
+  /** Sets or clears the repeat. A rule with no due date is anchored to today. */
+  setRepeat: (task: Task, rule: RepeatRule | null) => void;
   /** Resolves once the write has settled, whether or not it succeeded. */
   edit: (task: Task, fields: Partial<Pick<Task, 'title' | 'description' | 'flagged'>>) => Promise<void>;
   reorder: (task: Task, drop: PositionWrite[]) => void;
   /** One subtask add, edit, move or remove. Resolves once the write has settled, whether or not it succeeded. */
   changeSubtasks: (task: Task, change: SubtaskChange) => Promise<void>;
+  /** Puts a tag on or off a task. Resolves once the write has settled, whether or not it succeeded. */
+  setTag: (task: Task, tag: Tag, on: boolean) => Promise<void>;
+  /** A tag typed in the picker: made (or, if one has that name ignoring case, reused) and put on the task. */
+  createTag: (task: Task, name: string) => Promise<void>;
+  /** Renames a tag on every task at once. */
+  renameTag: (tag: Tag, name: string) => Promise<void>;
+  /** Deletes a tag and removes it from every task. */
+  deleteTag: (tag: Tag) => Promise<void>;
   remove: (task: Task) => void;
   removeForever: (task: Task) => void;
 }
@@ -72,6 +92,16 @@ type Pending =
   | { kind: 'presets'; task: Task; group: ActionGroup; pick?: Preset };
 
 const quiet = () => {};
+
+/** Runs a rule that throws for input it refuses (a bad tag name), showing why in a toast instead of a console error. */
+function attempt<T>(plan: () => T): T | null {
+  try {
+    return plan();
+  } catch (error) {
+    toast.error(error instanceof Error ? error.message : String(error));
+    return null;
+  }
+}
 
 /** Where a task sits in the board, Completed included, so a ghost can hold its place while it leaves. */
 function placementOf(task: Task, snapshot: ReturnType<TaskWrites['current']>, today: ISODate): { from: MoveSource; index: number } | null {
@@ -126,21 +156,67 @@ export function BoardActionsProvider({
    * row again, or a write that fails, drops the animation and the list shows the data.
    */
   const flip = useCallback(
-    (before: Task, after: Task, onSaved?: () => void) => {
+    (before: Task, after: Task, onSaved?: () => void, write?: () => Promise<void>) => {
       const rapid = hasMove(before.id);
       const place = !rapid && canAnimateMoves() ? placementOf(before, writes.current(), today) : null;
       if (rapid) cancelMove(before.id);
       if (place) startMove({ after, ...place });
-      writes.change(before, after).then(onSaved, () => cancelMove(before.id));
+      const run = write ?? (() => writes.change(before, after));
+      void run().then(onSaved, () => cancelMove(before.id));
     },
     [today, writes],
+  );
+
+  const undoOccurrence = useCallback(
+    (taskId: string, record: OccurrencePlan['record'], historyCount: number) => {
+      const snap = writes.current();
+      const task = snap.tasks.find((t) => t.id === taskId);
+      if (!task) return;
+      try {
+        const plan = planUndoOccurrence(task, record, historyCount, snap.positions.get(taskId) ?? null);
+        const write = () => writes.undoOccurrence(task, plan);
+        if (task.completedAt) flip(task, plan.task, undefined, write);
+        else void write().catch(quiet);
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : String(error));
+      }
+    },
+    [flip, writes],
+  );
+
+  const occur = useCallback(
+    (task: Task, kind: 'done' | 'skip') => {
+      const snap = writes.current();
+      const historyCount = snap.completions.filter((c) => c.taskId === task.id).length;
+      let planned: OccurrencePlan;
+      try {
+        planned = planOccurrence({
+          id: crypto.randomUUID(),
+          task,
+          kind,
+          on: today,
+          now: new Date().toISOString(),
+          historyCount,
+          sortKey: snap.positions.get(task.id) ?? null,
+        });
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : String(error));
+        return;
+      }
+      const message = kind === 'skip' ? `Skipped “${task.title}”` : `Completed “${task.title}”`;
+      const saved = () => toast(message, { action: { label: 'Undo', onClick: () => undoOccurrence(task.id, planned.record, historyCount) } });
+      const write = () => writes.occur(task, planned);
+      if (planned.outcome === 'end') flip(task, planned.task, saved, write);
+      else void write().then(saved, quiet);
+    },
+    [flip, today, undoOccurrence, writes],
   );
 
   const actions = useMemo<BoardActions>(() => {
     const preset = (task: Task, p: Preset, picked?: ISODate) => {
       const effect = p.effect;
       if (effect.kind === 'skip') {
-        toast('Skip this occurrence arrives with repeats in Phase 2');
+        occur(task, 'skip');
         return;
       }
       const date = effect.kind === 'pick' ? picked : effect.date;
@@ -152,17 +228,30 @@ export function BoardActionsProvider({
       today,
       open: onOpen,
       complete: (task) => {
+        if (task.repeat) {
+          pulse();
+          occur(task, 'done');
+          return;
+        }
         const after = complete(task, new Date().toISOString(), today);
         pulse();
         flip(task, after, () => toast(`Completed “${task.title}”`, { action: { label: 'Undo', onClick: () => flip(after, markNotDone(after)) } }));
       },
-      markNotDone: (task) => flip(task, markNotDone(task)),
+      markNotDone: (task) => {
+        const latest = writes.current().completions.filter((c) => c.taskId === task.id).at(-1);
+        if (latest) undoOccurrence(task.id, latest, writes.current().completions.filter((c) => c.taskId === task.id).length - 1);
+        else flip(task, markNotDone(task));
+      },
       toggleFlag: (task) => commit(task, { ...task, flagged: !task.flagged }),
       preset,
       group: (task, group) => {
         const effect = group.effect;
         if (!effect) return;
-        if (effect.kind === 'undone') flip(task, markNotDone(task));
+        if (effect.kind === 'undone') {
+          const rows = writes.current().completions.filter((c) => c.taskId === task.id);
+          if (rows.at(-1)) undoOccurrence(task.id, rows.at(-1)!, rows.length - 1);
+          else flip(task, markNotDone(task));
+        }
         else if (effect.kind === 'restore') commit(task, restore(task));
         else setStatus(task, effect.to);
       },
@@ -175,14 +264,41 @@ export function BoardActionsProvider({
       },
       setField: (task, field, date) => {
         if (field === 'due') {
+          if (date === null && task.repeat) {
+            toast('A repeat needs a due date');
+            return;
+          }
           const result = setDueDate(task, date);
-          commit(task, result.task, undefined, result.startMoved ? `Start moved to ${shortDate(result.startMoved.to, today)}` : undefined);
+          let next = result.task;
+          if (next.status === 'open' && next.repeat && next.dueDate) next = { ...next, startDate: startForDue(next.dueDate, next.repeat) };
+          const startNote = next.startDate && next.startDate !== (task.startDate ?? null) ? `Start moved to ${shortDate(next.startDate, today)}` : undefined;
+          commit(task, next, undefined, startNote);
         } else if (field === 'hideUntil') commit(task, waitUntil(task, date));
         else commit(task, { ...task, startDate: date });
+      },
+      setRepeat: (task, rule) => {
+        try {
+          commit(task, withRepeat(task, rule, today));
+        } catch (error) {
+          toast.error(error instanceof Error ? error.message : String(error));
+        }
       },
       edit: (task, fields) => commit(task, { ...task, ...fields }),
       reorder: (task, drop) => commit(task, task, () => drop),
       changeSubtasks: (task, change) => writes.subtask(task, change).then(quiet, quiet),
+      setTag: (task, tag, on) => writes.taskTag(task, on ? { kind: 'attach', tag } : { kind: 'detach', tagId: tag.id }).then(quiet, quiet),
+      createTag: async (task, name) => {
+        const planned = attempt(() => planCreateTag(writes.current().tags, { id: crypto.randomUUID(), name }));
+        if (planned) await writes.taskTag(task, { kind: 'attach', tag: planned.tag }, planned.change ?? undefined).then(quiet, quiet);
+      },
+      renameTag: async (tag, name) => {
+        const change = attempt(() => planRenameTag(writes.current().tags, tag.id, name));
+        if (change) await writes.tagList(change).then(quiet, quiet);
+      },
+      deleteTag: async (tag) => {
+        const change = attempt(() => planDeleteTag(writes.current().tags, tag.id));
+        if (change) await writes.tagList(change).then(quiet, quiet);
+      },
       remove: (task) => {
         const after = softDelete(task, new Date().toISOString(), today);
         void leaveThen(task.id, () =>
@@ -194,7 +310,7 @@ export function BoardActionsProvider({
       },
       removeForever: (task) => void leaveThen(task.id, () => writes.remove(task).catch(quiet)),
     };
-  }, [commit, flip, onOpen, setStatus, today, writes]);
+  }, [commit, flip, occur, onOpen, setStatus, today, undoOccurrence, writes]);
 
   return (
     <BoardActionsContext.Provider value={actions}>

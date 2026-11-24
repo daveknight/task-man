@@ -3,18 +3,25 @@ import {
   applyDateEffect,
   applyPlan,
   applySubtaskChange,
+  assertValid,
   buildBoard,
   changeStatus,
   complete,
   markNotDone,
   placementFor,
+  parseTagList,
   planAddSubtask,
   planChange,
+  planDeleteTag,
   planDrop,
   planEditSubtask,
   planMoveSubtask,
   planNewTask,
   planRemoveSubtask,
+  planRenameTag,
+  planTaskTags,
+  planOccurrence,
+  planUndoOccurrence,
   planUpcomingDrop,
   REORDERABLE,
   resolveDate,
@@ -24,6 +31,7 @@ import {
   softDelete,
   sortSubtasks,
   subtaskCount,
+  tagCounts,
   waitUntil,
   type ISODate,
   type PositionWrite,
@@ -33,10 +41,13 @@ import {
   type Subtask,
   type SubtaskChange,
   type SubtaskCount,
+  type Tag,
+  type RepeatRule,
   type Task,
   type UpcomingDropDecision,
 } from '@app/core';
-import { deleteForever, insertTask, loadSnapshot, purgeTrash, searchTasks, writeChange, writeSubtaskChange, type Scope, type Snapshot } from '@app/data';
+import { deleteForever, insertTask, loadSnapshot, purgeTrash, searchTasks, writeChange, writeOccurrence, writeSubtaskChange, writeTagChange, writeTaskTagChange, writeUndoOccurrence, type Scope, type Snapshot } from '@app/data';
+import { dueForRepeat, hasRepeatFlags, repeatFromFlags, startForOffset, type RepeatFlags } from './repeat-flags.ts';
 
 export interface Context {
   scope: Scope;
@@ -112,6 +123,9 @@ export interface AddOptions {
   flag?: boolean;
   /** Titles of subtasks to create, in order. */
   subtasks?: string[];
+  /** `--tags a,b`: names, comma separated. Tags that don't exist yet are created. */
+  tags?: string;
+  repeat?: RepeatFlags;
 }
 
 function parseStatus(value: string): Status {
@@ -127,7 +141,16 @@ export async function addTask(ctx: Context, title: string, options: AddOptions):
   const hideUntil = parseDateFlag(options.hideUntil, ctx.today) ?? null;
   if (startDate && status !== 'open') throw new Error(START_ONLY_WHEN_READY);
   if (hideUntil && status !== 'waiting') throw new Error(`${HIDE_UNTIL_ONLY_WAITING} Add it with --status waiting.`);
-  const task: Task = {
+  let dueDate = parseDateFlag(options.due, ctx.today) ?? null;
+  let repeat: RepeatRule | null = null;
+  if (options.repeat && hasRepeatFlags(options.repeat)) {
+    repeat = repeatFromFlags(options.repeat, ctx.today, null);
+    if (repeat && !dueDate) {
+      if (options.due === 'none') throw new Error('A repeat needs a due date. Clear the repeat with --repeat none.');
+      dueDate = dueForRepeat(repeat, null, ctx.today);
+    }
+  }
+  let task: Task = {
     id: crypto.randomUUID(),
     title: title.trim(),
     description: options.description ?? '',
@@ -135,11 +158,20 @@ export async function addTask(ctx: Context, title: string, options: AddOptions):
     flagged: options.flag ?? false,
     startDate,
     hideUntil,
-    dueDate: parseDateFlag(options.due, ctx.today) ?? null,
+    dueDate,
+    repeat,
   };
+  if (repeat && options.start === undefined && options.repeat?.startOffset !== undefined && status === 'open' && task.dueDate) {
+    task = { ...task, startDate: startForOffset(task.dueDate, repeat) };
+  }
   for (const title of options.subtasks ?? []) {
     const change = planAddSubtask(task.subtasks, { id: crypto.randomUUID(), title });
     task.subtasks = applySubtaskChange(task.subtasks, change);
+  }
+  if (options.tags !== undefined) {
+    const plan = planTaskTags(snapshot.tags, [], parseTagList(options.tags), () => crypto.randomUUID());
+    for (const create of plan.creates) await writeTagChange(ctx.scope, create);
+    task.tags = plan.tags;
   }
   const positions = planNewTask(snapshot.tasks, snapshot.positions, task, ctx.today);
   const saved = await insertTask(ctx.scope, task, positions);
@@ -154,6 +186,9 @@ export interface EditOptions {
   due?: string;
   flag?: boolean;
   subtasks?: SubtaskEdits;
+  /** `--tags a,b` sets the task's tags to exactly these (`--tags ""` clears them). Tags that don't exist yet are created. */
+  tags?: string;
+  repeat?: RepeatFlags;
 }
 
 /**
@@ -265,12 +300,34 @@ export async function editTask(ctx: Context, ref: string, options: EditOptions):
     after = result.task;
     if (result.startMoved) note = `Start moved to ${result.startMoved.to}`;
   }
+  if (options.repeat && hasRepeatFlags(options.repeat)) {
+    const repeat = repeatFromFlags(options.repeat, ctx.today, before.repeat ?? null);
+    after = { ...after, repeat };
+    if (repeat && !after.dueDate) {
+      if (options.due === 'none') throw new Error('A repeat needs a due date. Clear the repeat with --repeat none.');
+      after = { ...after, dueDate: dueForRepeat(repeat, null, ctx.today) };
+    }
+    if (repeat && options.start === undefined && options.repeat.startOffset !== undefined && after.status === 'open' && after.dueDate) {
+      after = { ...after, startDate: startForOffset(after.dueDate, repeat) };
+    }
+  }
   const subtaskChanges = hasSubtaskEdits(options.subtasks) ? planSubtaskEdits(before.subtasks, options.subtasks!) : [];
   if (subtaskChanges.length > 0 && before.deletedAt) throw new Error('Subtasks of a task in Trash can\'t be changed; restore it first');
+  const tagPlan = options.tags === undefined ? null : planTaskTags(snapshot.tags, before.tags, parseTagList(options.tags), () => crypto.randomUUID());
+  if (tagPlan && before.deletedAt && (tagPlan.attach.length > 0 || tagPlan.detach.length > 0)) throw new Error('Tags of a task in Trash can\'t be changed; restore it first');
   const result = await commit(ctx, snapshot, before, after, undefined, note);
-  if (subtaskChanges.length === 0) return result;
+  if (subtaskChanges.length === 0 && !tagPlan) return result;
   for (const change of subtaskChanges) await writeSubtaskChange(ctx.scope, before.id, change);
-  const next = { ...result.task, subtasks: subtaskChanges.reduce((list, change) => applySubtaskChange(list, change), sortSubtasks(before.subtasks)) };
+  if (tagPlan) {
+    for (const create of tagPlan.creates) await writeTagChange(ctx.scope, create);
+    for (const tagId of tagPlan.detach) await writeTaskTagChange(ctx.scope, before.id, { kind: 'detach', tagId });
+    for (const tag of tagPlan.attach) await writeTaskTagChange(ctx.scope, before.id, { kind: 'attach', tag });
+  }
+  const next = {
+    ...result.task,
+    ...(subtaskChanges.length > 0 ? { subtasks: subtaskChanges.reduce((list, change) => applySubtaskChange(list, change), sortSubtasks(before.subtasks)) } : {}),
+    ...(tagPlan ? { tags: tagPlan.tags } : {}),
+  };
   Object.assign(snapshot, { tasks: snapshot.tasks.map((t) => (t.id === next.id ? next : t)) });
   return changed(next, ctx.today, note);
 }
@@ -309,7 +366,7 @@ function statusChange(task: Task, to: Status, today: ISODate, options: { start?:
 function presetDate(preset: Preset, date: string | undefined, today: ISODate): ISODate | null {
   const effect = preset.effect;
   if (effect.kind === 'set') return effect.date;
-  if (effect.kind === 'skip') throw new Error('Skip this occurrence arrives with repeats in Phase 2');
+  if (effect.kind === 'skip') return null;
   if (!date) throw new Error(`${preset.label} needs --date <date>`);
   const picked = resolveDate(date, today);
   if (effect.min && picked < effect.min) throw new Error(`Pick a date on or after ${effect.min}`);
@@ -326,7 +383,7 @@ function presetDate(preset: Preset, date: string | undefined, today: ISODate): I
 export async function runAction(ctx: Context, ref: string, action: string, options: { date?: string; start?: string; hideUntil?: string }): Promise<Changed> {
   const snapshot = await loadSnapshot(ctx.scope);
   const before = findTask(snapshot, ref);
-  const actions = actionsFor(before, ctx.today);
+  const actions = actionsFor(before, ctx.today, { recurring: !!before.repeat });
   const [groupId, presetId] = action.split('.');
   const group = [actions.date, ...actions.state].find((g) => g?.id === groupId);
   if (!group) {
@@ -335,15 +392,15 @@ export async function runAction(ctx: Context, ref: string, action: string, optio
   }
   if (group.presets.length === 0) {
     const effect = group.effect!;
-    if (effect.kind === 'undone') return commit(ctx, snapshot, before, markNotDone(before));
+    if (effect.kind === 'undone') return undoneTask(ctx, before.id);
     if (effect.kind === 'restore') return commit(ctx, snapshot, before, restore(before));
     return commit(ctx, snapshot, before, statusChange(before, effect.to, ctx.today, options));
   }
   const preset = group.presets.find((p) => p.id === presetId);
   if (!preset) throw new Error(`${group.id} presets: ${group.presets.map((p) => p.id).join(', ')}`);
-  const field = preset.effect.kind === 'skip' ? 'due' : preset.effect.field;
+  if (preset.effect.kind === 'skip') return occur(ctx, snapshot, before, 'skip', ctx.today);
   const date = presetDate(preset, options.date, ctx.today);
-  const result = applyDateEffect(before, { kind: 'set', field, date });
+  const result = applyDateEffect(before, { kind: 'set', field: preset.effect.field, date });
   return commit(ctx, snapshot, before, result.task, undefined, result.startMoved ? `Start moved to ${result.startMoved.to}` : undefined);
 }
 
@@ -407,17 +464,58 @@ async function moveToUpcoming(ctx: Context, snapshot: Snapshot, before: Task, op
   return commit(ctx, snapshot, before, { ...result.task, startDate: start }, undefined, due !== before.dueDate ? 'Due date removed' : undefined);
 }
 
+async function occur(ctx: Context, snapshot: Snapshot, before: Task, kind: 'done' | 'skip', on: ISODate): Promise<Changed> {
+  const history = snapshot.completions.filter((c) => c.taskId === before.id);
+  const plan = planOccurrence({
+    id: crypto.randomUUID(),
+    task: before,
+    kind,
+    on,
+    now: ctx.now,
+    historyCount: history.length,
+    sortKey: snapshot.positions.get(before.id) ?? null,
+  });
+  assertValid(plan.task);
+  await writeOccurrence(ctx.scope, before, plan);
+  const note = plan.outcome === 'end' ? 'Repeat ended' : `Next due ${plan.task.dueDate}`;
+  return changed(plan.task, ctx.today, note);
+}
+
 export async function doneTask(ctx: Context, ref: string, on?: string): Promise<Changed> {
   const snapshot = await loadSnapshot(ctx.scope);
   const before = findTask(snapshot, ref);
   if (before.completedAt) throw new Error(`"${before.title}" is already completed`);
   const day = on ? resolveDate(on, ctx.today) : ctx.today;
+  if (before.repeat) return occur(ctx, snapshot, before, 'done', day);
   return commit(ctx, snapshot, before, complete(before, ctx.now, day));
+}
+
+export async function skipTask(ctx: Context, ref: string, on?: string): Promise<Changed> {
+  const snapshot = await loadSnapshot(ctx.scope);
+  const before = findTask(snapshot, ref);
+  const day = on ? resolveDate(on, ctx.today) : ctx.today;
+  return occur(ctx, snapshot, before, 'skip', day);
+}
+
+export async function historyTask(ctx: Context, ref: string) {
+  const snapshot = await loadSnapshot(ctx.scope);
+  const task = findTask(snapshot, ref);
+  return snapshot.completions
+    .filter((c) => c.taskId === task.id)
+    .map((c) => ({ id: c.id, occurrenceDue: c.occurrenceDue, kind: c.kind, completedOn: c.completedOn, completedAt: c.completedAt }));
 }
 
 export async function undoneTask(ctx: Context, ref: string): Promise<Changed> {
   const snapshot = await loadSnapshot(ctx.scope);
   const before = findTask(snapshot, ref);
+  const rows = snapshot.completions.filter((c) => c.taskId === before.id);
+  const latest = rows.at(-1);
+  if (latest) {
+    const plan = planUndoOccurrence(before, latest, rows.length - 1, snapshot.positions.get(before.id) ?? null);
+    await writeUndoOccurrence(ctx.scope, before, plan);
+    return changed(plan.task, ctx.today);
+  }
+  if (!before.completedAt) throw new Error(`"${before.title}" is not completed`);
   return commit(ctx, snapshot, before, markNotDone(before));
 }
 
@@ -441,7 +539,7 @@ export async function restoreTask(ctx: Context, ref: string): Promise<Changed> {
 export async function showTask(ctx: Context, ref: string) {
   const snapshot = await loadSnapshot(ctx.scope);
   const task = findTask(snapshot, ref);
-  const actions = actionsFor(task, ctx.today);
+  const actions = actionsFor(task, ctx.today, { recurring: !!task.repeat });
   return {
     task,
     placement: placementFor(task, ctx.today),
@@ -454,9 +552,54 @@ export async function showTask(ctx: Context, ref: string) {
   };
 }
 
-export async function search(ctx: Context, query: string, options: { completed?: boolean; flagged?: boolean }) {
-  const tasks = await searchTasks(ctx.scope, query, options);
+/** Finds a tag by name (ignoring case), id or id prefix (at least 4 characters). */
+export function findTag(tags: readonly Tag[], ref: string): Tag {
+  const key = ref.trim().toLowerCase();
+  const byName = tags.filter((t) => t.name.toLowerCase() === key);
+  if (byName.length === 1) return byName[0]!;
+  const byId = tags.filter((t) => t.id === key || (key.length >= 4 && /^[0-9a-f-]+$/.test(key) && t.id.startsWith(key)));
+  if (byId.length === 1) return byId[0]!;
+  if (byId.length > 1) throw new Error(`"${ref}" matches ${byId.length} tags; use more of the id`);
+  throw new Error(`No tag named "${ref}"${tags.length ? ` (tags: ${tags.map((t) => t.name).join(', ')})` : ''}`);
+}
+
+export async function search(ctx: Context, query: string, options: { completed?: boolean; flagged?: boolean; tags?: string[] }) {
+  const tagIds = options.tags?.length ? findTags(await loadSnapshot(ctx.scope), options.tags) : [];
+  const tasks = await searchTasks(ctx.scope, query, { completed: options.completed, flagged: options.flagged, tagIds });
   return tasks.map((t) => changed(t, ctx.today));
+}
+
+function findTags(snapshot: Snapshot, refs: readonly string[]): string[] {
+  return refs.map((ref) => findTag(snapshot.tags, ref).id);
+}
+
+export interface TagListing {
+  id: string;
+  name: string;
+  count: number;
+}
+
+/** Every tag with how many tasks still to do have it (not completed, not in Trash). */
+export async function listTags(ctx: Context): Promise<TagListing[]> {
+  const snapshot = await loadSnapshot(ctx.scope);
+  return tagCounts(snapshot.tasks, snapshot.tags).map(({ tag, count }) => ({ id: tag.id, name: tag.name, count }));
+}
+
+/** Renames a tag on every task at once. Fails if the new name is taken by another tag (ignoring case). */
+export async function renameTag(ctx: Context, ref: string, name: string): Promise<{ tag: Tag; from: string }> {
+  const snapshot = await loadSnapshot(ctx.scope);
+  const tag = findTag(snapshot.tags, ref);
+  const change = planRenameTag(snapshot.tags, tag.id, name);
+  if (change) await writeTagChange(ctx.scope, change);
+  return { tag: change?.kind === 'rename' ? { id: tag.id, name: change.name } : tag, from: tag.name };
+}
+
+/** Deletes a tag and removes it from every task. The tasks stay. */
+export async function deleteTag(ctx: Context, ref: string): Promise<{ tag: Tag; tasks: number }> {
+  const snapshot = await loadSnapshot(ctx.scope);
+  const tag = findTag(snapshot.tags, ref);
+  await writeTagChange(ctx.scope, planDeleteTag(snapshot.tags, tag.id));
+  return { tag, tasks: snapshot.tasks.filter((t) => t.tags?.some((g) => g.id === tag.id)).length };
 }
 
 export async function purge(ctx: Context): Promise<string[]> {

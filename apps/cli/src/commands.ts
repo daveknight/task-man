@@ -39,7 +39,8 @@ export interface SeedResult {
   tasks: number;
   positions: number;
   subtasks: number;
-  skipped: { tags: number; repeat: number };
+  tags: number;
+  skipped: Record<string, number>;
 }
 
 export async function seed(
@@ -53,6 +54,8 @@ export async function seed(
 
   check(await db.from('tasks').insert(plan.tasks), 'insert tasks');
   if (plan.subtasks.length > 0) check(await db.from('subtasks').insert(plan.subtasks), 'insert subtasks');
+  if (plan.tags.length > 0) check(await db.from('tags').insert(plan.tags), 'insert tags');
+  if (plan.taskTags.length > 0) check(await db.from('task_tags').insert(plan.taskTags), 'insert task tags');
   if (plan.positions.length > 0) {
     check(
       await db
@@ -68,6 +71,7 @@ export async function seed(
     tasks: plan.tasks.length,
     positions: plan.positions.length,
     subtasks: plan.subtasks.length,
+    tags: plan.tags.length,
     skipped: plan.skipped,
   };
 }

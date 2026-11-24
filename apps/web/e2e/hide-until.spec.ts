@@ -7,7 +7,8 @@ test.beforeEach(async ({ page }) => {
 });
 
 const editor = (page: Page) => page.locator('[data-slot=task-editor]');
-const fields = (page: Page) => editor(page).locator('[data-field]').evaluateAll((els) => els.map((e) => e.getAttribute('data-field')));
+// Status-dependent date fields. Tags and Repeat are on every task.
+const fields = (page: Page) => editor(page).locator('[data-field]').evaluateAll((els) => els.map((e) => e.getAttribute('data-field')).filter((name) => name !== 'Tags' && name !== 'Repeat'));
 
 test('the detail pane shows Start and Due for Open, Hide until and Due for Waiting, and Due only for In Progress', async ({ page }) => {
   await row(page, 'Get car tires rotated').click();
@@ -83,8 +84,17 @@ test('rows hidden until later show the hourglass and their hide-until date; Wait
 
   // A visible Waiting task with a past hide-until date shows no date for it.
   const reimbursement = row(page, 'Reimbursement for conference travel');
-  await expect(reimbursement.locator('[data-slot=trailing-meta]')).toHaveText('Mon');
-  const metas = await section(page, 'in_progress').locator('[data-slot=trailing-meta]').allTextContents();
+  await expect(reimbursement.locator('[data-slot=trailing-meta]').getByText('Mon', { exact: true })).toHaveCount(1);
+  await expect(reimbursement.locator('[data-slot=trailing-meta] svg')).toHaveCount(1);
+  const metas = await section(page, 'in_progress')
+    .locator('[data-slot=trailing-meta]')
+    .evaluateAll((els) =>
+      els.map((el) => {
+        const copy = el.cloneNode(true) as HTMLElement;
+        copy.querySelectorAll('[data-slot=tag-chips]').forEach((chips) => chips.remove());
+        return copy.textContent ?? '';
+      }),
+    );
   const meta = metas.map((text) => text.replace(/\d+\/\d+ subtasks done/, '').trim()).filter(Boolean);
   expect(meta).toEqual(['Nov 28', 'Nov 28'].slice(0, meta.length));
 });

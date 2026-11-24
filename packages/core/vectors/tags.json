@@ -1,0 +1,310 @@
+{
+  "notes": [
+    "Tags are a catalog of { id, name } shared by tasks. A task's tags keep the order they were added in.",
+    "Names are unique ignoring case, at most 30 characters, trimmed with inner whitespace collapsed, and never contain a comma.",
+    "The tag filter is AND: a task must have every selected tag. No selected tags matches everything.",
+    "Counts only include tasks that are not completed and not in Trash."
+  ],
+  "normalizeTagName": [
+    { "input": "home", "expect": "home" },
+    { "input": "  home  ", "expect": "home" },
+    { "input": "Home   office", "expect": "Home office" },
+    { "input": "a\tb\nc", "expect": "a b c" },
+    { "input": "", "expect": null },
+    { "input": "   ", "expect": null }
+  ],
+  "checkTagName": [
+    { "name": "plain name", "tags": [], "input": "errands", "expect": { "ok": true, "name": "errands" } },
+    { "name": "trims and collapses", "tags": [], "input": "  side   project ", "expect": { "ok": true, "name": "side project" } },
+    { "name": "empty", "tags": [], "input": "  ", "expect": { "ok": false, "reason": "empty" } },
+    { "name": "exactly 30 characters", "tags": [], "input": "123456789012345678901234567890", "expect": { "ok": true, "name": "123456789012345678901234567890" } },
+    { "name": "31 characters", "tags": [], "input": "1234567890123456789012345678901", "expect": { "ok": false, "reason": "too_long" } },
+    { "name": "30 emoji count as 30 characters", "tags": [], "input": "🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂", "expect": { "ok": true, "name": "🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂🙂" } },
+    { "name": "comma", "tags": [], "input": "a,b", "expect": { "ok": false, "reason": "comma" } },
+    { "name": "duplicate ignoring case", "tags": [{ "id": "t1", "name": "home" }], "input": "HOME", "expect": { "ok": false, "reason": "duplicate" } },
+    { "name": "duplicate ignoring extra spaces", "tags": [{ "id": "t1", "name": "side project" }], "input": " Side   Project", "expect": { "ok": false, "reason": "duplicate" } },
+    { "name": "renaming a tag to its own name in other case is allowed", "tags": [{ "id": "t1", "name": "home" }], "selfId": "t1", "input": "Home", "expect": { "ok": true, "name": "Home" } },
+    { "name": "renaming onto another tag", "tags": [{ "id": "t1", "name": "home" }, { "id": "t2", "name": "work" }], "selfId": "t1", "input": "Work", "expect": { "ok": false, "reason": "duplicate" } }
+  ],
+  "sortTags": [
+    {
+      "name": "by name ignoring case",
+      "tags": [{ "id": "a", "name": "kids" }, { "id": "b", "name": "Errands" }, { "id": "c", "name": "car" }, { "id": "d", "name": "Home" }],
+      "expect": ["c", "b", "d", "a"]
+    },
+    {
+      "name": "same name in two cases falls back to the exact name, then id",
+      "tags": [{ "id": "b", "name": "x" }, { "id": "a", "name": "X" }],
+      "expect": ["a", "b"]
+    }
+  ],
+  "tagsMatching": [
+    {
+      "name": "empty text lists everything in order",
+      "tags": [{ "id": "a", "name": "kids" }, { "id": "b", "name": "errands" }],
+      "text": "",
+      "expect": ["b", "a"]
+    },
+    {
+      "name": "contains, ignoring case",
+      "tags": [{ "id": "a", "name": "outdoors" }, { "id": "b", "name": "Home office" }, { "id": "c", "name": "kids" }],
+      "text": "OUT",
+      "expect": ["a"]
+    },
+    {
+      "name": "spaces are collapsed",
+      "tags": [{ "id": "b", "name": "Home office" }],
+      "text": " home   off ",
+      "expect": ["b"]
+    },
+    {
+      "name": "no match",
+      "tags": [{ "id": "a", "name": "kids" }],
+      "text": "zzz",
+      "expect": []
+    }
+  ],
+  "orderTaskTags": [
+    {
+      "name": "in the order they were added",
+      "links": [
+        { "tag": { "id": "b", "name": "kids" }, "attachedAt": "2026-11-18T10:00:02.000Z" },
+        { "tag": { "id": "a", "name": "outdoors" }, "attachedAt": "2026-11-18T10:00:01.000Z" }
+      ],
+      "expect": ["a", "b"]
+    },
+    {
+      "name": "tags added at the same moment fall back to name, then id",
+      "links": [
+        { "tag": { "id": "z", "name": "home" }, "attachedAt": "2026-11-18T10:00:00.000Z" },
+        { "tag": { "id": "y", "name": "errands" }, "attachedAt": "2026-11-18T10:00:00.000Z" },
+        { "tag": { "id": "x", "name": "Errands" }, "attachedAt": "2026-11-18T10:00:00.000Z" }
+      ],
+      "expect": ["x", "y", "z"]
+    },
+    { "name": "no tags", "links": [], "expect": [] }
+  ],
+  "tagChips": [
+    { "name": "none", "tags": [], "expect": { "visible": [], "overflow": 0 } },
+    { "name": "one", "tags": ["a"], "expect": { "visible": ["a"], "overflow": 0 } },
+    { "name": "two fit", "tags": ["a", "b"], "expect": { "visible": ["a", "b"], "overflow": 0 } },
+    { "name": "three show two and +1", "tags": ["a", "b", "c"], "expect": { "visible": ["a", "b"], "overflow": 1 } },
+    { "name": "five show two and +3", "tags": ["a", "b", "c", "d", "e"], "expect": { "visible": ["a", "b"], "overflow": 3 } },
+    { "name": "a different max", "tags": ["a", "b", "c", "d"], "max": 3, "expect": { "visible": ["a", "b", "c"], "overflow": 1 } }
+  ],
+  "filterByTags": [
+    {
+      "name": "no selected tags matches everything",
+      "tasks": [{ "id": "t1", "tags": ["home"] }, { "id": "t2", "tags": [] }, { "id": "t3" }],
+      "tagIds": [],
+      "expect": ["t1", "t2", "t3"]
+    },
+    {
+      "name": "one tag",
+      "tasks": [{ "id": "t1", "tags": ["home", "kids"] }, { "id": "t2", "tags": ["work"] }, { "id": "t3", "tags": ["kids"] }, { "id": "t4" }],
+      "tagIds": ["kids"],
+      "expect": ["t1", "t3"]
+    },
+    {
+      "name": "two tags is AND, not OR",
+      "tasks": [{ "id": "t1", "tags": ["home", "kids"] }, { "id": "t2", "tags": ["home"] }, { "id": "t3", "tags": ["kids", "errands", "home"] }, { "id": "t4", "tags": ["errands"] }],
+      "tagIds": ["home", "kids"],
+      "expect": ["t1", "t3"]
+    },
+    {
+      "name": "the order of the selected tags doesn't matter",
+      "tasks": [{ "id": "t1", "tags": ["a", "b"] }, { "id": "t2", "tags": ["b"] }],
+      "tagIds": ["b", "a"],
+      "expect": ["t1"]
+    },
+    {
+      "name": "a tag nobody has",
+      "tasks": [{ "id": "t1", "tags": ["a"] }],
+      "tagIds": ["ghost"],
+      "expect": []
+    },
+    {
+      "name": "the same tag selected twice",
+      "tasks": [{ "id": "t1", "tags": ["a"] }, { "id": "t2", "tags": ["b"] }],
+      "tagIds": ["a", "a"],
+      "expect": ["t1"]
+    }
+  ],
+  "tagCounts": [
+    {
+      "name": "counts to-do tasks, in name order; unused tags count 0",
+      "tags": [{ "id": "k", "name": "kids" }, { "id": "e", "name": "errands" }, { "id": "u", "name": "unused" }],
+      "tasks": [
+        { "id": "t1", "tags": ["k", "e"] },
+        { "id": "t2", "tags": ["e"] },
+        { "id": "t3", "tags": ["k"], "completedAt": "2026-11-17T12:00:00.000Z" },
+        { "id": "t4", "tags": ["k", "e"], "deletedAt": "2026-11-17T12:00:00.000Z" },
+        { "id": "t5" }
+      ],
+      "expect": [["e", 2], ["k", 1], ["u", 0]]
+    }
+  ],
+  "planCreateTag": [
+    {
+      "name": "a new name makes a tag",
+      "tags": [{ "id": "t1", "name": "home" }],
+      "id": "new",
+      "input": "errands",
+      "expect": { "tag": { "id": "new", "name": "errands" }, "change": { "kind": "create", "tag": { "id": "new", "name": "errands" } } }
+    },
+    {
+      "name": "the name is normalized",
+      "tags": [],
+      "id": "new",
+      "input": "  side   project ",
+      "expect": { "tag": { "id": "new", "name": "side project" }, "change": { "kind": "create", "tag": { "id": "new", "name": "side project" } } }
+    },
+    {
+      "name": "an existing name, in any case, reuses that tag",
+      "tags": [{ "id": "t1", "name": "home" }],
+      "id": "new",
+      "input": " HOME ",
+      "expect": { "tag": { "id": "t1", "name": "home" }, "change": null }
+    },
+    { "name": "empty", "tags": [], "id": "new", "input": " ", "expectError": true },
+    { "name": "comma", "tags": [], "id": "new", "input": "a,b", "expectError": true },
+    { "name": "too long", "tags": [], "id": "new", "input": "1234567890123456789012345678901", "expectError": true }
+  ],
+  "planRenameTag": [
+    {
+      "name": "a new name",
+      "tags": [{ "id": "t1", "name": "home" }, { "id": "t2", "name": "work" }],
+      "id": "t1",
+      "input": "house",
+      "expect": { "kind": "rename", "id": "t1", "name": "house" }
+    },
+    {
+      "name": "only the capitalization changes",
+      "tags": [{ "id": "t1", "name": "home" }],
+      "id": "t1",
+      "input": "Home",
+      "expect": { "kind": "rename", "id": "t1", "name": "Home" }
+    },
+    {
+      "name": "the same name changes nothing",
+      "tags": [{ "id": "t1", "name": "home" }],
+      "id": "t1",
+      "input": "  home ",
+      "expect": null
+    },
+    { "name": "onto another tag's name", "tags": [{ "id": "t1", "name": "home" }, { "id": "t2", "name": "work" }], "id": "t1", "input": "WORK", "expectError": true },
+    { "name": "empty", "tags": [{ "id": "t1", "name": "home" }], "id": "t1", "input": "", "expectError": true },
+    { "name": "no such tag", "tags": [], "id": "t1", "input": "x", "expectError": true }
+  ],
+  "applyTagChange": [
+    {
+      "name": "rename updates the list and every task, keeping chip order",
+      "tags": [{ "id": "a", "name": "home" }, { "id": "b", "name": "kids" }],
+      "tasks": [{ "id": "t1", "tags": ["b", "a"] }, { "id": "t2", "tags": ["b"] }, { "id": "t3", "tags": [] }],
+      "change": { "kind": "rename", "id": "a", "name": "zzz" },
+      "expect": { "tags": ["b:kids", "a:zzz"], "tasks": { "t1": ["b:kids", "a:zzz"], "t2": ["b:kids"], "t3": [] } }
+    },
+    {
+      "name": "delete removes the tag from the list and every task; the tasks stay",
+      "tags": [{ "id": "a", "name": "home" }, { "id": "b", "name": "kids" }],
+      "tasks": [{ "id": "t1", "tags": ["b", "a"] }, { "id": "t2", "tags": ["b"] }],
+      "change": { "kind": "delete", "id": "b" },
+      "expect": { "tags": ["a:home"], "tasks": { "t1": ["a:home"], "t2": [] } }
+    },
+    {
+      "name": "create adds to the list in name order",
+      "tags": [{ "id": "a", "name": "home" }, { "id": "b", "name": "kids" }],
+      "tasks": [{ "id": "t1", "tags": ["a"] }],
+      "change": { "kind": "create", "tag": { "id": "c", "name": "errands" } },
+      "expect": { "tags": ["c:errands", "a:home", "b:kids"], "tasks": { "t1": ["a:home"] } }
+    }
+  ],
+  "applyTaskTagChange": [
+    {
+      "name": "attach goes last",
+      "tags": [{ "id": "a", "name": "home" }],
+      "change": { "kind": "attach", "tag": { "id": "b", "name": "kids" } },
+      "expect": ["a:home", "b:kids"]
+    },
+    {
+      "name": "attaching a tag it has changes nothing",
+      "tags": [{ "id": "a", "name": "home" }],
+      "change": { "kind": "attach", "tag": { "id": "a", "name": "home" } },
+      "expect": ["a:home"]
+    },
+    {
+      "name": "detach",
+      "tags": [{ "id": "a", "name": "home" }, { "id": "b", "name": "kids" }],
+      "change": { "kind": "detach", "tagId": "a" },
+      "expect": ["b:kids"]
+    },
+    {
+      "name": "attach to a task with none",
+      "change": { "kind": "attach", "tag": { "id": "a", "name": "home" } },
+      "expect": ["a:home"]
+    }
+  ],
+  "parseTagList": [
+    { "input": "a,b", "expect": ["a", "b"] },
+    { "input": " a , b ,, c ", "expect": ["a", "b", "c"] },
+    { "input": "Home,home, HOME", "expect": ["Home"] },
+    { "input": "side project, errands", "expect": ["side project", "errands"] },
+    { "input": "", "expect": [] },
+    { "input": " , ", "expect": [] }
+  ],
+  "planTaskTags": [
+    {
+      "name": "creates missing tags and attaches them in list order",
+      "catalog": [{ "id": "h", "name": "home" }],
+      "current": [],
+      "names": ["kids", "home", "errands"],
+      "ids": ["n1", "n2"],
+      "expect": {
+        "creates": ["n1:kids", "n2:errands"],
+        "attach": ["n1:kids", "h:home", "n2:errands"],
+        "detach": [],
+        "tags": ["n1:kids", "h:home", "n2:errands"]
+      }
+    },
+    {
+      "name": "keeps tags it already has in place, adds new ones after them, detaches the rest",
+      "catalog": [{ "id": "a", "name": "a" }, { "id": "b", "name": "b" }, { "id": "c", "name": "c" }],
+      "current": [{ "id": "b", "name": "b" }, { "id": "a", "name": "a" }],
+      "names": ["c", "a"],
+      "ids": [],
+      "expect": { "creates": [], "attach": ["c:c"], "detach": ["b"], "tags": ["a:a", "c:c"] }
+    },
+    {
+      "name": "an existing tag is matched ignoring case",
+      "catalog": [{ "id": "h", "name": "home" }],
+      "current": [],
+      "names": ["HOME"],
+      "ids": [],
+      "expect": { "creates": [], "attach": ["h:home"], "detach": [], "tags": ["h:home"] }
+    },
+    {
+      "name": "no names clears every tag",
+      "catalog": [{ "id": "a", "name": "a" }],
+      "current": [{ "id": "a", "name": "a" }],
+      "names": [],
+      "ids": [],
+      "expect": { "creates": [], "attach": [], "detach": ["a"], "tags": [] }
+    },
+    {
+      "name": "the same names again changes nothing",
+      "catalog": [{ "id": "a", "name": "a" }, { "id": "b", "name": "b" }],
+      "current": [{ "id": "b", "name": "b" }, { "id": "a", "name": "a" }],
+      "names": ["a", "b"],
+      "ids": [],
+      "expect": { "creates": [], "attach": [], "detach": [], "tags": ["b:b", "a:a"] }
+    },
+    {
+      "name": "a name with a comma is refused",
+      "catalog": [],
+      "current": [],
+      "names": ["a,b"],
+      "ids": ["n1"],
+      "expectError": true
+    }
+  ]
+}

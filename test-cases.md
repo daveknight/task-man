@@ -100,6 +100,56 @@ Not captured in Figma yet; these are the states to add when Dave asks. The desig
 - [ ] A task in Trash: subtasks visible but read-only, no Add row – desktop 1440
 - [ ] Offline: subtasks read-only – desktop 1440
 
+## Tags
+
+Not captured in Figma yet; these are the states to add when Dave asks. The designs are on Figma node 132-2. Tags are a neutral grey name-only pill with no colors, and phone rows show no tags. The Figma frames have no rename or delete states; those are filled in from the picker and noted below.
+
+- [ ] Board rows with tags: up to two chips, then “+N” for the rest (“Finance quarterly action items” has three) – desktop 1440, light and dark
+- [ ] A selected row: its chips blend into the selected row – desktop 1440
+- [ ] Phone board: rows show no tag chips – phone
+- [ ] Task sheet with tags: the Tags row after Due lists every tag, right-aligned – desktop 1440 and overlay 900
+- [ ] Task sheet with no tags: the Tags row reads “None” – desktop 1440
+- [ ] Tag picker popover: search field “Search or create tag”, the tags alphabetically with a blue check on the ones the task has, no counts – desktop 1440, light and dark
+- [ ] Tag picker with “out” typed: the matching tag, then “Create “out”” in blue – desktop 1440
+- [ ] Tag picker bottom sheet: centered “Tags” title, blue Done, same list – phone
+- [ ] Phone task sheet with tags in the Tags row – phone
+- [ ] A refused name (a comma, or over 30 characters): the reason under the field, no Create row – desktop 1440 (not in Figma)
+- [ ] Rename: a row’s ⋯ menu, then the row turns into a field; a duplicate name shows its reason – desktop 1440 (not in Figma)
+- [ ] Delete: a row’s ⋯ menu, then the confirmation “Delete “someday”? It comes off N tasks.” with Cancel and Delete tag – desktop 1440 (not in Figma)
+- [ ] A task in Trash: tags visible, no picker – desktop 1440
+- [ ] Offline: the Tags row is read-only – desktop 1440
+- [ ] Search: the Tags chip beside Only flagged and Include completed – desktop 1440, light and dark
+- [ ] Search Tags menu open: every tag with its count, a blue check on the selected ones, the note “Shows tasks that have every selected tag.” – desktop 1440, light and dark
+- [ ] Search with two tags selected: removable blue-outlined chips, results that have both, with their tag chips – desktop 1440
+- [ ] Search on phone with a tag selected: the chips scroll sideways, results show no tag chips – phone
+
+## Repeats
+
+Not captured in Figma yet; these are the states to add when Dave asks. The picker designs are on Figma node 132-2. The field shows the cadence only (“Weekly on Wed”, “Every 2 weeks on Sun”); the menu writes the weekday out (“Weekly on Wednesday”). Choosing a repeat on a task with no due date sets the due date to today, or to the first listed date. “No due date” is hidden while a repeat is set. Clearing the repeat leaves the start and due dates. History and “Skip this occurrence” in the sheet are the next slice; Skip stays in the Due menu. The Ends choices “On a date” and “After a count” are filled in (a calendar, and a count stepper starting at 1) because the frames only show the closed menu.
+
+- [ ] Task sheet Repeat row reads “None”, and the row has no repeat icon – desktop 1440, light and dark
+- [ ] Presets popover: Daily, Weekly on that weekday, Monthly on that date, Yearly, Every weekday, Custom…, No repeat, with the note “Repeats from the due date. Next: …” – desktop 1440, light and dark
+- [ ] A chosen preset stays checked, and the field shortens the weekday (“Weekly on Thu”) – desktop 1440, light and dark
+- [ ] Custom, By due date: every 2 weeks, Sunday selected, Start early on with Days before due – desktop 1440, light and dark
+- [ ] Custom monthly: On day N, On the nth weekday, On the last day – desktop 1440
+- [ ] Custom, After completion: no weekday row, the note counts from the day you complete it – desktop 1440
+- [ ] Custom, On specific dates: the calendar and the date chips, no Ends row – desktop 1440
+- [ ] Ends “On a date” shows the calendar; “After a count” shows the stepper – desktop 1440 (not drawn open in Figma)
+- [ ] A repeating row shows the repeat icon before its date – desktop 1440 and phone
+- [ ] Phone presets: a bottom sheet, centered “Repeat”, a close button – phone
+- [ ] Phone custom: back “Repeat”, centered “Custom”, blue Done – phone
+- [ ] A task in Trash or completed, and offline: the Repeat row is read-only – desktop 1440
+
+Skip is the existing “Skip this occurrence” pick inside Due, shown when the task repeats. Completing or skipping advances the due date and leaves the task open, with the same toast and Undo as a normal completion (`Completed “title”`, or `Skipped “title”`). Undo puts that occurrence back. When the repeat ends, the task completes for good and the row strikes through.
+
+- [ ] Complete a repeating Ready task (“Take out garbage”): it leaves Ready for Upcoming, toast “Completed “Take out garbage”” with Undo, no strikethrough – desktop 1440
+- [ ] Undo that toast: the task is back in Ready on its previous due date – desktop 1440
+- [ ] Due picker on a repeating row, with “Skip this occurrence” – desktop 1440
+- [ ] Skip (“Water the plants”): the row stays in Ready on the next due date, toast “Skipped “Water the plants”” with Undo – desktop 1440
+- [ ] A dates repeat (“Pay estimated quarterly taxes”, brought into Ready): complete, then undo – desktop 1440
+- [ ] The last occurrence: the row strikes through and folds away like any completed task – desktop 1440
+- [ ] Phone: complete a repeating row, toast with Undo – phone
+
 ## Dialogs, prompts and pickers
 
 All desktop 1440 unless noted.

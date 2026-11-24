@@ -5,10 +5,11 @@ import { sectionFor } from './sections.ts';
 import { newSortKey } from './sort-keys.ts';
 import { setDueDate, waitUntil, type DueDateChange } from './transitions.ts';
 import type { ISODate, Section, Task } from './types.ts';
+import { sameRepeat } from './repeat.ts';
 import { validateTask } from './validate.ts';
 
 /** The fields a client may write. Everything else is set by the database or derived. */
-export const EDITABLE_FIELDS = ['title', 'description', 'status', 'flagged', 'startDate', 'hideUntil', 'dueDate', 'completedAt', 'completedOn', 'deletedAt', 'deletedOn'] as const;
+export const EDITABLE_FIELDS = ['title', 'description', 'status', 'flagged', 'startDate', 'hideUntil', 'dueDate', 'repeat', 'completedAt', 'completedOn', 'deletedAt', 'deletedOn'] as const;
 export type EditableField = (typeof EDITABLE_FIELDS)[number];
 export type TaskPatch = Partial<Pick<Task, EditableField>>;
 
@@ -18,7 +19,7 @@ export function taskPatch(before: Task, after: Task): TaskPatch {
   for (const field of EDITABLE_FIELDS) {
     const a = before[field] ?? null;
     const b = after[field] ?? null;
-    if (a !== b) patch[field] = b;
+    if (field === 'repeat' ? !sameRepeat(before.repeat, after.repeat) : a !== b) patch[field] = b;
   }
   return patch as TaskPatch;
 }

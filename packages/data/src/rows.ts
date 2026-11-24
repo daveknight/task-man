@@ -1,4 +1,4 @@
-import type { EditableField, ISODate, Status, Subtask, Task, TaskPatch } from '@app/core';
+import type { EditableField, ISODate, OccurrenceRecord, OccurrenceSnapshot, RepeatRule, Status, Subtask, Tag, Task, TaskPatch } from '@app/core';
 
 /** A public.tasks row as PostgREST returns it. */
 export interface TaskRow {
@@ -38,7 +38,13 @@ export function taskFromRow(row: TaskRow): Task {
     deletedAt: row.deleted_at,
     deletedOn: row.deleted_on,
     createdAt: row.created_at,
+    repeat: repeatFromJson(row.repeat),
   };
+}
+
+function repeatFromJson(value: unknown): RepeatRule | null {
+  if (value == null || typeof value !== 'object' || Array.isArray(value)) return null;
+  return value as RepeatRule;
 }
 
 const COLUMN: Record<EditableField, keyof TaskRow> = {
@@ -49,6 +55,7 @@ const COLUMN: Record<EditableField, keyof TaskRow> = {
   startDate: 'start_date',
   hideUntil: 'hide_until',
   dueDate: 'due_date',
+  repeat: 'repeat',
   completedAt: 'completed_at',
   completedOn: 'completed_on',
   deletedAt: 'deleted_at',
@@ -63,7 +70,7 @@ export function patchToRow(patch: TaskPatch): Partial<TaskRow> {
 }
 
 /** A row to insert for a new task (the database sets created_at and updated_at). */
-export function rowForInsert(task: Task, userId: string): Omit<TaskRow, 'created_at' | 'updated_at' | 'repeat'> {
+export function rowForInsert(task: Task, userId: string): Omit<TaskRow, 'created_at' | 'updated_at'> {
   return {
     id: task.id,
     user_id: userId,
@@ -74,6 +81,7 @@ export function rowForInsert(task: Task, userId: string): Omit<TaskRow, 'created
     start_date: task.startDate ?? null,
     hide_until: task.hideUntil ?? null,
     due_date: task.dueDate ?? null,
+    repeat: task.repeat ?? null,
     completed_at: task.completedAt ?? null,
     completed_on: task.completedOn ?? null,
     deleted_at: task.deletedAt ?? null,
@@ -101,4 +109,60 @@ export function subtaskFromRow(row: Pick<SubtaskRow, 'id' | 'title' | 'done' | '
 
 export function subtaskRow(subtask: Subtask, taskId: string, userId: string): Omit<SubtaskRow, 'created_at' | 'updated_at'> {
   return { id: subtask.id, user_id: userId, task_id: taskId, title: subtask.title, done: subtask.done, sort_key: subtask.sortKey };
+}
+
+/** A public.tags row as PostgREST returns it. (The table also has an unused `color` column.) */
+export interface TagRow {
+  id: string;
+  user_id: string;
+  name: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export const TAG_COLUMNS = 'id,user_id,name';
+
+export function tagFromRow(row: Pick<TagRow, 'id' | 'name'>): Tag {
+  return { id: row.id, name: row.name };
+}
+
+/** A public.task_tags row: one tag on one task. `created_at` orders a task's chips. */
+export interface TaskTagRow {
+  user_id: string;
+  task_id: string;
+  tag_id: string;
+  created_at?: string;
+}
+
+export const TASK_TAG_COLUMNS = 'task_id,tag_id,created_at';
+
+/** One recorded completion or skip of a repeating task. */
+export interface CompletionRow {
+  id: string;
+  task_id: string;
+  occurrence_due: ISODate;
+  kind: 'done' | 'skip';
+  completed_on: ISODate;
+  completed_at: string;
+  snapshot: OccurrenceSnapshot;
+  created_at?: string;
+}
+
+export const COMPLETION_COLUMNS = 'id,task_id,occurrence_due,kind,completed_on,completed_at,snapshot,created_at';
+
+export function completionFromRow(row: CompletionRow): OccurrenceRecord {
+  return {
+    id: row.id,
+    taskId: row.task_id,
+    occurrenceDue: row.occurrence_due,
+    kind: row.kind,
+    completedOn: row.completed_on,
+    completedAt: row.completed_at,
+    snapshot: row.snapshot,
+  };
+}
+
+/** Link rows for tags added together. Each gets a millisecond more than the last, so the chips keep the order they were given. */
+export function taskTagRows(tags: readonly Tag[], taskId: string, userId: string, start: number = Date.now()): Required<TaskTagRow>[] {
+  return tags.map((tag, i) => ({ user_id: userId, task_id: taskId, tag_id: tag.id, created_at: new Date(start + i).toISOString() }));
 }
