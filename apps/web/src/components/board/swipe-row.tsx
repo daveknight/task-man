@@ -66,7 +66,7 @@ function Tray({ task, rowActions, reveal, onDone }: { task: Task; rowActions: Ro
           />
         </>
       ) : (
-        <SwipeButton icon="flag" active={!task.flagged} label={task.flagged ? 'Unflag' : 'Flag'} className="bg-swipe-flag" onClick={run(() => actions?.toggleFlag(task))} />
+        <SwipeButton icon="flag" active={!task.flagged} label={task.flagged ? 'Remove flag' : 'Flag'} className="bg-swipe-flag" onClick={run(() => actions?.toggleFlag(task))} />
       )}
     </div>
   );

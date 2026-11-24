@@ -93,6 +93,30 @@ test.describe('completing', () => {
     await expect.poll(() => showTask(TITLE).task.completedAt).toBeNull();
   });
 
+  test('the toast has a close button that dismisses it without undoing', async ({ page }) => {
+    await checkbox(page, TITLE).click();
+    const toast = page.locator('[data-sonner-toast]', { hasText: `Completed “${TITLE}”` });
+    await expect(toast).toBeVisible();
+    const close = toast.getByRole('button', { name: 'Close toast' });
+    await expect(close).toBeVisible();
+    const t = (await toast.boundingBox())!;
+    const c = (await close.boundingBox())!;
+    const undo = (await toast.getByRole('button', { name: 'Undo' }).boundingBox())!;
+    expect(c.x).toBeGreaterThan(undo.x + undo.width);
+    expect(c.x + c.width).toBeLessThanOrEqual(t.x + t.width);
+    await close.click();
+    await expect(toast).toHaveCount(0);
+    expect(showTask(TITLE).task.completedAt).not.toBeNull();
+  });
+
+  test('the toast goes away on its own after about four seconds', async ({ page }) => {
+    await checkbox(page, TITLE).click();
+    const toast = page.locator('[data-sonner-toast]', { hasText: `Completed “${TITLE}”` });
+    await expect(toast).toBeVisible();
+    await page.mouse.move(0, 0);
+    await expect(toast).toHaveCount(0, { timeout: 8000 });
+  });
+
   test('toggling the same row again while it is held keeps one row and the last state', async ({ page }) => {
     await checkbox(page, TITLE).click();
     await expect(ghost(page, TITLE)).toHaveCount(1);
@@ -140,6 +164,25 @@ test.describe('completing', () => {
     await expect(page.locator('[data-ghost]')).toHaveCount(0);
     await expect(section(page, 'completed').locator('[data-slot=task-row]', { hasText: TITLE })).toHaveCount(1);
     await expect.poll(() => showTask(TITLE).task.completedAt).not.toBeNull();
+  });
+});
+
+test.describe('due date', () => {
+  test('is struck through with the title once the task is completed', async ({ page }) => {
+    const due = (title: string) => row(page, title).locator('[data-slot=due-label]');
+    await expect(due('Water the plants')).toHaveCSS('text-decoration-line', 'none');
+
+    await checkbox(page, 'Water the plants').click();
+    const held = ghost(page, 'Water the plants').locator('[data-slot=due-label]');
+    await expect(held).toHaveText('Today');
+    await expect(held).toHaveCSS('text-decoration-line', 'line-through');
+
+    await showCompleted(page);
+    const done = section(page, 'completed').locator('[data-slot=task-row]', { hasText: 'Pay November credit card bill' }).locator('[data-slot=due-label]');
+    await expect(done).toHaveText('Nov 16');
+    await expect(done).toHaveCSS('text-decoration-line', 'line-through');
+    await expect(section(page, 'completed').locator('[data-slot=task-row]', { hasText: 'Water the plants' }).locator('[data-slot=due-label]')).toHaveCSS('text-decoration-line', 'line-through');
+
   });
 });
 

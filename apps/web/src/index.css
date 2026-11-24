@@ -76,3 +76,29 @@
     animation: strike-out 250ms ease-out;
   }
 }
+
+/* The toast's close button sits inline after its action, always visible, instead of Sonner's hover-only badge on the corner. */
+.toaster [data-sonner-toast] .cn-toast-close {
+  position: static;
+  order: 1;
+  flex-shrink: 0;
+  height: 24px;
+  width: 24px;
+  margin-left: 2px;
+  transform: none;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--muted-foreground);
+  opacity: 1;
+}
+
+.toaster [data-sonner-toast] .cn-toast-close:hover {
+  background: var(--muted);
+  color: var(--foreground);
+}
+
+.toaster [data-sonner-toast] .cn-toast-close:focus-visible {
+  outline: 3px solid color-mix(in oklch, var(--ring) 50%, transparent);
+  outline-offset: 0;
+}

@@ -183,6 +183,28 @@ test('Ready rows offer Move to Waiting, not Hide until, and it opens the Hide un
   await expect.poll(() => showTask('Buy new watch band').task).toMatchObject({ status: 'waiting', startDate: null });
 });
 
+test('the flag item says Remove flag when the task is flagged, and Flag when it is not', async ({ page }) => {
+  const passport = row(page, 'Renew passport');
+  await passport.click({ button: 'right' });
+  await expect(page.getByRole('menuitem', { name: 'Remove flag', exact: true })).toBeVisible();
+  await expect(page.getByRole('menuitem', { name: 'Unflag' })).toHaveCount(0);
+  await page.getByRole('menuitem', { name: 'Remove flag', exact: true }).click();
+  await expect.poll(() => showTask('Renew passport').task.flagged).toBe(false);
+  await passport.click({ button: 'right' });
+  await expect(page.getByRole('menuitem', { name: 'Flag', exact: true })).toBeVisible();
+  await page.keyboard.press('Escape');
+});
+
+test('the board menu offers Show deleted, with no icon, and it opens Trash', async ({ page }) => {
+  await page.getByRole('button', { name: 'Menu', exact: true }).click();
+  const item = page.getByRole('menuitem', { name: 'Show deleted', exact: true });
+  await expect(item).toBeVisible();
+  await expect(item.locator('svg')).toHaveCount(0);
+  await expect(page.getByRole('menuitem', { name: 'Trash', exact: true })).toHaveCount(0);
+  await item.click();
+  await expect(page.getByRole('heading', { name: 'Trash' })).toBeVisible();
+});
+
 const background = (r: Locator) => r.evaluate((el) => getComputedStyle(el).backgroundColor);
 
 test('the row with an open context menu is highlighted in every section, and clears when it closes', async ({ page }) => {
@@ -271,19 +293,18 @@ const notShown = (l: Locator) => expect(l).not.toBeInViewport({ ratio: 1 });
 
 test('row quick actions show on hover, just left of the dates and flag, in every section', async ({ page }) => {
   for (const { title, last, meta } of [
-    { title: 'Twitter litigation claim', last: 'Delete', meta: 'Nov 28' },
+    { title: 'Twitter litigation claim', last: /^Due Nov 28$/, meta: 'Nov 28' },
     { title: 'Reimbursement for conference travel', last: 'Move to In Progress', meta: 'Mon' },
-    { title: 'Renew passport', last: 'Delete', meta: 'Nov 15' },
+    { title: 'Renew passport', last: /^Due Nov 15$/, meta: 'Nov 15' },
   ]) {
     const target = row(page, title);
-    const button = target.getByRole('button', { name: last, exact: true });
+    const button = target.getByRole('button', { name: last, exact: typeof last === 'string' });
     await page.mouse.move(0, 0);
-    await notShown(button);
     await target.hover();
     await shown(button);
     const b = (await button.boundingBox())!;
     const m = (await target.getByText(meta, { exact: true }).boundingBox())!;
-    expect(b.x + b.width).toBeLessThan(m.x);
+    expect(b.x + b.width).toBeGreaterThanOrEqual(m.x + m.width);
   }
 
   const plumber = row(page, 'Plumber quote for kitchen sink');
@@ -293,24 +314,82 @@ test('row quick actions show on hover, just left of the dates and flag, in every
   expect(r.x + r.width - (b.x + b.width)).toBeLessThan(20);
 });
 
+test('quick actions run Delete, state, then date, so the date button is at the right', async ({ page }) => {
+  const x = async (l: Locator) => (await l.boundingBox())!.x;
+  const dateButton = (title: string, name: string | RegExp) => row(page, title).getByRole('button', { name, exact: typeof name === 'string' });
+
+  // A task with a due date: the date is the button that edits it, after the other quick actions.
+  const passport = row(page, 'Renew passport');
+  await passport.hover();
+  const del = await x(passport.getByRole('button', { name: 'Delete', exact: true }));
+  const later = await x(passport.getByRole('button', { name: 'Move to Waiting', exact: true }));
+  const due = await x(dateButton('Renew passport', /^Due Nov 15$/));
+  expect(del).toBeLessThan(later);
+  expect(later).toBeLessThan(due);
+  await expect(passport.getByRole('button', { name: 'Due', exact: true })).toHaveCount(0);
+
+  // Without a due date the Due icon button takes the same place.
+  const watchBand = row(page, 'Buy new watch band');
+  await watchBand.hover();
+  const delNone = await x(watchBand.getByRole('button', { name: 'Delete', exact: true }));
+  const laterNone = await x(watchBand.getByRole('button', { name: 'Move to Waiting', exact: true }));
+  const dueNone = await x(watchBand.getByRole('button', { name: 'Due', exact: true }));
+  expect(delNone).toBeLessThan(laterNone);
+  expect(laterNone).toBeLessThan(dueNone);
+});
+
+test('the due date label is the button that edits the due date, and clicking anywhere on it opens the picks', async ({ page }) => {
+  const passport = row(page, 'Renew passport');
+  await passport.hover();
+  const button = passport.getByRole('button', { name: 'Due Nov 15', exact: true });
+  // Clicking the date text itself, not the icon, opens the same Due picks without opening the task.
+  await button.getByText('Nov 15').click();
+  await expect(page.locator('[data-slot=preset-panel]')).toBeVisible();
+  await expect(page.locator('[data-preset=clear]')).toHaveText('No due date');
+  await expect(passport).not.toHaveAttribute('data-selected', 'true');
+  await expect(page.locator('[data-slot=task-pane]')).toHaveCount(0);
+  await page.locator('[data-preset=tomorrow]').click();
+  await expect.poll(() => showTask('Renew passport').task.dueDate).toBe('2026-11-19');
+  await expect(passport.getByRole('button', { name: 'Due Tomorrow', exact: true })).toBeVisible();
+  await expect(page.locator('[data-slot=task-pane]')).toHaveCount(0);
+
+  // The icon matches the quick-action icons' size and the Due action's orange.
+  const icon = passport.getByRole('button', { name: 'Due Tomorrow', exact: true }).locator('svg');
+  const box = (await icon.boundingBox())!;
+  const quick = (await passport.getByRole('button', { name: 'Delete', exact: true }).locator('svg').boundingBox())!;
+  expect(box.width).toBe(quick.width);
+  const orange = await page.evaluate(() => {
+    const probe = document.createElement('span');
+    probe.className = 'text-flag';
+    document.body.append(probe);
+    const value = getComputedStyle(probe).color;
+    probe.remove();
+    return value;
+  });
+  expect(await icon.evaluate((el) => getComputedStyle(el).color)).toBe(orange);
+});
+
 test('keyboard focus shows a row\'s quick actions and Tab reaches them', async ({ page }) => {
   const passport = row(page, 'Renew passport');
-  const due = passport.getByRole('button', { name: 'Due', exact: true });
+  const del = passport.getByRole('button', { name: 'Delete', exact: true });
+  const due = passport.getByRole('button', { name: /^Due Nov 15$/ });
   await page.mouse.move(0, 0);
-  await notShown(due);
+  await notShown(del);
+  await shown(due);
   await passport.getByRole('button', { name: /^Renew passport/ }).focus();
   await page.keyboard.press('Shift+Tab');
   await expect(passport.getByRole('checkbox')).toBeFocused();
-  await shown(due);
+  await shown(del);
   await page.keyboard.press('Tab');
+  await page.keyboard.press('Tab');
+  await expect(del).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(passport.getByRole('button', { name: 'Move to Waiting' })).toBeFocused();
   await page.keyboard.press('Tab');
   await expect(due).toBeFocused();
   await shown(due);
   await page.keyboard.press('Tab');
-  await page.keyboard.press('Tab');
-  await expect(passport.getByRole('button', { name: 'Delete' })).toBeFocused();
-  await page.keyboard.press('Tab');
-  await notShown(due);
+  await notShown(del);
 });
 
 test('drag to reorder within Ready persists', async ({ page }) => {
@@ -530,7 +609,7 @@ test('search, then delete and restore from Trash', async ({ page }) => {
   await expect(section(page, 'ready').getByText('Renew passport')).toHaveCount(0);
 
   await page.getByRole('button', { name: 'Menu', exact: true }).click();
-  await page.getByRole('menuitem', { name: 'Trash' }).click();
+  await page.getByRole('menuitem', { name: 'Show deleted' }).click();
   await row(page, 'Renew passport').hover();
   await row(page, 'Renew passport').getByRole('button', { name: 'Restore' }).click();
   await expect.poll(() => showTask('Renew passport').task.deletedAt).toBeNull();

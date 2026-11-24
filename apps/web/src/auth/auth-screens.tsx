@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
 /** A borderless field inside a grouped list, like the rows on the board. */
-const FIELD = 'h-row rounded-none border-0 bg-transparent px-row-x text-body shadow-none focus-visible:ring-inset dark:bg-transparent';
+const FIELD = 'h-row rounded-[inherit] border-0 bg-transparent px-row-x text-body shadow-none focus-visible:ring-inset dark:bg-transparent';
 
 function AuthPage({ title, subtitle, children }: { title: string; subtitle?: ReactNode; children: ReactNode }) {
   return (
@@ -53,7 +53,7 @@ export function SignInScreen({ email, password, onEmailChange, onPasswordChange,
   return (
     <AuthPage title="Sign in">
       <form className="flex flex-col gap-3" onSubmit={submit(onSubmit)} noValidate>
-        <RowList fields>
+        <RowList fields flush>
           <div>
             <Input
               type="email"
@@ -113,7 +113,7 @@ export function ForgotScreen({ email, onEmailChange, onSubmit, onBack, busy, err
   return (
     <AuthPage title="Reset password" subtitle="We'll email you a link to choose a new one.">
       <form className="flex flex-col gap-3" onSubmit={submit(onSubmit)} noValidate>
-        <RowList fields>
+        <RowList fields flush>
           <div>
             <Input
               type="email"
@@ -167,7 +167,7 @@ export function NewPasswordScreen({ password, onPasswordChange, onSubmit, busy, 
   return (
     <AuthPage title="New password" subtitle={`At least ${MIN_PASSWORD_LENGTH} characters.`}>
       <form className="flex flex-col gap-3" onSubmit={submit(onSubmit)} noValidate>
-        <RowList fields>
+        <RowList fields flush>
           <div>
             <Input
               type="password"

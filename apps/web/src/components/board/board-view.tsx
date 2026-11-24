@@ -51,13 +51,26 @@ export const SECTION_TITLES: Record<Section, string> = {
 const SECTION_STATUS: Partial<Record<Section, Status>> = { in_progress: 'in_progress', waiting: 'waiting', ready: 'open' };
 
 /** An inset grouped card whose rows get iOS-style separators inset past the checkbox. */
-export function RowList({ children, className, fields }: { children: ReactNode; className?: string; /** Field rows (icon and label) instead of task rows, whose separators start further in. */ fields?: boolean }) {
+export function RowList({
+  children,
+  className,
+  fields,
+  flush,
+}: {
+  children: ReactNode;
+  className?: string;
+  /** Field rows (icon and label) instead of task rows, whose separators start further in. */
+  fields?: boolean;
+  /** Separators run the full width of the list, for plain fields with no icon. */
+  flush?: boolean;
+}) {
   return (
     <div
       className={cn(
         'overflow-hidden rounded-xl bg-card',
         '*:relative [&>*+*]:before:absolute [&>*+*]:before:top-0 [&>*+*]:before:right-0 [&>*+*]:before:z-10 [&>*+*]:before:h-px [&>*+*]:before:bg-border',
-        fields ? '[&>*+*]:before:left-separator-inset' : '[&>*+*]:before:left-task-separator-inset',
+        flush ? '[&>*+*]:before:left-0' : fields ? '[&>*+*]:before:left-separator-inset' : '[&>*+*]:before:left-task-separator-inset',
+        fields && '[&>:first-child]:rounded-t-[inherit] [&>:last-child]:rounded-b-[inherit]',
         className,
       )}
     >
@@ -136,7 +149,7 @@ function DragHandle({
       onPointerDown={(e) => e.stopPropagation()}
       // Its column is always reserved, but the grip shows only while the row is hovered, the handle has keyboard focus
       // or it is being dragged. Screens with no hover (phones) show it all the time.
-      className="flex size-full cursor-grab touch-none items-center justify-center rounded-sm text-checkbox opacity-0 transition-opacity duration-150 outline-none group-hover/row:opacity-100 hover:text-link focus-visible:text-link focus-visible:opacity-100 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset active:cursor-grabbing data-dragging:opacity-100 motion-reduce:transition-none [@media(hover:none)]:opacity-100"
+      className="m-1 mr-0 flex flex-1 cursor-grab self-stretch touch-none items-center justify-center rounded-sm text-checkbox opacity-0 transition-opacity duration-150 outline-none group-hover/row:opacity-100 hover:text-muted-foreground focus-visible:text-muted-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-inset active:cursor-grabbing data-dragging:opacity-100 motion-reduce:transition-none [@media(hover:none)]:opacity-100"
     >
       <Icon name="reorder" weight="bold" className="size-3.5" />
     </button>

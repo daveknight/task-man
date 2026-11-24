@@ -39,7 +39,7 @@ Tick a box when a round has the state. Add new states under the right area as fe
 From the list polish PR. All desktop 1440 unless noted.
 
 - [ ] Unselected list sits left of center with the pane's room reserved, and doesn't move when “Renew passport” is selected
-- [ ] Drag handles on every draggable row; hover turns one blue
+- [ ] Drag handles on every draggable row; hover turns one medium grey – light and dark
 - [ ] Drag in progress, picked up by the handle
 - [ ] Just-dropped row highlighted
 - [ ] Delete mid-animation, rows below sliding up
@@ -55,7 +55,8 @@ From the list polish PR. All desktop 1440 unless noted.
 - [ ] Task checked off with Completed closed: struck-through title held in Ready, then folding away with nothing growing in below (#40)
 - [ ] Task checked off on phone: struck-through title held in Ready – phone (#40)
 - [ ] Last task in a section checked off: the section folds away with it (In Progress) (#40)
-- [ ] Drag grip at rest on a hovered row: the quiet checkbox-ring color, turning blue when the handle itself is hovered – light, dark and phone (#40)
+- [ ] Drag handle with keyboard focus on the first row of a section: the ring fully inside the rounded corner – light and dark
+- [ ] Drag grip at rest on a hovered row: the quiet checkbox-ring color, turning medium grey when the handle itself is hovered – light, dark and phone (#40)
 
 ## Light and dark
 
@@ -66,11 +67,14 @@ From the list polish PR. All desktop 1440 unless noted.
 
 All desktop 1440.
 
-- [ ] Row hover on a Ready task: Due, Move to Waiting and Delete quick actions
+- [ ] Row hover on a Ready task with a due date: Delete, Move to Waiting, then the due date as a button (orange icon and date) – light and dark
+- [ ] Row hover on a Ready task with no due date: Delete, Move to Waiting, then the Due icon button
 - [ ] Row hover on an In Progress task: Move to Waiting
 - [ ] Row hover on a Waiting task: closed-eye button with the “Hide until later” tooltip
-- [ ] Due presets: Due button on “Get car tires rotated”
-- [ ] Quick actions sit just left of the dates and flag
+- [ ] Due presets: the due date button on “Get car tires rotated”, opened by clicking its date
+- [ ] Quick actions sit just left of the dates and flag, with the date button last
+- [ ] Due dates on rows: orange icon the size of the quick-action icons, with overdue red, today blue and plain grey labels – light, dark and phone
+- [ ] Completed row: due date struck through with the title – Completed section, and the held row just checked off
 
 ## Editing states
 
@@ -82,11 +86,12 @@ All desktop 1440.
 
 All desktop 1440 unless noted.
 
-- [ ] Board ⋯ menu open: Show completed, Trash, Appearance
+- [ ] Board ⋯ menu open: Show completed, Show deleted (no icon), Appearance
 - [ ] Context menu: right-click a row, Due submenu open
 - [ ] Context menu: the right-clicked row stays highlighted while the menu is open, here on a Ready and a Waiting row (#39)
 - [ ] Context menu on the selected task: the row looks selected with the menu open and stays selected after it closes (#39)
-- [ ] Undo toast after checking off a task – desktop 1440, phone (#40)
+- [ ] Undo toast after checking off a task, with its X to close – desktop 1440, phone (#40)
+- [ ] Context menu on a flagged row: “Remove flag”
 - [ ] Waiting row menu
 - [ ] Hide until picker from a row (Ready, In Progress)
 - [ ] Wait until picker: status changed to Waiting in the task sheet
@@ -122,7 +127,8 @@ The real login screen (the signed-out state) shows locally at `/?autosignin=off`
 - [ ] Login: sign in, empty – desktop 1440, phone
 - [ ] Login: sign in, email and password typed – desktop 1440, phone
 - [ ] Login: wrong email or password – desktop 1440, phone
-- [ ] Login: reset password – desktop 1440, phone
+- [ ] Login: reset password, opened from Sign in with an email typed (the field already filled) – desktop 1440, phone
+- [ ] Login: keyboard focus on the password field, ring inside the rounded list, divider full width – desktop 1440, phone
 - [ ] Login: reset email sent – desktop 1440, phone
 - [ ] Login: choose a new password – desktop 1440, phone
 - [ ] Board menu with the account email and Sign out – desktop 1440

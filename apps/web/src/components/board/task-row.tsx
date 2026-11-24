@@ -36,29 +36,69 @@ export interface TaskRowProps {
   handle?: ReactNode;
 }
 
-function DateMeta({ icon, date, today, tone }: { icon: 'dueDate' | 'waiting'; date: ISODate; today: ISODate; tone?: string }) {
+function DateMeta({ icon, date, today }: { icon: 'waiting'; date: ISODate; today: ISODate }) {
   return (
-    <span className={cn('inline-flex items-center gap-1 text-footnote whitespace-nowrap', tone ?? 'text-muted-foreground')}>
+    <span className="inline-flex items-center gap-1 text-footnote whitespace-nowrap text-muted-foreground">
       <Icon name={icon} className="size-3.5" />
       <span className="optical-center">{dayLabel(date, today)}</span>
     </span>
   );
 }
 
-/** Dates and flag at the end of the row. A task hidden until later shows its hide-until date with an hourglass. */
-function TrailingMeta({ id, task, today, onClick }: { id: string; task: Task; today: ISODate; onClick: () => void }) {
-  const waiting = !task.completedAt && !task.deletedAt && task.status === 'waiting' ? waitingStateFor(task, today) : null;
-  const open = !task.completedAt && !task.deletedAt;
+/** The due date's icon and label. The icon keeps the Due action's orange (quiet once the task is done) and matches the quick-action icon's size. */
+function DueLabel({ task, today }: { task: Task; today: ISODate }) {
+  const done = !!task.completedAt;
+  const open = !done && !task.deletedAt;
   const overdue = open && !!task.dueDate && task.dueDate < today;
   const dueToday = open && task.dueDate === today;
+  const tone = overdue ? 'text-overdue font-medium' : dueToday ? 'text-link font-medium' : 'text-muted-foreground';
+  return (
+    <>
+      <Icon name="dueDate" className={cn('size-4', open ? 'text-flag' : 'text-muted-foreground')} />
+      <span data-slot="due-label" className={cn('optical-center text-footnote whitespace-nowrap', tone, done && 'line-through')}>
+        {dayLabel(task.dueDate!, today)}
+      </span>
+    </>
+  );
+}
+
+/**
+ * The due date as the button that edits it: icon and date together, one target for the Due quick picks. It
+ * stays in the row at rest, where the other quick actions appear only on hover, and its padding is pulled
+ * back so the date lines up with a row that has none.
+ */
+function DueButton({ task, group, today }: { task: Task; group: ActionGroup; today: ISODate }) {
+  return (
+    <PresetPopover
+      task={task}
+      group={group}
+      align="end"
+      trigger={<Button variant="ghost" size="sm" aria-label={`Due ${dayLabel(task.dueDate!, today)}`} className="-mr-1.5 h-7 gap-1 px-1.5 text-footnote font-normal" />}
+    >
+      <DueLabel task={task} today={today} />
+    </PresetPopover>
+  );
+}
+
+/** Dates and flag at the end of the row. A task hidden until later shows its hide-until date with an hourglass. */
+function TrailingMeta({ id, task, today, onClick, dueGroup }: { id: string; task: Task; today: ISODate; onClick: () => void; /** Makes the due date the button that edits it. */ dueGroup?: ActionGroup }) {
+  const waiting = !task.completedAt && !task.deletedAt && task.status === 'waiting' ? waitingStateFor(task, today) : null;
   const hiddenUntil = waiting === 'later' ? task.hideUntil : null;
   if (!hiddenUntil && !task.dueDate && !task.flagged) return null;
   return (
     <span id={id} data-slot="trailing-meta" className="flex shrink-0 items-center gap-2" onClick={onClick}>
       {hiddenUntil && <DateMeta icon="waiting" date={hiddenUntil} today={today} />}
-      {task.dueDate && (
-        <DateMeta icon="dueDate" date={task.dueDate} today={today} tone={overdue ? 'text-overdue font-medium' : dueToday ? 'text-link font-medium' : undefined} />
-      )}
+      {task.dueDate &&
+        (dueGroup ? (
+          // Its picks live in a portal that still bubbles to this span, which would open the task.
+          <span className="inline-flex" onClick={(e) => e.stopPropagation()}>
+            <DueButton task={task} group={dueGroup} today={today} />
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1">
+            <DueLabel task={task} today={today} />
+          </span>
+        ))}
       {task.flagged && <Icon name="flag" active className="size-4 text-flag" aria-label="Flagged" />}
     </span>
   );
@@ -172,10 +212,10 @@ const followUpTone = 'group-hover/row:text-link group-focus-within/row:text-link
  * keyboard focus, or has a popover open. At rest they're visually hidden rather than `display: none`,
  * so they take no room yet Tab can still reach them: Chrome drops focus on an element that hides as
  * focus leaves the title. Phones leave them to the swipe actions and the sheet. Waiting rows show
- * Hide until and Move to In Progress; other rows the date and state groups and Delete, like the
- * swipe buttons.
+ * Hide until and Move to In Progress; other rows Delete, the state groups and the date group, in that order so the
+ * date sits at the right, next to the dates. A due date that is set is that last button, shown in the row's meta.
  */
-function QuickActions({ task, actions, rowActions }: { task: Task; actions: BoardActions | null; rowActions: RowActions }) {
+function QuickActions({ task, actions, rowActions, dateInRow }: { task: Task; actions: BoardActions | null; rowActions: RowActions; dateInRow: boolean }) {
   const followUp = rowActions.placement === 'waiting';
   return (
     <span
@@ -186,10 +226,6 @@ function QuickActions({ task, actions, rowActions }: { task: Task; actions: Boar
         rowActions.state.map((g) => <GroupButton key={g.id} task={task} group={g} tone={followUpTone} actions={actions} tooltip={followUpTooltip(g)} />)
       ) : (
         <>
-          {rowActions.date && <GroupButton task={task} group={rowActions.date} tone="text-flag" actions={actions} />}
-          {rowActions.state.map((g) => (
-            <GroupButton key={g.id} task={task} group={g} tone="text-link" actions={actions} />
-          ))}
           <Button
             variant="ghost"
             size="icon-sm"
@@ -200,6 +236,10 @@ function QuickActions({ task, actions, rowActions }: { task: Task; actions: Boar
           >
             <Icon name="trash" />
           </Button>
+          {rowActions.state.map((g) => (
+            <GroupButton key={g.id} task={task} group={g} tone="text-link" actions={actions} />
+          ))}
+          {rowActions.date && !dateInRow && <GroupButton task={task} group={rowActions.date} tone="text-flag" actions={actions} />}
         </>
       )}
     </span>
@@ -259,7 +299,7 @@ export function RowContextMenu({ task, rowActions, today, children }: { task: Ta
             </ContextMenuItem>
             <ContextMenuItem onClick={() => actions?.toggleFlag(task)}>
               <Icon name="flag" active={!!task.flagged} className="text-flag" />
-              {task.flagged ? 'Unflag' : 'Flag'}
+              {task.flagged ? 'Remove flag' : 'Flag'}
             </ContextMenuItem>
             <ContextMenuSeparator />
           </>
@@ -297,6 +337,8 @@ export function TaskRowContent({
   const metaId = useId();
   const done = !!task.completedAt;
   const dropped = useDropped(task.id);
+  // With a due date set, the date shows as the button that edits it, in the row's meta; without one it is the last quick action.
+  const dueGroup = hover && rowActions.placement !== 'waiting' && rowActions.date?.id === 'due' && !!task.dueDate ? rowActions.date : undefined;
   return (
     <div
       data-slot="task-row"
@@ -330,7 +372,7 @@ export function TaskRowContent({
             aria-label={task.title}
             aria-describedby={metaId}
             onClick={() => actions?.open(task)}
-            className="absolute inset-0 rounded-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+            className="absolute inset-0 rounded-sm outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/50"
           />
           <InlineTitle task={task} className={cn(done && 'text-muted-foreground line-through')} />
         </div>
@@ -339,13 +381,13 @@ export function TaskRowContent({
           type="button"
           onClick={() => actions?.open(task)}
           aria-describedby={metaId}
-          className="flex min-h-row min-w-0 flex-1 items-center gap-2 rounded-sm text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+          className="flex min-h-row min-w-0 flex-1 items-center gap-2 rounded-sm text-left outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/50"
         >
           <span data-slot="task-title" className={cn('min-w-0 flex-1 truncate text-body optical-center', done && 'text-muted-foreground line-through')}>{task.title}</span>
         </button>
       )}
-      {hover && <QuickActions task={task} actions={actions} rowActions={rowActions} />}
-      <TrailingMeta id={metaId} task={task} today={today} onClick={() => actions?.open(task)} />
+      {hover && <QuickActions task={task} actions={actions} rowActions={rowActions} dateInRow={!!dueGroup} />}
+      <TrailingMeta id={metaId} task={task} today={today} onClick={() => actions?.open(task)} dueGroup={dueGroup} />
     </div>
   );
 }
