@@ -190,23 +190,26 @@ test.describe('drag handle', () => {
     expect(heading).toBeCloseTo(titles[0]!, 0);
   });
 
-  test('the icon uses the text color and turns blue on hover', async ({ page }) => {
+  test('the icon is muted, using the checkbox ring color, and turns blue on hover', async ({ page }) => {
     const grip = handle(page, 'Fix squeaky closet door');
     await page.mouse.move(0, 0);
     const color = () => grip.evaluate((el) => getComputedStyle(el).color);
+    const token = (utility: string) =>
+      page.evaluate((cls) => {
+        const probe = document.createElement('span');
+        probe.className = cls;
+        document.body.append(probe);
+        const value = getComputedStyle(probe).color;
+        probe.remove();
+        return value;
+      }, utility);
     const titleColor = await row(page, 'Fix squeaky closet door').locator('[data-slot=task-title]').evaluate((el) => getComputedStyle(el).color);
-    expect(await color()).toBe(titleColor);
+    const muted = await token('text-checkbox');
+    expect(await color()).toBe(muted);
+    expect(muted).not.toBe(titleColor);
     await grip.hover();
-    await expect.poll(color).not.toBe(titleColor);
-    const blue = await page.evaluate(() => {
-      const probe = document.createElement('span');
-      probe.className = 'text-link';
-      document.body.append(probe);
-      const value = getComputedStyle(probe).color;
-      probe.remove();
-      return value;
-    });
-    expect(await color()).toBe(blue);
+    await expect.poll(color).not.toBe(muted);
+    expect(await color()).toBe(await token('text-link'));
   });
 
   test('the grip shows only while the row is hovered, the handle has keyboard focus, or it is dragged, and never moves the title', async ({ page }) => {

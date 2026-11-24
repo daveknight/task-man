@@ -30,11 +30,11 @@ import {
 import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import type { DraggableAttributes, DraggableSyntheticListeners } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
-import { useState, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { Icon } from '@/components/icon';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { usePersistedBoolean } from '@/lib/persisted';
-import { useLeaving, useLeavingIds } from '@/lib/transient';
+import { useLeaving, useLeavingIds, useMoves, type Move } from '@/lib/transient';
 import { cn } from '@/lib/utils';
 import { useBoardActions } from './board-actions';
 import { TaskRow, TaskRowContent } from './task-row';
@@ -98,7 +98,16 @@ export interface BoardViewProps {
   selectedId?: string | null;
 }
 
-type RowProps = { task: Task; today: ISODate; context?: ActionContext; selected?: boolean };
+type RowProps = {
+  task: Task;
+  today: ISODate;
+  context?: ActionContext;
+  selected?: boolean;
+  /** This row is the stand-in for a task that just left the list. It shows the task's new state until it folds away. */
+  ghost?: Move;
+  /** This row is the same task arriving in its new list, growing in as the ghost folds away. */
+  entering?: boolean;
+};
 
 /** The handle is the only place a drag starts, so the rest of the row stays free for clicking and editing. */
 function DragHandle({
@@ -127,66 +136,79 @@ function DragHandle({
       onPointerDown={(e) => e.stopPropagation()}
       // Its column is always reserved, but the grip shows only while the row is hovered, the handle has keyboard focus
       // or it is being dragged. Screens with no hover (phones) show it all the time.
-      className="flex size-full cursor-grab touch-none items-center justify-center rounded-sm text-foreground opacity-0 transition-opacity duration-150 outline-none group-hover/row:opacity-100 hover:text-link focus-visible:text-link focus-visible:opacity-100 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset active:cursor-grabbing data-dragging:opacity-100 motion-reduce:transition-none [@media(hover:none)]:opacity-100"
+      className="flex size-full cursor-grab touch-none items-center justify-center rounded-sm text-checkbox opacity-0 transition-opacity duration-150 outline-none group-hover/row:opacity-100 hover:text-link focus-visible:text-link focus-visible:opacity-100 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset active:cursor-grabbing data-dragging:opacity-100 motion-reduce:transition-none [@media(hover:none)]:opacity-100"
     >
       <Icon name="reorder" weight="bold" className="size-3.5" />
     </button>
   );
 }
 
-/** A row that slides up out of the list when its task is deleted, so what's below follows it. */
-function LeaveFold({ id, children }: { id: string; children: ReactNode }) {
-  const leaving = useLeaving(id);
+/**
+ * A row that slides up out of the list when its task is deleted, so what's below follows it. A ghost
+ * does the same once its hold is over, and a row arriving from another list grows in the same way.
+ */
+function LeaveFold({ id, ghost, entering, children }: { id: string; ghost?: Move; entering?: boolean; children: ReactNode }) {
+  const deleting = useLeaving(id);
+  const leaving = ghost ? ghost.phase === 'leave' : deleting;
   return (
     <div
       data-leaving={leaving || undefined}
-      className={cn('grid grid-cols-[minmax(0,1fr)] grid-rows-[1fr] transition-[grid-template-rows,opacity] data-leaving:grid-rows-[0fr] data-leaving:opacity-0', FOLD_MOTION)}
+      data-entering={entering || undefined}
+      data-ghost={ghost ? (ghost.after.completedAt ? 'done' : 'undone') : undefined}
+      className={cn(
+        'grid grid-cols-[minmax(0,1fr)] grid-rows-[1fr] transition-[grid-template-rows,opacity] data-leaving:grid-rows-[0fr] data-leaving:opacity-0 data-entering:animate-[row-grow_200ms_ease-out] data-leaving:data-ghost:pointer-events-none motion-reduce:data-entering:animate-none',
+        FOLD_MOTION,
+      )}
     >
-      <div data-leaving={leaving || undefined} className="min-h-0 data-leaving:overflow-hidden">
+      <div data-leaving={leaving || undefined} data-entering={entering || undefined} className="min-h-0 data-entering:overflow-hidden data-leaving:overflow-hidden">
         {children}
       </div>
     </div>
   );
 }
 
-function SortableRow(props: RowProps) {
+function SortableRow({ ghost, entering, ...props }: RowProps) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: props.task.id });
   const handle = <DragHandle title={props.task.title} attributes={attributes} listeners={listeners} activator={setActivatorNodeRef} dragging={isDragging} />;
   return (
     <div ref={setNodeRef} style={{ transform: CSS.Translate.toString(transform), transition }} className={cn(isDragging && 'opacity-40')}>
-      <LeaveFold id={props.task.id}>
+      <LeaveFold id={props.task.id} entering={entering}>
         <TaskRow {...props} handle={handle} />
       </LeaveFold>
     </div>
   );
 }
 
-function DraggableRow(props: RowProps) {
+function DraggableRow({ ghost, entering, ...props }: RowProps) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, isDragging } = useDraggable({ id: props.task.id });
   const handle = <DragHandle title={props.task.title} attributes={attributes} listeners={listeners} activator={setActivatorNodeRef} dragging={isDragging} />;
   return (
     <div ref={setNodeRef} className={cn(isDragging && 'opacity-40')}>
-      <LeaveFold id={props.task.id}>
+      <LeaveFold id={props.task.id} entering={entering}>
         <TaskRow {...props} handle={handle} />
       </LeaveFold>
     </div>
   );
 }
 
-function PlainRow(props: RowProps) {
+function PlainRow({ ghost, entering, ...props }: RowProps) {
   return (
     <div>
-      <LeaveFold id={props.task.id}>
+      <LeaveFold id={props.task.id} ghost={ghost} entering={entering}>
         <TaskRow {...props} />
       </LeaveFold>
     </div>
   );
 }
 
-/** When the last task in a section is deleted, the whole section (heading and gap included) slides away with it. */
+/** When the last task in a section is deleted or completed, the whole section (heading and gap included) slides away with it. */
 function SectionLeave({ section, children }: { section: BoardSection; children: ReactNode }) {
   const leavingIds = useLeavingIds();
-  const leaving = section.tasks.length > 0 && !section.later?.length && section.tasks.every((t) => leavingIds.has(t.id));
+  const moves = useMoves();
+  const leaving =
+    section.tasks.length > 0 &&
+    !section.later?.length &&
+    section.tasks.every((t) => leavingIds.has(t.id) || (moves.get(t.id)?.from === section.id && moves.get(t.id)?.phase === 'leave'));
   return (
     <div
       data-leaving={leaving || undefined}
@@ -219,12 +241,17 @@ function SectionView({
   const reorderable = dnd && REORDERABLE.includes(section.id);
   // Dropping onto a collapsed section isn't allowed; Upcoming takes drops only when expanded.
   const { setNodeRef, isOver } = useDroppable({ id: `section:${section.id}`, disabled: !dnd || !open || !(reorderable || section.id === 'upcoming') });
-  const Row = (task: Task, kind: 'sortable' | 'draggable' | 'plain') => {
-    const props = { task, today, context: actionContext?.(task), selected: task.id === selectedId };
+  const moves = useMoves();
+  const Row = (task: Task, kind: 'sortable' | 'draggable' | 'plain', list: Section | 'waiting_later' = section.id) => {
+    const move = moves.get(task.id);
+    const ghost = move?.from === list ? move : undefined;
+    const props = { task, today, context: actionContext?.(task), selected: task.id === selectedId, ghost, entering: !!move && !ghost && move.phase === 'leave' };
+    if (ghost) return <PlainRow key={`ghost:${task.id}`} {...props} />;
     return kind === 'sortable' ? <SortableRow key={task.id} {...props} /> : kind === 'draggable' ? <DraggableRow key={task.id} {...props} /> : <PlainRow key={task.id} {...props} />;
   };
   const draggableKind = dnd && section.id !== 'completed' && section.id !== 'trash' ? 'draggable' : 'plain';
   const rows = section.tasks.map((t) => Row(t, reorderable ? 'sortable' : draggableKind));
+  const sortableIds = section.tasks.filter((t) => moves.get(t.id)?.from !== section.id).map((t) => t.id);
 
   return (
     <Collapsible open={open} onOpenChange={setOpen} data-section={section.id} className="flex flex-col">
@@ -252,7 +279,7 @@ function SectionView({
         <div ref={setNodeRef} className={cn('rounded-xl max-sm:rounded-none', isOver && 'ring-2 ring-ring max-sm:ring-inset')} data-drop-target={section.id}>
           <RowList className="max-sm:rounded-none">
             {reorderable ? (
-              <SortableContext id={section.id} items={section.tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
+              <SortableContext id={section.id} items={sortableIds} strategy={verticalListSortingStrategy}>
                 {rows}
               </SortableContext>
             ) : (
@@ -274,7 +301,7 @@ function SectionView({
                 </CollapsibleTrigger>
                 <Fold>
                   <div className="*:relative [&>*]:before:absolute [&>*]:before:top-0 [&>*]:before:right-0 [&>*]:before:left-task-separator-inset [&>*]:before:z-10 [&>*]:before:h-px [&>*]:before:bg-border">
-                    {later.map((t) => Row(t, draggableKind))}
+                    {later.map((t) => Row(t, draggableKind, 'waiting_later'))}
                   </div>
                 </Fold>
               </Collapsible>
@@ -297,8 +324,36 @@ const collision: CollisionDetection = (args) => {
   return upcoming ? [upcoming] : closestCenter(args);
 };
 
+/**
+ * The board as the list shows it while tasks are moving between open and completed. Each ghost holds its
+ * old place in the list it left, and during the hold the task is kept out of the list it is entering.
+ */
+function withMoves(board: Board, moves: ReadonlyMap<string, Move>): Board {
+  if (moves.size === 0) return board;
+  const sections = board.sections.map((s) => ({ ...s, tasks: [...s.tasks], ...(s.later ? { later: [...s.later] } : {}) }));
+  for (const move of moves.values()) {
+    const id = move.after.id;
+    const target = sections.find((s) => s.id === (move.from === 'waiting_later' ? 'waiting' : move.from));
+    if (move.phase === 'hold') {
+      for (const s of sections) {
+        if (s === target) continue;
+        s.tasks = s.tasks.filter((t) => t.id !== id);
+        if (s.later) s.later = s.later.filter((t) => t.id !== id);
+      }
+    }
+    if (!target) continue;
+    const list = move.from === 'waiting_later' ? (target.later ??= []) : target.tasks;
+    const at = list.findIndex((t) => t.id === id);
+    if (at !== -1) list.splice(at, 1);
+    list.splice(Math.min(move.index, list.length), 0, move.after);
+  }
+  return { ...board, sections };
+}
+
 export function BoardView({ board, positions, ...props }: BoardViewProps) {
   const actions = useBoardActions();
+  const moves = useMoves();
+  const shown = useMemo(() => withMoves(board, moves), [board, moves]);
   const dnd = !!actions && !!positions;
   const [active, setActive] = useState<Task | null>(null);
   const sensors = useSensors(
@@ -345,7 +400,7 @@ export function BoardView({ board, positions, ...props }: BoardViewProps) {
     );
   };
 
-  const sections = board.sections.filter((s) => s.count > 0 || (active && REORDERABLE.includes(s.id)));
+  const sections = shown.sections.filter((s) => s.count > 0 || s.tasks.length > 0 || !!s.later?.length || (active && REORDERABLE.includes(s.id)));
   const content = (
     // On phones the sections bleed to the screen edges; headers and rows keep their own padding, so titles still line up.
     <div className="flex flex-col gap-section-gap max-sm:-mx-row-x max-sm:overflow-x-clip" data-slot="board">

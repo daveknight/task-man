@@ -36,3 +36,43 @@
     translate: 0 calc((1ex - 1cap) / 4);
   }
 }
+
+/* A row arriving in its new list grows open, like the fold it leaves from. */
+@keyframes row-grow {
+  from {
+    grid-template-rows: 0fr;
+    opacity: 0;
+  }
+  to {
+    grid-template-rows: 1fr;
+    opacity: 1;
+  }
+}
+
+/* A task just checked off keeps its title for a moment, with the strikethrough drawn in (or taken out, when un-completing). */
+@keyframes strike-in {
+  from {
+    color: var(--foreground);
+    text-decoration-color: transparent;
+  }
+}
+
+@keyframes strike-out {
+  from {
+    color: var(--muted-foreground);
+    text-decoration-line: line-through;
+    text-decoration-color: var(--muted-foreground);
+  }
+  to {
+    text-decoration-color: transparent;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  [data-ghost='done'] [data-slot='task-title'] {
+    animation: strike-in 150ms ease-out;
+  }
+  [data-ghost='undone'] [data-slot='task-title'] {
+    animation: strike-out 250ms ease-out;
+  }
+}

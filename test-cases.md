@@ -48,6 +48,10 @@ From the list polish PR. All desktop 1440 unless noted.
 - [ ] Handle grip hidden at rest and shown on the hovered row only; shown with keyboard focus – desktop 1440
 - [ ] Dragged overlay settling into its new position – desktop 1440
 - [ ] Phone board with handle column – phone
+- [ ] Task just checked off: struck-through title held in its list (Ready), Completed open below – desktop 1440
+- [ ] Same task folding away while it grows into the top of Completed – desktop 1440
+- [ ] Un-completing from Completed: title held without its strikethrough, then growing back into Ready – desktop 1440
+- [ ] Completed rows: check mark proportionate in the circle – light, dark and phone
 
 ## Light and dark
 
