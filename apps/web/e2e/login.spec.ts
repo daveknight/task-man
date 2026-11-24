@@ -78,6 +78,14 @@ test('the divider between the fields runs the full width, and the fields follow 
   expect(await style(password, 'box-shadow')).not.toBe('none');
 });
 
+test('the primary buttons are 32px tall, the same as Add task', async ({ page }) => {
+  await page.goto('/?autosignin=off');
+  const height = async (name: string) => (await page.getByRole('button', { name, exact: true }).boundingBox())!.height;
+  expect(await height('Sign in')).toBe(32);
+  await page.getByRole('button', { name: 'Forgot password?' }).click();
+  expect(await height('Send reset link')).toBe(32);
+});
+
 test('Forgot password starts with the email already typed on Sign in', async ({ page }) => {
   await page.goto('/?autosignin=off');
   await page.getByRole('textbox', { name: 'Email' }).fill('someone@example.com');

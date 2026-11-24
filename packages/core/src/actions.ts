@@ -173,13 +173,18 @@ const moveToInProgress: ActionGroup = {
 
 const DELETE = { id: 'delete', title: 'Delete' } as const;
 
+/** The Due group on its own. Every open row offers it as its last button, whatever date its own date group edits. */
+export function dueGroupFor(task: Task, today: ISODate, context: ActionContext = {}): ActionGroup {
+  return { id: 'due', title: 'Due', icon: 'dueDate', presets: duePresets(task, today, context) };
+}
+
 /**
  * What the swipe buttons, right-click menu and hover buttons offer for a task. One function for
  * every client, so they always match.
  */
 export function actionsFor(task: Task, today: ISODate, context: ActionContext = {}): RowActions {
   const placement = placementFor(task, today);
-  const due: ActionGroup = { id: 'due', title: 'Due', icon: 'dueDate', presets: duePresets(task, today, context) };
+  const due = dueGroupFor(task, today, context);
   switch (placement) {
     case 'ready':
     case 'in_progress':

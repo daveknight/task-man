@@ -1,4 +1,4 @@
-import { actionsFor, subtaskCount, waitingStateFor, type ActionContext, type ActionGroup, type ISODate, type Preset, type RowActions, type Task } from '@app/core';
+import { actionsFor, dueGroupFor, subtaskCount, waitingStateFor, type ActionContext, type ActionGroup, type ISODate, type Preset, type RowActions, type Task } from '@app/core';
 import { useId, useState, type CSSProperties, type ReactElement, type ReactNode } from 'react';
 import { Icon } from '@/components/icon';
 import { Button } from '@/components/ui/button';
@@ -17,6 +17,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { dayLabel, longDate } from '@/lib/day-label';
 import { useDropped } from '@/lib/transient';
+import { useOnline } from '@/lib/online';
 import { useMediaQuery } from '@/lib/use-media-query';
 import { cn } from '@/lib/utils';
 import { useBoardActions, type BoardActions } from './board-actions';
@@ -67,13 +68,13 @@ function DueLabel({ task, today }: { task: Task; today: ISODate }) {
  * stays in the row at rest, where the other quick actions appear only on hover, and its padding is pulled
  * back so the date lines up with a row that has none.
  */
-function DueButton({ task, group, today }: { task: Task; group: ActionGroup; today: ISODate }) {
+function DueButton({ task, group, today, disabled }: { task: Task; group: ActionGroup; today: ISODate; disabled?: boolean }) {
   return (
     <PresetPopover
       task={task}
       group={group}
       align="end"
-      trigger={<Button variant="ghost" size="sm" aria-label={`Due ${dayLabel(task.dueDate!, today)}`} className="-mr-1.5 h-7 gap-1 px-1.5 text-footnote font-normal" />}
+      trigger={<Button variant="ghost" size="sm" aria-label={`Due ${dayLabel(task.dueDate!, today)}`} disabled={disabled} className="-mr-1.5 h-7 gap-1 px-1.5 text-footnote font-normal" />}
     >
       <DueLabel task={task} today={today} />
     </PresetPopover>
@@ -81,7 +82,7 @@ function DueButton({ task, group, today }: { task: Task; group: ActionGroup; tod
 }
 
 /** Dates and flag at the end of the row. A task hidden until later shows its hide-until date with an hourglass. */
-function TrailingMeta({ id, task, today, onClick, dueGroup }: { id: string; task: Task; today: ISODate; onClick: () => void; /** Makes the due date the button that edits it. */ dueGroup?: ActionGroup }) {
+function TrailingMeta({ id, task, today, onClick, dueGroup, disabled }: { id: string; task: Task; today: ISODate; onClick: () => void; /** Makes the due date the button that edits it. */ dueGroup?: ActionGroup | null; disabled?: boolean }) {
   const waiting = !task.completedAt && !task.deletedAt && task.status === 'waiting' ? waitingStateFor(task, today) : null;
   const hiddenUntil = waiting === 'later' ? task.hideUntil : null;
   const subtasks = subtaskCount(task.subtasks);
@@ -102,7 +103,7 @@ function TrailingMeta({ id, task, today, onClick, dueGroup }: { id: string; task
         (dueGroup ? (
           // Its picks live in a portal that still bubbles to this span, which would open the task.
           <span className="inline-flex" onClick={(e) => e.stopPropagation()}>
-            <DueButton task={task} group={dueGroup} today={today} />
+            <DueButton task={task} group={dueGroup} today={today} disabled={disabled} />
           </span>
         ) : (
           <span className="inline-flex items-center gap-1">
@@ -112,6 +113,11 @@ function TrailingMeta({ id, task, today, onClick, dueGroup }: { id: string; task
       {task.flagged && <Icon name="flag" active className="size-4 text-flag" aria-label="Flagged" />}
     </span>
   );
+}
+
+/** The Due group a row offers as its last button, whatever its own date group edits. Completed and Trash rows have none. */
+export function openDueGroup(task: Task, today: ISODate, context?: ActionContext): ActionGroup | null {
+  return task.completedAt || task.deletedAt ? null : dueGroupFor(task, today, context);
 }
 
 /** A group's quick picks in a popover, which closes once one is picked. */
@@ -168,6 +174,7 @@ function GroupButton({
   tone,
   actions,
   tooltip,
+  disabled,
 }: {
   task: Task;
   group: ActionGroup;
@@ -175,22 +182,24 @@ function GroupButton({
   actions: BoardActions | null;
   /** Styled tooltip. Without one, the button keeps a native title. */
   tooltip?: string;
+  /** Offline: nothing can be changed. */
+  disabled?: boolean;
 }) {
   const button = (
-    <Button variant="ghost" size="icon-sm" aria-label={group.title} title={tooltip ? undefined : group.title} className={tone} />
+    <Button variant="ghost" size="icon-sm" aria-label={group.title} title={tooltip ? undefined : group.title} className={tone} disabled={disabled} />
   );
   if (group.presets.length === 0) {
     const onClick = () => actions?.group(task, group);
     if (!tooltip) {
       return (
-        <Button variant="ghost" size="icon-sm" aria-label={group.title} title={group.title} className={tone} onClick={onClick}>
+        <Button variant="ghost" size="icon-sm" aria-label={group.title} title={group.title} className={tone} onClick={onClick} disabled={disabled}>
           <Icon name={group.icon} />
         </Button>
       );
     }
     return (
       <Tooltip>
-        <TooltipTrigger render={<Button variant="ghost" size="icon-sm" aria-label={group.title} className={tone} onClick={onClick} />}>
+        <TooltipTrigger render={<Button variant="ghost" size="icon-sm" aria-label={group.title} className={tone} onClick={onClick} disabled={disabled} />}>
           <Icon name={group.icon} />
         </TooltipTrigger>
         <TooltipContent>{tooltip}</TooltipContent>
@@ -225,15 +234,32 @@ const followUpTone = 'group-hover/row:text-link group-focus-within/row:text-link
  * Hide until and Move to In Progress; other rows Delete, the state groups and the date group, in that order so the
  * date sits at the right, next to the dates. A due date that is set is that last button, shown in the row's meta.
  */
-function QuickActions({ task, actions, rowActions, dateInRow }: { task: Task; actions: BoardActions | null; rowActions: RowActions; dateInRow: boolean }) {
+function QuickActions({
+  task,
+  actions,
+  rowActions,
+  due,
+  dueInRow,
+  disabled,
+}: {
+  task: Task;
+  actions: BoardActions | null;
+  rowActions: RowActions;
+  /** The Due group, for every open row. */
+  due: ActionGroup | null;
+  /** The due date is set, so the due button is in the row's meta instead. */
+  dueInRow: boolean;
+  disabled: boolean;
+}) {
   const followUp = rowActions.placement === 'waiting';
+  const dateGroup = rowActions.date && rowActions.date.id !== 'due' ? rowActions.date : null;
   return (
     <span
       data-slot="row-quick-actions"
       className="sr-only flex shrink-0 items-center gap-0.5 text-foreground group-hover/row:not-sr-only group-has-focus-visible/row:not-sr-only has-data-popup-open:not-sr-only max-sm:hidden pointer-coarse:hidden"
     >
       {followUp ? (
-        rowActions.state.map((g) => <GroupButton key={g.id} task={task} group={g} tone={followUpTone} actions={actions} tooltip={followUpTooltip(g)} />)
+        rowActions.state.map((g) => <GroupButton key={g.id} task={task} group={g} tone={followUpTone} actions={actions} tooltip={followUpTooltip(g)} disabled={disabled} />)
       ) : (
         <>
           <Button
@@ -242,16 +268,18 @@ function QuickActions({ task, actions, rowActions, dateInRow }: { task: Task; ac
             aria-label={rowActions.delete.title}
             title={rowActions.delete.title}
             className="text-destructive"
+            disabled={disabled}
             onClick={() => (rowActions.delete.id === 'delete' ? actions?.remove(task) : actions?.removeForever(task))}
           >
             <Icon name="trash" />
           </Button>
           {rowActions.state.map((g) => (
-            <GroupButton key={g.id} task={task} group={g} tone="text-link" actions={actions} />
+            <GroupButton key={g.id} task={task} group={g} tone="text-link" actions={actions} disabled={disabled} />
           ))}
-          {rowActions.date && !dateInRow && <GroupButton task={task} group={rowActions.date} tone="text-flag" actions={actions} />}
+          {dateGroup && <GroupButton task={task} group={dateGroup} tone="text-flag" actions={actions} disabled={disabled} />}
         </>
       )}
+      {due && !dueInRow && <GroupButton task={task} group={due} tone="text-flag" actions={actions} disabled={disabled} />}
     </span>
   );
 }
@@ -260,10 +288,10 @@ function presetCaption(p: Preset, today: ISODate): string | null {
   return p.effect.kind === 'set' && p.effect.date ? longDate(p.effect.date, today) : null;
 }
 
-function MenuGroup({ task, group, actions, today }: { task: Task; group: ActionGroup; actions: BoardActions | null; today: ISODate }) {
+function MenuGroup({ task, group, actions, today, disabled }: { task: Task; group: ActionGroup; actions: BoardActions | null; today: ISODate; disabled?: boolean }) {
   if (group.presets.length === 0) {
     return (
-      <ContextMenuItem onClick={() => actions?.group(task, group)}>
+      <ContextMenuItem disabled={disabled} onClick={() => actions?.group(task, group)}>
         <Icon name={group.icon} />
         {group.title}
       </ContextMenuItem>
@@ -271,7 +299,7 @@ function MenuGroup({ task, group, actions, today }: { task: Task; group: ActionG
   }
   return (
     <ContextMenuSub>
-      <ContextMenuSubTrigger>
+      <ContextMenuSubTrigger disabled={disabled}>
         <Icon name={group.icon} />
         {group.title}
       </ContextMenuSubTrigger>
@@ -294,8 +322,23 @@ function MenuGroup({ task, group, actions, today }: { task: Task; group: ActionG
   );
 }
 
-export function RowContextMenu({ task, rowActions, today, children }: { task: Task; rowActions: RowActions; today: ISODate; children: ReactNode }) {
+export function RowContextMenu({
+  task,
+  rowActions,
+  today,
+  context,
+  children,
+}: {
+  task: Task;
+  rowActions: RowActions;
+  today: ISODate;
+  context?: ActionContext;
+  children: ReactNode;
+}) {
   const actions = useBoardActions();
+  const online = useOnline();
+  const disabled = !online;
+  const due = rowActions.date?.id === 'due' ? null : openDueGroup(task, today, context);
   const active = rowActions.placement !== 'completed' && rowActions.placement !== 'trash';
   return (
     <ContextMenu>
@@ -303,24 +346,26 @@ export function RowContextMenu({ task, rowActions, today, children }: { task: Ta
       <ContextMenuContent className="min-w-52">
         {active && (
           <>
-            <ContextMenuItem onClick={() => actions?.complete(task)}>
+            <ContextMenuItem disabled={disabled} onClick={() => actions?.complete(task)}>
               <Icon name="complete" />
               Complete
             </ContextMenuItem>
-            <ContextMenuItem onClick={() => actions?.toggleFlag(task)}>
+            <ContextMenuItem disabled={disabled} onClick={() => actions?.toggleFlag(task)}>
               <Icon name="flag" active={!!task.flagged} className="text-flag" />
               {task.flagged ? 'Remove flag' : 'Flag'}
             </ContextMenuItem>
             <ContextMenuSeparator />
           </>
         )}
-        {rowActions.date && <MenuGroup task={task} group={rowActions.date} actions={actions} today={today} />}
+        {rowActions.date && <MenuGroup task={task} group={rowActions.date} actions={actions} today={today} disabled={disabled} />}
+        {due && <MenuGroup task={task} group={due} actions={actions} today={today} disabled={disabled} />}
         {rowActions.state.map((g) => (
-          <MenuGroup key={g.id} task={task} group={g} actions={actions} today={today} />
+          <MenuGroup key={g.id} task={task} group={g} actions={actions} today={today} disabled={disabled} />
         ))}
         <ContextMenuSeparator />
         <ContextMenuItem
           variant="destructive"
+          disabled={disabled}
           onClick={() => (rowActions.delete.id === 'delete' ? actions?.remove(task) : actions?.removeForever(task))}
         >
           <Icon name="trash" />
@@ -342,13 +387,16 @@ export function TaskRowContent({
   hover,
   editableTitle,
   handle,
+  context,
 }: TaskRowProps & { rowActions: RowActions; hover?: boolean; editableTitle?: boolean }) {
   const actions = useBoardActions();
+  const online = useOnline();
   const metaId = useId();
   const done = !!task.completedAt;
   const dropped = useDropped(task.id);
-  // With a due date set, the date shows as the button that edits it, in the row's meta; without one it is the last quick action.
-  const dueGroup = hover && rowActions.placement !== 'waiting' && rowActions.date?.id === 'due' && !!task.dueDate ? rowActions.date : undefined;
+  // Every open row ends its quick actions with Due. With a due date set, that button is the date itself, in the row's meta.
+  const due = hover ? openDueGroup(task, today, context) : null;
+  const dueInRow = !!due && !!task.dueDate;
   return (
     <div
       data-slot="task-row"
@@ -372,7 +420,7 @@ export function TaskRowContent({
       <Checkbox
         aria-label={`Complete ${task.title}`}
         checked={done}
-        disabled={!!task.deletedAt}
+        disabled={!!task.deletedAt || !online}
         onCheckedChange={(checked) => (checked ? actions?.complete(task) : actions?.markNotDone(task))}
       />
       {editableTitle ? (
@@ -396,8 +444,8 @@ export function TaskRowContent({
           <span data-slot="task-title" className={cn('min-w-0 flex-1 truncate text-body optical-center', done && 'text-muted-foreground line-through')}>{task.title}</span>
         </button>
       )}
-      {hover && <QuickActions task={task} actions={actions} rowActions={rowActions} dateInRow={!!dueGroup} />}
-      <TrailingMeta id={metaId} task={task} today={today} onClick={() => actions?.open(task)} dueGroup={dueGroup} />
+      {hover && <QuickActions task={task} actions={actions} rowActions={rowActions} due={due} dueInRow={dueInRow} disabled={!online} />}
+      <TrailingMeta id={metaId} task={task} today={today} onClick={() => actions?.open(task)} dueGroup={dueInRow ? due : null} disabled={!online} />
     </div>
   );
 }
@@ -409,7 +457,7 @@ export function TaskRow(props: TaskRowProps) {
   const twoPane = useMediaQuery(TWO_PANE_QUERY);
   if (touch) return <SwipeableRow {...props} rowActions={rowActions} />;
   return (
-    <RowContextMenu task={props.task} rowActions={rowActions} today={props.today}>
+    <RowContextMenu task={props.task} rowActions={rowActions} today={props.today} context={props.context}>
       <TaskRowContent {...props} rowActions={rowActions} hover editableTitle={twoPane} />
     </RowContextMenu>
   );

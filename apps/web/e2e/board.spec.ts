@@ -294,7 +294,7 @@ const notShown = (l: Locator) => expect(l).not.toBeInViewport({ ratio: 1 });
 test('row quick actions show on hover, just left of the dates and flag, in every section', async ({ page }) => {
   for (const { title, last, meta, isDate } of [
     { title: 'Twitter litigation claim', last: /^Due Nov 28$/, meta: 'Nov 28', isDate: true },
-    { title: 'Reimbursement for conference travel', last: 'Move to In Progress', meta: 'Mon', isDate: false },
+    { title: 'Reimbursement for conference travel', last: /^Due Mon$/, meta: 'Mon', isDate: true },
     { title: 'Renew passport', last: /^Due Nov 15$/, meta: 'Nov 15', isDate: true },
   ]) {
     const target = row(page, title);
@@ -312,7 +312,7 @@ test('row quick actions show on hover, just left of the dates and flag, in every
   const plumber = row(page, 'Plumber quote for kitchen sink');
   await plumber.hover();
   const r = (await plumber.boundingBox())!;
-  const b = (await plumber.getByRole('button', { name: 'Move to In Progress' }).boundingBox())!;
+  const b = (await plumber.getByRole('button', { name: 'Due', exact: true }).boundingBox())!;
   expect(r.x + r.width - (b.x + b.width)).toBeLessThan(20);
 });
 
@@ -338,6 +338,59 @@ test('quick actions run Delete, state, then date, so the date button is at the r
   const dueNone = await x(watchBand.getByRole('button', { name: 'Due', exact: true }));
   expect(delNone).toBeLessThan(laterNone);
   expect(laterNone).toBeLessThan(dueNone);
+});
+
+test('every open row ends with the Due button: Waiting, hidden until later and Upcoming too; Completed rows have none', async ({ page }) => {
+  const due = (title: string) => row(page, title).getByRole('button', { name: /^Due( |$)/ });
+  const x = async (l: Locator) => (await l.boundingBox())!.x;
+
+  // Waiting, with and without a due date: after Hide until and Move to In Progress.
+  for (const [title, label] of [
+    ['Plumber quote for kitchen sink', 'Due'],
+    ['Reimbursement for conference travel', 'Due Mon'],
+  ] as const) {
+    await row(page, title).hover();
+    const button = row(page, title).getByRole('button', { name: label, exact: true });
+    await expect(button).toBeVisible();
+    expect(await x(row(page, title).getByRole('button', { name: 'Move to In Progress', exact: true }))).toBeLessThan(await x(button));
+  }
+  await expect(row(page, 'Reimbursement for conference travel').getByText('Mon')).toHaveCount(1);
+
+  // Hidden until later: Hide until (its own date group), then Due.
+  await section(page, 'waiting').getByRole('button', { name: /hidden until later/ }).click();
+  const later = section(page, 'waiting').locator('[data-later] [data-slot=task-row]').first();
+  await later.hover();
+  expect(await x(later.getByRole('button', { name: 'Hide until', exact: true }))).toBeLessThan(await x(later.getByRole('button', { name: /^Due( |$)/ })));
+
+  // Upcoming: Start, then Due.
+  await section(page, 'upcoming').getByRole('button', { name: /^Upcoming/ }).click();
+  const upcoming = row(page, 'Winterize the sprinkler system');
+  await upcoming.hover();
+  expect(await x(upcoming.getByRole('button', { name: 'Start', exact: true }))).toBeLessThan(await x(upcoming.getByRole('button', { name: /^Due( |$)/ })));
+  await upcoming.getByRole('button', { name: /^Due( |$)/ }).click();
+  await expect(page.locator('[data-slot=preset-panel]')).toBeVisible();
+  await page.locator('[data-preset=tomorrow]').click();
+  await expect.poll(() => showTask('Winterize the sprinkler system').task.dueDate).toBe('2026-11-19');
+
+  // Completed rows keep a plain label, with a grey icon.
+  await page.getByRole('button', { name: 'Menu', exact: true }).click();
+  await page.getByRole('menuitemcheckbox', { name: 'Show completed' }).click();
+  await page.keyboard.press('Escape');
+  await section(page, 'completed').getByRole('button', { name: /^Completed/ }).click();
+  const done = row(page, 'Pay November credit card bill');
+  await done.hover();
+  await expect(due('Pay November credit card bill')).toHaveCount(0);
+  const grey = await page.evaluate(() => {
+    const probe = document.createElement('span');
+    probe.className = 'text-muted-foreground';
+    document.body.append(probe);
+    const value = getComputedStyle(probe).color;
+    probe.remove();
+    return value;
+  });
+  expect(await done.locator('[data-slot=due-label]').evaluate((el) => getComputedStyle(el).color)).toBe(grey);
+  expect(await done.locator('[data-slot=trailing-meta] svg').first().evaluate((el) => getComputedStyle(el).color)).toBe(grey);
+  await expect(done.locator('[data-slot=due-label]')).toHaveCSS('text-decoration-line', 'line-through');
 });
 
 test('the due date label is the button that edits the due date, and clicking anywhere on it opens the picks', async ({ page }) => {
@@ -629,14 +682,43 @@ test('search: Only flagged narrows the results to flagged tasks', async ({ page 
   await expect(page.locator('[data-slot=task-editor]').getByRole('textbox', { name: 'Title' })).toHaveValue('Renew passport');
 });
 
-test('offline: read-only with a banner, nothing is written', async ({ page, context }) => {
+test('offline: read-only with a banner, and every row action is disabled', async ({ page, context }) => {
   await context.setOffline(true);
   await expect(page.locator('[data-slot=offline-banner]')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Add task' })).toBeDisabled();
-  await page.getByRole('checkbox', { name: 'Complete Buy new watch band' }).click();
-  await expect(page.getByText("You're offline. Changes are paused until you're back online.")).toBeVisible();
-  await expect(row(page, 'Buy new watch band')).toBeVisible();
+  await expect(page.getByRole('checkbox', { name: 'Complete Buy new watch band' })).toBeDisabled();
+  await expect(page.getByText("You're offline. Changes are paused until you're back online.")).toHaveCount(0);
+
+  // Quick actions on a Ready row, on a row with a due date, and on a Waiting row.
+  for (const [title, names] of [
+    ['Buy new watch band', ['Delete', 'Move to Waiting', 'Due']],
+    ['Renew passport', ['Delete', 'Move to Waiting', /^Due Nov 15$/]],
+    ['Plumber quote for kitchen sink', ['Hide until', 'Move to In Progress', 'Due']],
+  ] as const) {
+    await row(page, title).hover();
+    for (const name of names) await expect(row(page, title).getByRole('button', { name, exact: typeof name === 'string' })).toBeDisabled();
+  }
+
+  // The right-click menu opens, but every item is off.
+  await row(page, 'Renew passport').click({ button: 'right' });
+  await expect(page.getByRole('menu')).toBeVisible();
+  const items = page.getByRole('menuitem');
+  const count = await items.count();
+  expect(count).toBeGreaterThan(3);
+  for (let i = 0; i < count; i++) await expect(items.nth(i)).toHaveAttribute('aria-disabled', 'true');
+  await page.keyboard.press('Escape');
+
+  // The sheet shows the task but can't change it.
+  await row(page, 'Renew passport').click();
+  const editor = page.locator('[data-slot=task-editor]');
+  await expect(editor).toBeVisible();
+  await expect(editor.getByRole('checkbox', { name: 'Complete' })).toBeDisabled();
+  await expect(editor.getByRole('button', { name: 'Flag' })).toBeDisabled();
+  await expect(editor.getByRole('button', { name: 'More' })).toBeDisabled();
+  await expect(editor.locator('[data-field=Due]')).toBeDisabled();
+
   await context.setOffline(false);
   await expect(page.locator('[data-slot=offline-banner]')).toHaveCount(0);
+  await expect(page.getByRole('checkbox', { name: 'Complete Buy new watch band' })).toBeEnabled();
   expect(showTask('Buy new watch band').task.completedAt).toBeNull();
 });

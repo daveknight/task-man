@@ -2,24 +2,40 @@ import { actionsFor, type ActionGroup, type RowActions, type Task } from '@app/c
 import type { IconMeaning } from '@app/tokens';
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { Icon } from '@/components/icon';
+import { useOnline } from '@/lib/online';
 import { cn } from '@/lib/utils';
 import { useBoardActions } from './board-actions';
-import { TaskRowContent, type TaskRowProps } from './task-row';
+import { openDueGroup, TaskRowContent, type TaskRowProps } from './task-row';
 
 export type SwipeReveal = 'left' | 'right';
 
 const GAP = 'var(--space-unit) * 1.5';
 const PAD = 'var(--space-unit) * 2';
 
-function SwipeButton({ icon, label, className, active, onClick }: { icon: IconMeaning; label: string; className: string; active?: boolean; onClick?: () => void }) {
+function SwipeButton({
+  icon,
+  label,
+  className,
+  active,
+  disabled,
+  onClick,
+}: {
+  icon: IconMeaning;
+  label: string;
+  className: string;
+  active?: boolean;
+  disabled?: boolean;
+  onClick?: () => void;
+}) {
   return (
     <button
       type="button"
       aria-label={label}
       title={label}
+      disabled={disabled}
       onClick={onClick}
       className={cn(
-        'flex size-swipe-button items-center justify-center rounded-lg text-swipe-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+        'flex size-swipe-button items-center justify-center rounded-lg text-swipe-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-40',
         className,
       )}
     >
@@ -32,19 +48,26 @@ function trayWidth(buttons: number): string {
   return `calc(${buttons} * var(--size-swipe-button) + ${buttons - 1} * ${GAP} + 2 * ${PAD})`;
 }
 
-function leftButtons(rowActions: RowActions): number {
-  return (rowActions.date ? 1 : 0) + rowActions.state.length + 1;
+/** The date groups after the state buttons: the row's own (Start, Hide until) if it isn't Due, then Due itself. */
+function dateGroups(rowActions: RowActions, due: ActionGroup | null): ActionGroup[] {
+  const own = rowActions.date && rowActions.date.id !== 'due' ? [rowActions.date] : [];
+  return [...own, ...(due ? [due] : [])];
 }
 
-/** The buttons a swipe reveals. Left: date (orange), state (blue; two for a follow-up), Delete (red). Right: Flag. */
-function Tray({ task, rowActions, reveal, onDone }: { task: Task; rowActions: RowActions; reveal: SwipeReveal; onDone?: () => void }) {
+function leftButtons(rowActions: RowActions, due: ActionGroup | null): number {
+  return 1 + rowActions.state.length + dateGroups(rowActions, due).length;
+}
+
+/** The buttons a swipe reveals. Left, in the same order as the desktop quick actions: Delete (red), state (blue; two for a follow-up), date (orange). Right: Flag. */
+function Tray({ task, rowActions, due, reveal, onDone }: { task: Task; rowActions: RowActions; due: ActionGroup | null; reveal: SwipeReveal; onDone?: () => void }) {
   const actions = useBoardActions();
+  const online = useOnline();
   const run = (fn: () => void) => () => {
     onDone?.();
     fn();
   };
   const group = (g: ActionGroup) => run(() => (g.presets.length ? actions?.showPresets(task, g) : actions?.group(task, g)));
-  const buttons = reveal === 'right' ? 1 : leftButtons(rowActions);
+  const buttons = reveal === 'right' ? 1 : leftButtons(rowActions, due);
   return (
     <div
       className={cn('absolute inset-y-0 flex items-center gap-1.5 px-2', reveal === 'left' ? 'right-0' : 'left-0')}
@@ -54,19 +77,29 @@ function Tray({ task, rowActions, reveal, onDone }: { task: Task; rowActions: Ro
     >
       {reveal === 'left' ? (
         <>
-          {rowActions.date && <SwipeButton icon={rowActions.date.icon} label={rowActions.date.title} className="bg-swipe-date" onClick={group(rowActions.date)} />}
-          {rowActions.state.map((g) => (
-            <SwipeButton key={g.id} icon={g.icon} label={g.title} className="bg-swipe-state" onClick={group(g)} />
-          ))}
           <SwipeButton
             icon="trash"
             label={rowActions.delete.title}
             className="bg-swipe-delete"
+            disabled={!online}
             onClick={run(() => (rowActions.delete.id === 'delete' ? actions?.remove(task) : actions?.removeForever(task)))}
           />
+          {rowActions.state.map((g) => (
+            <SwipeButton key={g.id} icon={g.icon} label={g.title} className="bg-swipe-state" disabled={!online} onClick={group(g)} />
+          ))}
+          {dateGroups(rowActions, due).map((g) => (
+            <SwipeButton key={g.id} icon={g.icon} label={g.title} className="bg-swipe-date" disabled={!online} onClick={group(g)} />
+          ))}
         </>
       ) : (
-        <SwipeButton icon="flag" active={!task.flagged} label={task.flagged ? 'Remove flag' : 'Flag'} className="bg-swipe-flag" onClick={run(() => actions?.toggleFlag(task))} />
+        <SwipeButton
+          icon="flag"
+          active={!task.flagged}
+          label={task.flagged ? 'Remove flag' : 'Flag'}
+          className="bg-swipe-flag"
+          disabled={!online}
+          onClick={run(() => actions?.toggleFlag(task))}
+        />
       )}
     </div>
   );
@@ -75,10 +108,11 @@ function Tray({ task, rowActions, reveal, onDone }: { task: Task; rowActions: Ro
 /** A row held open mid-swipe, for the design screens. */
 export function SwipeRow({ reveal, ...props }: TaskRowProps & { reveal: SwipeReveal }) {
   const rowActions = actionsFor(props.task, props.today, props.context);
-  const tray = trayWidth(reveal === 'right' ? 1 : leftButtons(rowActions));
+  const due = openDueGroup(props.task, props.today, props.context);
+  const tray = trayWidth(reveal === 'right' ? 1 : leftButtons(rowActions, due));
   return (
     <div className="relative overflow-hidden bg-card" data-slot="swipe-row" data-reveal={reveal}>
-      <Tray task={props.task} rowActions={rowActions} reveal={reveal} />
+      <Tray task={props.task} rowActions={rowActions} due={due} reveal={reveal} />
       <TaskRowContent
         {...props}
         rowActions={rowActions}
@@ -101,6 +135,7 @@ export function SwipeableRow({ rowActions, ...props }: TaskRowProps & { rowActio
   const [offset, setOffset] = useState(0);
   const [dragging, setDragging] = useState(false);
   const [open, setOpen] = useState<SwipeReveal | null>(null);
+  const due = openDueGroup(props.task, props.today, props.context);
 
   const width = (reveal: SwipeReveal) => {
     const tray = ref.current?.querySelector<HTMLElement>(`[data-reveal="${reveal}"]`);
@@ -181,10 +216,10 @@ export function SwipeableRow({ rowActions, ...props }: TaskRowProps & { rowActio
       }}
     >
       <div className={cn(reveal !== 'left' && 'invisible')}>
-        <Tray task={props.task} rowActions={rowActions} reveal="left" onDone={close} />
+        <Tray task={props.task} rowActions={rowActions} due={due} reveal="left" onDone={close} />
       </div>
       <div className={cn(reveal !== 'right' && 'invisible')}>
-        <Tray task={props.task} rowActions={rowActions} reveal="right" onDone={close} />
+        <Tray task={props.task} rowActions={rowActions} due={due} reveal="right" onDone={close} />
       </div>
       <TaskRowContent
         {...props}

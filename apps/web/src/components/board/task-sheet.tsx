@@ -54,6 +54,7 @@ function DateField({
   min,
   max,
   clearLabel,
+  disabled,
   onChange,
 }: {
   icon: IconMeaning;
@@ -64,12 +65,14 @@ function DateField({
   tone?: string;
   min?: ISODate;
   max?: ISODate;
+  /** Offline: the field shows its date but can't open. */
+  disabled?: boolean;
   onChange?: (date: ISODate | null) => void;
 }) {
   const [open, setOpen] = useState(false);
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger className="w-full text-left outline-none hover:bg-muted focus-visible:bg-muted" data-field={label}>
+      <PopoverTrigger disabled={disabled} className="w-full text-left outline-none hover:bg-muted focus-visible:bg-muted disabled:pointer-events-none disabled:opacity-60" data-field={label}>
         <FieldRow icon={icon} label={label} tone={date ? tone : undefined}>
           {date ? paneDate(date, today) : 'None'}
         </FieldRow>
@@ -189,21 +192,22 @@ export function TaskEditor({ task, today, onClose }: { task: Task; today: ISODat
         <Checkbox
           aria-label="Complete"
           checked={done}
-          disabled={inTrash}
+          disabled={inTrash || !online}
           onCheckedChange={(checked) => (checked ? actions?.complete(task) : actions?.markNotDone(task))}
         />
-        <StatusMenu status={task.status} disabled={!open} onChange={(s) => actions?.setStatus(task, s)} />
+        <StatusMenu status={task.status} disabled={!open || !online} onChange={(s) => actions?.setStatus(task, s)} />
         <span className="flex-1" />
         <Toggle
           aria-label="Flag"
           pressed={!!task.flagged}
+          disabled={!online}
           onPressedChange={() => actions?.toggleFlag(task)}
           className="text-muted-foreground data-pressed:bg-transparent data-pressed:text-flag"
         >
           <Icon name="flag" active={!!task.flagged} className="size-5" />
         </Toggle>
         <DropdownMenu>
-          <DropdownMenuTrigger render={<Button variant="ghost" size="icon" aria-label="More" />}>
+          <DropdownMenuTrigger render={<Button variant="ghost" size="icon" aria-label="More" disabled={!online} />}>
             <Icon name="more" weight="bold" className="size-5" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
@@ -258,12 +262,12 @@ export function TaskEditor({ task, today, onClose }: { task: Task; today: ISODat
         <div className="flex flex-wrap gap-2" data-slot="waiting-actions">
           {rowActions.state.map((g) =>
             g.presets.length ? (
-              <PresetPopover key={g.id} task={task} group={g} align="start" trigger={<Button variant="outline" size="sm" />}>
+              <PresetPopover key={g.id} task={task} group={g} align="start" trigger={<Button variant="outline" size="sm" disabled={!online} />}>
                 <Icon name={g.icon} data-icon="inline-start" />
                 {g.title}
               </PresetPopover>
             ) : (
-              <Button key={g.id} variant="outline" size="sm" onClick={() => actions?.group(task, g)}>
+              <Button key={g.id} variant="outline" size="sm" disabled={!online} onClick={() => actions?.group(task, g)}>
                 <Icon name={g.icon} data-icon="inline-start" />
                 {g.title}
               </Button>
@@ -274,20 +278,21 @@ export function TaskEditor({ task, today, onClose }: { task: Task; today: ISODat
 
       <RowList fields className="ring-1 ring-border/60">
         {task.status === 'waiting' && (
-          <DateField icon="waiting" label="Hide until" clearLabel="Don't hide" date={task.hideUntil} today={today} min={today} onChange={(d) => actions?.setField(task, 'hideUntil', d)} />
+          <DateField icon="waiting" label="Hide until" clearLabel="Don't hide" disabled={!online} date={task.hideUntil} today={today} min={today} onChange={(d) => actions?.setField(task, 'hideUntil', d)} />
         )}
         {task.status === 'open' && (
           <DateField
             icon="startDate"
             label="Start"
             clearLabel="No start date"
+            disabled={!online}
             date={task.startDate}
             today={today}
             {...(task.dueDate ? { max: task.dueDate } : {})}
             onChange={(d) => actions?.setField(task, 'start', d)}
           />
         )}
-        <DateField icon="dueDate" label="Due" clearLabel="No due date" date={task.dueDate} today={today} tone={overdue ? 'text-overdue' : undefined} onChange={(d) => actions?.setField(task, 'due', d)} />
+        <DateField icon="dueDate" label="Due" clearLabel="No due date" disabled={!online} date={task.dueDate} today={today} tone={overdue ? 'text-overdue' : undefined} onChange={(d) => actions?.setField(task, 'due', d)} />
       </RowList>
 
       <SubtasksCard task={task} />

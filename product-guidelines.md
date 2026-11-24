@@ -29,7 +29,7 @@ Design guidelines for TaskMan, drawn from Dave's Figma review feedback and sign-
 ## Color and icons
 
 14. **Use Apple's system colors exactly,** including the documented contrast exemptions.
-15. **Quick action icons in a task list row carry no color until you hover them.** On hover they take their action's color (today: Due orange, Move to Waiting blue, Delete red). This applies only to the quick actions; the flag, chevrons, toolbar and pane icons carry status or are chrome. The exception is the due date on a row: its icon is always the Due orange and the size of the quick-action icons, whatever the date's own color (overdue red, today blue). No extra badges, such as Follow up.
+15. **Quick action icons in a task list row carry no color until you hover them.** On hover they take their action's color (today: Due orange, Move to Waiting blue, Delete red). This applies only to the quick actions; the flag, chevrons, toolbar and pane icons carry status or are chrome. The exception is the due date on a row: its icon is always the Due orange and the size of the quick-action icons, whatever the date's own color (overdue red, today blue), except on a completed task, where the icon is grey like the struck-through date. No extra badges, such as Follow up.
 
 ## Rows and motion
 
@@ -41,5 +41,7 @@ Design guidelines for TaskMan, drawn from Dave's Figma review feedback and sign-
 21. **Typing a title in the list updates the open detail pane as you type.** Escape puts it back in both places.
 22. **A dropped row settles into its new place.** The dragged copy slides into the spot the row lands in, never back to where it started.
 23. **Focus rings are never cropped.** Rows sit in rounded, clipped lists, so a ring on a control that reaches the list's edge is drawn inside the control, and a control near a rounded corner (the first row's drag handle) is kept clear of the curve. Check this for every new control in a list.
-24. **Quick actions run Delete, state, date.** The date button is last, so it sits at the right beside the row's dates. A set due date is that button: its icon and label are one target for the Due picks, and it is struck through once the task is completed.
+24. **Quick actions run Delete, state, date.** The date button is last, so it sits at the right beside the row's dates. Every open row has the same Due button, Waiting rows included: just the icon when no due date is set, icon and date when one is. Its icon and label are one target for the Due picks. A completed task's due date is a plain label, struck through with the title, and its icon stays grey. The phone's swipe buttons run in the same order: Delete, state, date, then Due.
 25. **Toasts can be closed.** They carry a small X after their action, and otherwise go away on their own after about 4 seconds.
+26. **Offline, the app is read-only and its controls are disabled, not clickable.** Checkboxes, quick actions, context menu items, swipe buttons and the task sheet's editing controls are greyed out while the offline banner shows, so nothing looks usable that can't work. No toast is needed to explain it; the banner does.
+27. **Primary buttons are 32px tall on desktop, 44px on touch.** The login screen's Sign in, Send reset link and Save password buttons match Add task.

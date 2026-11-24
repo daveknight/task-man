@@ -84,7 +84,7 @@ export function SignInScreen({ email, password, onEmailChange, onPasswordChange,
           </div>
           {error && <ErrorRow message={error} />}
         </RowList>
-        <Button type="submit" className="h-control" disabled={busy || !email.trim() || !password}>
+        <Button type="submit" className="h-8 pointer-coarse:h-control" disabled={busy || !email.trim() || !password}>
           Sign in
         </Button>
       </form>
@@ -132,7 +132,7 @@ export function ForgotScreen({ email, onEmailChange, onSubmit, onBack, busy, err
           </div>
           {error && <ErrorRow message={error} />}
         </RowList>
-        <Button type="submit" className="h-control" disabled={busy || !email.trim()}>
+        <Button type="submit" className="h-8 pointer-coarse:h-control" disabled={busy || !email.trim()}>
           Send reset link
         </Button>
       </form>
@@ -182,7 +182,7 @@ export function NewPasswordScreen({ password, onPasswordChange, onSubmit, busy, 
           </div>
           {error && <ErrorRow message={error} />}
         </RowList>
-        <Button type="submit" className="h-control" disabled={busy || password.length < MIN_PASSWORD_LENGTH}>
+        <Button type="submit" className="h-8 pointer-coarse:h-control" disabled={busy || password.length < MIN_PASSWORD_LENGTH}>
           Save password
         </Button>
       </form>

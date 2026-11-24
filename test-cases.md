@@ -33,6 +33,7 @@ Tick a box when a round has the state. Add new states under the right area as fe
 - [ ] Task sheet, overlay: “Renew passport” over the board – overlay 900
 - [ ] Task sheet, bottom sheet: “Renew passport” – phone
 - [ ] Phone board shows no row quick actions – phone
+- [ ] Phone swipe left on a Ready row: Delete, Move to Waiting, Due; on a Waiting row: Delete, Hide until, Move to In Progress, Due – phone
 
 ## Lists and motion
 
@@ -69,12 +70,14 @@ All desktop 1440.
 
 - [ ] Row hover on a Ready task with a due date: Delete, Move to Waiting, then the due date as a button (orange icon and date) – light and dark
 - [ ] Row hover on a Ready task with no due date: Delete, Move to Waiting, then the Due icon button
-- [ ] Row hover on an In Progress task: Move to Waiting
-- [ ] Row hover on a Waiting task: closed-eye button with the “Hide until later” tooltip
+- [ ] Row hover on an In Progress task: Move to Waiting, then the Due icon button
+- [ ] Row hover on a Waiting task with no due date: Hide until, Move to In Progress, then the Due icon button (with the “Hide until later” tooltip on the first)
+- [ ] Row hover on a Waiting task with a due date: the same, ending in the Due button with its date
+- [ ] Row hover on an Upcoming task: Start, then the Due button
 - [ ] Due presets: the due date button on “Get car tires rotated”, opened by clicking its date
 - [ ] Quick actions sit just left of the dates and flag, with the date button last
 - [ ] Due dates on rows: orange icon the size of the quick-action icons, with overdue red, today blue and plain grey labels – light, dark and phone
-- [ ] Completed row: due date struck through with the title – Completed section, and the held row just checked off
+- [ ] Completed row: due date struck through with the title and a grey icon, no Due button – Completed section, and the held row just checked off
 
 ## Editing states
 
@@ -120,6 +123,10 @@ All desktop 1440 unless noted.
 ## Offline
 
 - [ ] Offline: read-only board with the offline banner – desktop 1440
+- [ ] Offline: row hover buttons and checkbox disabled – desktop 1440
+- [ ] Offline: right-click menu with every item disabled – desktop 1440
+- [ ] Offline: swipe buttons disabled – phone
+- [ ] Offline: task sheet with its editing controls disabled – desktop 1440, phone
 
 ## Captured so far
 
@@ -139,7 +146,7 @@ From Phase 1b. Static screens at `/design/login`, `/design/login-error`, `/desig
 
 The real login screen (the signed-out state) shows locally at `/?autosignin=off`, or after Sign out in the board menu. Plain local dev signs in as the dev user on its own, and hosted builds never do, so a hosted visitor lands on the login screen first. The hosted behavior can't be captured against local Supabase; the signed-out frames stand in for it.
 
-- [ ] Login: sign in, empty – desktop 1440, phone
+- [ ] Login: sign in, empty, with a 32px Sign in button (44px on phone) – desktop 1440, phone
 - [ ] Login: sign in, email and password typed – desktop 1440, phone
 - [ ] Login: wrong email or password – desktop 1440, phone
 - [ ] Login: reset password, opened from Sign in with an email typed (the field already filled) – desktop 1440, phone
