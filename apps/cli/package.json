@@ -12,7 +12,8 @@
     "test": "vitest run --dir test",
     "test:db": "vitest run --dir test-db --testTimeout=30000 --fileParallelism=false",
     "check:seed": "tsx scripts/check-seed.ts",
-    "typecheck": "tsc -p tsconfig.json"
+    "typecheck": "tsc -p tsconfig.json",
+    "check:hosted": "tsx scripts/check-hosted-safety.ts"
   },
   "dependencies": {
     "@app/core": "*",

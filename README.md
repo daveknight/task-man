@@ -62,6 +62,7 @@ search "query" [--completed] [--flagged]
 |---|---|---|
 | `npm test` | no | core vectors and unit tests; tokens (generated CSS is current, every declared text pair reaches 4.5:1 in light and dark, and the listed exact-Apple exceptions stay at 2:1 or more); seed expectations at the pinned Wednesday (2026-11-18) and Saturday (2026-11-21) |
 | `npm run typecheck` | no | all packages |
+| `npm run check:hosted -- --base origin/main` | no | the hosted-safety guard: existing migrations unchanged, new ones newer and free of unflagged data changes, no `[remotes]` in `config.toml`, the seed's local-only guard |
 | `npm run db:reset && npm run db:lint` | yes | every migration applies from scratch; Supabase linter |
 | `npm run test:db` | yes | RLS on every table as real signed-in users, `user_id default auth.uid()`, trigger-set `updated_at`, start ≤ due, start only on Open and hide-until only on Waiting, completion uniqueness, tombstones, byte-wise sort keys; `search_tasks` (own tasks only, never Trash, literal `%` and `_`) and `purge_trash` (30 days, not callable by users, scheduled daily) |
 | `npm run check:seed -- 2026-11-18 2026-11-21` | yes | seeds through the real CLI and compares `board --json` with every `expect` in `seed/tasks.json` |
@@ -79,6 +80,10 @@ shadcn/ui components are added with `npx shadcn@latest add <name>` from `apps/we
 
 - Move to In Progress (formerly Resume) sends a waiting task to In Progress (`resumeStatus`).
 - Moving the due date earlier than the start date moves the start date to match (`dueBeforeStart`).
+
+## Going live
+
+Hosted Supabase, the Vercel deploy and how migrations reach the real database: [docs/go-live.md](docs/go-live.md). Read it before adding a migration, because every migration merged to `main` runs on the hosted database. `npm run check:hosted` runs the guard that CI applies.
 
 ## Environment notes (cloud agents)
 
