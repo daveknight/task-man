@@ -70,7 +70,7 @@ search "query" [--completed] [--flagged]
 | `npm run check:seed -- 2026-11-18 2026-11-21` | yes | seeds through the real CLI and compares `board --json` with every `expect` in `seed/tasks.json` |
 | `npm run e2e -w @app/web` | yes | Playwright against the dev server at the pinned Wednesday: the board matches `board --json`, and the main actions (complete and undo, presets, Waiting picker, drag-and-drop, quick add, sheet edits, search, Trash) in light, dark and on an iPhone-sized touch screen. Uses the installed Google Chrome |
 
-CI (`.github/workflows/ci.yml`) runs all of these.
+CI (`.github/workflows/ci.yml`) runs all of these. The end-to-end suite is split across two jobs so they run in parallel (light and phone with the database checks, dark in its own job), and pull requests that change only docs, `.cursor/` or the keep-alive workflow skip the two local-Supabase jobs, which then report as skipped (passing). Core tests and Hosted safety always run.
 
 ## Design
 

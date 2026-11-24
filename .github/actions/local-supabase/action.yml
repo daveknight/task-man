@@ -1,0 +1,18 @@
+name: Local Supabase
+description: Node, dependencies and a local Supabase stack with only the services the checks use (database, auth, REST, and the Mailpit inbox for reset emails). Never touches hosted data.
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version-file: .nvmrc
+        cache: npm
+    - uses: supabase/setup-cli@v1
+      with:
+        version: 3.1.0
+    - run: npm ci
+      shell: bash
+    - name: Start local Supabase (database, auth, REST and the Mailpit inbox for reset emails)
+      run: supabase start -x realtime,storage-api,imgproxy,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
+      shell: bash
