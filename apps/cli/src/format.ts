@@ -1,4 +1,4 @@
-import { APP_NAME, sortSubtasks, subtaskCount, weekdayOf, type Board, type ISODate, type RepeatRule, type Section, type Subtask, type Task } from '@app/core';
+import { APP_NAME, repeatLabel, sortSubtasks, subtaskCount, weekdayOf, type Board, type ISODate, type RepeatRule, type Section, type Subtask, type Task } from '@app/core';
 import type { BoardTask } from './commands.ts';
 
 const SECTION_TITLES: Record<Section, string> = {
@@ -77,19 +77,9 @@ export function formatBoard(board: Board<BoardTask>): string {
   return out.join('\n');
 }
 
-/** A one-line summary of a repeat rule for `show`. The picker phrase ("Every 2 weeks on Sun") is the repeat picker slice. */
-export function formatRepeat(rule: RepeatRule): string {
-  const bits: string[] = [rule.mode];
-  if (rule.freq) bits.push(`every ${rule.interval} ${rule.freq}`);
-  if (rule.byWeekday?.length) bits.push(rule.byWeekday.join(' '));
-  if (rule.monthly && 'day' in rule.monthly) bits.push(rule.monthly.day === -1 ? 'last day' : `day ${rule.monthly.day}`);
-  if (rule.monthly && 'nth' in rule.monthly) bits.push(rule.monthly.nth === -1 ? `last ${rule.monthly.weekday}` : `${rule.monthly.nth} ${rule.monthly.weekday}`);
-  if (rule.dates?.length) bits.push(rule.dates.join(', '));
-  if (rule.ends && 'onDate' in rule.ends) bits.push(`until ${rule.ends.onDate}`);
-  if (rule.ends && 'afterCount' in rule.ends) bits.push(`${rule.ends.afterCount} times`);
-  if (rule.ends && 'never' in rule.ends) bits.push('never ends');
-  if (rule.startOffsetDays != null) bits.push(`start ${rule.startOffsetDays}d early`);
-  return bits.join(' · ');
+/** The same phrase the repeat field shows, for `show`. Pass the due date so "Weekly on Thu" can read it. */
+export function formatRepeat(rule: RepeatRule, due?: ISODate | null): string {
+  return repeatLabel(rule, due);
 }
 
 export function formatHistory(rows: readonly { completedOn: string; kind: string; occurrenceDue: string }[]): string {

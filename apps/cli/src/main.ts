@@ -236,7 +236,7 @@ async function main(argv: string[]): Promise<void> {
           formatTask(result, day),
           `  id ${t.id}`,
           `  status ${t.status}${t.flagged ? ' · flagged' : ''}${result.sortKey ? ` · sort key ${result.sortKey}` : ''}`,
-          ...(t.repeat ? [`  repeat ${formatRepeat(t.repeat)}`] : []),
+          ...(t.repeat ? [`  repeat ${formatRepeat(t.repeat, t.dueDate)}`] : []),
           ...(t.description ? ['', ...t.description.split('\n').map((l) => `  ${l}`), ''] : []),
           ...formatSubtasks(t.subtasks),
           `  actions: ${result.actions.join(' | ')}`,

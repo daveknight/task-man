@@ -118,7 +118,22 @@ Not captured in Figma yet; these are the states to add when Dave asks. The desig
 
 ## Repeats
 
-Not captured in Figma. The repeat picker (the Repeat field, presets and custom rule) is the next slice, so these are the board states only. Skip is the existing “Skip this occurrence” pick inside Due, shown when the task repeats. Completing or skipping advances the due date and leaves the task open, with the same toast and Undo as a normal completion (`Completed “title”`, or `Skipped “title”`). Undo puts that occurrence back. When the repeat ends, the task completes for good and the row strikes through.
+Not captured in Figma yet; these are the states to add when Dave asks. The picker designs are on Figma node 132-2. The field shows the cadence only (“Weekly on Wed”, “Every 2 weeks on Sun”); the menu writes the weekday out (“Weekly on Wednesday”). Choosing a repeat on a task with no due date sets the due date to today, or to the first listed date. “No due date” is hidden while a repeat is set. Clearing the repeat leaves the start and due dates. History and “Skip this occurrence” in the sheet are the next slice; Skip stays in the Due menu. The Ends choices “On a date” and “After a count” are filled in (a calendar, and a count stepper starting at 1) because the frames only show the closed menu.
+
+- [ ] Task sheet Repeat row reads “None”, and the row has no repeat icon – desktop 1440, light and dark
+- [ ] Presets popover: Daily, Weekly on that weekday, Monthly on that date, Yearly, Every weekday, Custom…, No repeat, with the note “Repeats from the due date. Next: …” – desktop 1440, light and dark
+- [ ] A chosen preset stays checked, and the field shortens the weekday (“Weekly on Thu”) – desktop 1440, light and dark
+- [ ] Custom, By due date: every 2 weeks, Sunday selected, Start early on with Days before due – desktop 1440, light and dark
+- [ ] Custom monthly: On day N, On the nth weekday, On the last day – desktop 1440
+- [ ] Custom, After completion: no weekday row, the note counts from the day you complete it – desktop 1440
+- [ ] Custom, On specific dates: the calendar and the date chips, no Ends row – desktop 1440
+- [ ] Ends “On a date” shows the calendar; “After a count” shows the stepper – desktop 1440 (not drawn open in Figma)
+- [ ] A repeating row shows the repeat icon before its date – desktop 1440 and phone
+- [ ] Phone presets: a bottom sheet, centered “Repeat”, a close button – phone
+- [ ] Phone custom: back “Repeat”, centered “Custom”, blue Done – phone
+- [ ] A task in Trash or completed, and offline: the Repeat row is read-only – desktop 1440
+
+Skip is the existing “Skip this occurrence” pick inside Due, shown when the task repeats. Completing or skipping advances the due date and leaves the task open, with the same toast and Undo as a normal completion (`Completed “title”`, or `Skipped “title”`). Undo puts that occurrence back. When the repeat ends, the task completes for good and the row strikes through.
 
 - [ ] Complete a repeating Ready task (“Take out garbage”): it leaves Ready for Upcoming, toast “Completed “Take out garbage”” with Undo, no strikethrough – desktop 1440
 - [ ] Undo that toast: the task is back in Ready on its previous due date – desktop 1440

@@ -55,7 +55,7 @@ function TrailingMeta({ id, task, today, onClick }: { id: string; task: Task; to
   const hiddenUntil = waiting === 'later' ? task.hideUntil : null;
   const subtasks = subtaskCount(task.subtasks);
   const hasTags = (task.tags?.length ?? 0) > 0;
-  if (!hiddenUntil && !task.dueDate && !task.flagged && subtasks.total === 0 && !hasTags) return null;
+  if (!hiddenUntil && !task.dueDate && !task.flagged && subtasks.total === 0 && !hasTags && !task.repeat) return null;
   return (
     <span id={id} data-slot="trailing-meta" className="flex shrink-0 items-center gap-2" onClick={onClick}>
       <TagChips tags={task.tags} className="max-md:hidden" />
@@ -68,6 +68,7 @@ function TrailingMeta({ id, task, today, onClick }: { id: string; task: Task; to
           </span>
         </span>
       )}
+      {task.repeat && <Icon name="repeat" className="size-3.5 text-muted-foreground" aria-label="Repeats" data-slot="repeat-icon" />}
       {hiddenUntil && <DateMeta icon="waiting" date={hiddenUntil} today={today} />}
       {task.dueDate && (
         <DateMeta icon="dueDate" date={task.dueDate} today={today} tone={overdue ? 'text-overdue font-medium' : dueToday ? 'text-link font-medium' : undefined} />

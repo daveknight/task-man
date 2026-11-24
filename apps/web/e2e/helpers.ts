@@ -50,6 +50,16 @@ export interface CliTask {
   completedAt: string | null;
   deletedAt: string | null;
   description: string;
+  repeat: {
+    mode: string;
+    freq?: string;
+    interval?: number;
+    byWeekday?: string[];
+    monthly?: { day?: number; nth?: number; weekday?: string };
+    dates?: string[];
+    ends?: { never?: true; onDate?: string; afterCount?: number };
+    startOffsetDays?: number;
+  } | null;
   subtasks: { id: string; title: string; done: boolean; sortKey: string }[];
   tags: { id: string; name: string }[];
 }

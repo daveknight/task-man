@@ -25,6 +25,7 @@ import { cn } from '@/lib/utils';
 import { useBoardActions } from './board-actions';
 import { FOLD_MOTION, RowList } from './board-view';
 import { DatePicker } from './preset-panel';
+import { RepeatField } from './repeat-picker';
 import { SubtasksCard } from './subtasks-card';
 import { TagsField } from './tag-picker';
 import { PresetPopover } from './task-row';
@@ -55,6 +56,7 @@ function DateField({
   min,
   max,
   clearLabel,
+  clearable = true,
   onChange,
 }: {
   icon: IconMeaning;
@@ -65,6 +67,8 @@ function DateField({
   tone?: string;
   min?: ISODate;
   max?: ISODate;
+  /** A repeat needs its due date, so that field hides "No due date" while one is set. */
+  clearable?: boolean;
   onChange?: (date: ISODate | null) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -84,7 +88,7 @@ function DateField({
             onChange?.(d);
           }}
         />
-        {date && (
+        {clearable && date && (
           <Button
             variant="ghost"
             size="sm"
@@ -288,7 +292,8 @@ export function TaskEditor({ task, today, onClose }: { task: Task; today: ISODat
             onChange={(d) => actions?.setField(task, 'start', d)}
           />
         )}
-        <DateField icon="dueDate" label="Due" clearLabel="No due date" date={task.dueDate} today={today} tone={overdue ? 'text-overdue' : undefined} onChange={(d) => actions?.setField(task, 'due', d)} />
+        <DateField icon="dueDate" label="Due" clearLabel="No due date" clearable={!task.repeat} date={task.dueDate} today={today} tone={overdue ? 'text-overdue' : undefined} onChange={(d) => actions?.setField(task, 'due', d)} />
+        <RepeatField task={task} today={today} />
         <TagsField task={task} />
       </RowList>
 
