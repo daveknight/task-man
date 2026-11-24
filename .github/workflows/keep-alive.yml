@@ -1,0 +1,31 @@
+name: Keep alive
+
+# A free Supabase project pauses after a week without activity. One tiny read-only request a day prevents that.
+# Needs two repository secrets (Settings, Secrets and variables, Actions): SUPABASE_URL and SUPABASE_ANON_KEY.
+on:
+  schedule:
+    # Off the hour on purpose: GitHub delays jobs queued on the hour.
+    - cron: '47 11 * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  ping:
+    if: github.repository == 'daveknight/task-man'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ask the API for one task id (the public key sees none, but the request counts as activity)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
+            echo "::error::Add the SUPABASE_URL and SUPABASE_ANON_KEY repository secrets (see docs/go-live.md)."
+            exit 1
+          fi
+          status=$(curl -sS -o /dev/null -w '%{http_code}' --retry 3 --retry-delay 10 --retry-all-errors \
+            "$SUPABASE_URL/rest/v1/tasks?select=id&limit=1" -H "apikey: $SUPABASE_ANON_KEY")
+          echo "Supabase answered $status"
+          test "$status" = "200"
