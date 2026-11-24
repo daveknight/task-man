@@ -52,6 +52,10 @@ From the list polish PR. All desktop 1440 unless noted.
 - [ ] Same task folding away while it grows into the top of Completed – desktop 1440
 - [ ] Un-completing from Completed: title held without its strikethrough, then growing back into Ready – desktop 1440
 - [ ] Completed rows: check mark proportionate in the circle – light, dark and phone
+- [ ] Task checked off with Completed closed: struck-through title held in Ready, then folding away with nothing growing in below (#40)
+- [ ] Task checked off on phone: struck-through title held in Ready – phone (#40)
+- [ ] Last task in a section checked off: the section folds away with it (In Progress) (#40)
+- [ ] Drag grip at rest on a hovered row: the quiet checkbox-ring color, turning blue when the handle itself is hovered – light, dark and phone (#40)
 
 ## Light and dark
 
@@ -71,7 +75,7 @@ All desktop 1440.
 ## Editing states
 
 - [ ] Inline title edit on a wide desktop (field visibly live) – desktop 1440
-- [ ] Inline title edit at overlay width – overlay 900
+- [ ] Title edit at overlay width: rows only edit in place from 1024px wide, so the row opens the sheet and the title field is live there – overlay 900
 - [ ] Tapping a row on phone opens the task instead of editing in place – phone
 
 ## Dialogs, prompts and pickers
@@ -80,6 +84,9 @@ All desktop 1440 unless noted.
 
 - [ ] Board ⋯ menu open: Show completed, Trash, Appearance
 - [ ] Context menu: right-click a row, Due submenu open
+- [ ] Context menu: the right-clicked row stays highlighted while the menu is open, here on a Ready and a Waiting row (#39)
+- [ ] Context menu on the selected task: the row looks selected with the menu open and stays selected after it closes (#39)
+- [ ] Undo toast after checking off a task – desktop 1440, phone (#40)
 - [ ] Waiting row menu
 - [ ] Hide until picker from a row (Ready, In Progress)
 - [ ] Wait until picker: status changed to Waiting in the task sheet
@@ -102,14 +109,18 @@ All desktop 1440 unless noted.
 | `2026-11-17 - Phase 1a review` | Board, task sheet, row actions, prompts and pickers, search, offline, phone |
 | `2026-11-18 - Next review: proposals` | Start-decision prompt, current three choices next to the proposed clear-only version, desktop and phone |
 | `Open PRs 15–18 — Nov 20, 2026` | Quick actions and Hide until (#15), quick actions layout (#16), inline title edit (#17), section collapse (#18) |
+| `2026-11-24: Login, row highlight, completion animation and grip/check polish (#33, #39, #40)` | Everything in this file against current main on local Supabase: 180 frames in nine areas, light and dark, with phone where listed |
 
-These pages predate the naming rule above.
+The pages above the Nov 24 one predate the naming rule.
 
 ## Login
 
 From Phase 1b. Static screens at `/design/login`, `/design/login-error`, `/design/login-forgot`, `/design/login-sent` and `/design/login-new-password`. All are one centered column, so capture desktop 1440 and phone in light and dark.
 
+The real login screen (the signed-out state) shows locally at `/?autosignin=off`, or after Sign out in the board menu. Plain local dev signs in as the dev user on its own, and hosted builds never do, so a hosted visitor lands on the login screen first. The hosted behavior can't be captured against local Supabase; the signed-out frames stand in for it.
+
 - [ ] Login: sign in, empty – desktop 1440, phone
+- [ ] Login: sign in, email and password typed – desktop 1440, phone
 - [ ] Login: wrong email or password – desktop 1440, phone
 - [ ] Login: reset password – desktop 1440, phone
 - [ ] Login: reset email sent – desktop 1440, phone
