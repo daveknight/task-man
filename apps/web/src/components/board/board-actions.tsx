@@ -15,6 +15,7 @@ import {
   type PositionWrite,
   type Preset,
   type Status,
+  type SubtaskChange,
   type Task,
   type UpcomingDropDecision,
 } from '@app/core';
@@ -50,6 +51,8 @@ export interface BoardActions {
   /** Resolves once the write has settled, whether or not it succeeded. */
   edit: (task: Task, fields: Partial<Pick<Task, 'title' | 'description' | 'flagged'>>) => Promise<void>;
   reorder: (task: Task, drop: PositionWrite[]) => void;
+  /** One subtask add, edit, move or remove. Resolves once the write has settled, whether or not it succeeded. */
+  changeSubtasks: (task: Task, change: SubtaskChange) => Promise<void>;
   remove: (task: Task) => void;
   removeForever: (task: Task) => void;
 }
@@ -179,6 +182,7 @@ export function BoardActionsProvider({
       },
       edit: (task, fields) => commit(task, { ...task, ...fields }),
       reorder: (task, drop) => commit(task, task, () => drop),
+      changeSubtasks: (task, change) => writes.subtask(task, change).then(quiet, quiet),
       remove: (task) => {
         const after = softDelete(task, new Date().toISOString(), today);
         void leaveThen(task.id, () =>

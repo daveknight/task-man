@@ -23,6 +23,6 @@ export const persistOptions: Omit<PersistQueryClientOptions, 'queryClient'> = {
   }),
   // Also the query gcTime, so it has to stay under setTimeout's limit of about 24.8 days.
   maxAge: 1000 * 60 * 60 * 24 * 7,
-  buster: 'v1',
+  buster: 'v2',
   dehydrateOptions: { shouldDehydrateQuery: (query) => query.queryKey[0] === 'snapshot' && query.state.status === 'success' },
 };

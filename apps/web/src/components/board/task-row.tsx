@@ -1,4 +1,4 @@
-import { actionsFor, waitingStateFor, type ActionContext, type ActionGroup, type ISODate, type Preset, type RowActions, type Task } from '@app/core';
+import { actionsFor, subtaskCount, waitingStateFor, type ActionContext, type ActionGroup, type ISODate, type Preset, type RowActions, type Task } from '@app/core';
 import { useId, useState, type CSSProperties, type ReactElement, type ReactNode } from 'react';
 import { Icon } from '@/components/icon';
 import { Button } from '@/components/ui/button';
@@ -52,9 +52,19 @@ function TrailingMeta({ id, task, today, onClick }: { id: string; task: Task; to
   const overdue = open && !!task.dueDate && task.dueDate < today;
   const dueToday = open && task.dueDate === today;
   const hiddenUntil = waiting === 'later' ? task.hideUntil : null;
-  if (!hiddenUntil && !task.dueDate && !task.flagged) return null;
+  const subtasks = subtaskCount(task.subtasks);
+  if (!hiddenUntil && !task.dueDate && !task.flagged && subtasks.total === 0) return null;
   return (
     <span id={id} data-slot="trailing-meta" className="flex shrink-0 items-center gap-2" onClick={onClick}>
+      {subtasks.total > 0 && (
+        <span data-slot="subtask-count" className="inline-flex items-center gap-1 text-footnote whitespace-nowrap text-muted-foreground">
+          <Icon name="subtasks" className="size-3.5" />
+          <span className="optical-center">
+            {subtasks.done}/{subtasks.total}
+            <span className="sr-only"> subtasks done</span>
+          </span>
+        </span>
+      )}
       {hiddenUntil && <DateMeta icon="waiting" date={hiddenUntil} today={today} />}
       {task.dueDate && (
         <DateMeta icon="dueDate" date={task.dueDate} today={today} tone={overdue ? 'text-overdue font-medium' : dueToday ? 'text-link font-medium' : undefined} />

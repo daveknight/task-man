@@ -1,14 +1,17 @@
-import { TASK_COLUMNS, type Scope, type TaskRow } from '@app/data';
+import { SUBTASK_COLUMNS, TASK_COLUMNS, type Scope, type SubtaskRow, type TaskRow } from '@app/data';
 import { validateTask } from '@app/core';
 import { reset } from './commands.ts';
 
 export type BackupTask = Omit<TaskRow, 'user_id'>;
+export type BackupSubtask = Pick<SubtaskRow, 'id' | 'task_id' | 'title' | 'done' | 'sort_key'>;
 
 export interface Backup {
   version: 2;
   exportedAt: string;
   tasks: BackupTask[];
   positions: { view_id: string; task_id: string; sort_key: string }[];
+  /** Added with subtasks. A backup from before them has none, and imports without any. */
+  subtasks?: BackupSubtask[];
 }
 
 /** Version 1 had no `hide_until`: a Waiting task's start date was its hide-until date. */
@@ -30,7 +33,7 @@ export function upgradeBackup(backup: Backup | BackupV1): Backup {
   return { ...backup, version: 2, tasks: backup.tasks.map(upgradeV1Task) };
 }
 
-/** Everything the user owns that Phase 1a stores: tasks (including completed and Trash) and positions. */
+/** Everything the user owns that is stored so far: tasks (including completed and Trash), positions and subtasks. */
 export async function exportAll({ db, userId }: Scope): Promise<Backup> {
   const tasks = await db.from('tasks').select(TASK_COLUMNS).eq('user_id', userId).order('created_at').order('id').returns<TaskRow[]>();
   if (tasks.error) throw new Error(`export tasks: ${tasks.error.message}`);
@@ -42,16 +45,27 @@ export async function exportAll({ db, userId }: Scope): Promise<Backup> {
     .order('task_id')
     .returns<Backup['positions']>();
   if (positions.error) throw new Error(`export positions: ${positions.error.message}`);
+  const subtasks = await db
+    .from('subtasks')
+    .select(SUBTASK_COLUMNS)
+    .eq('user_id', userId)
+    .order('task_id')
+    .order('sort_key')
+    .order('id')
+    .range(0, 9999)
+    .returns<SubtaskRow[]>();
+  if (subtasks.error) throw new Error(`export subtasks: ${subtasks.error.message}`);
   return {
     version: 2,
     exportedAt: new Date().toISOString(),
     tasks: (tasks.data ?? []).map(({ user_id: _, updated_at: __, ...row }) => row),
     positions: positions.data ?? [],
+    subtasks: (subtasks.data ?? []).map(({ id, task_id, title, done, sort_key }) => ({ id, task_id, title, done, sort_key })),
   };
 }
 
 /** Loads a version 2 backup, or a version 1 one mapped like the migration, for the user. Ids are kept, so it fails if they already exist unless `replace` wipes first. */
-export async function importAll(scope: Scope, loaded: Backup | BackupV1, replace: boolean): Promise<{ tasks: number; positions: number }> {
+export async function importAll(scope: Scope, loaded: Backup | BackupV1, replace: boolean): Promise<{ tasks: number; positions: number; subtasks: number }> {
   const backup = upgradeBackup(loaded);
   for (const row of backup.tasks) {
     const issues = validateTask({
@@ -77,5 +91,10 @@ export async function importAll(scope: Scope, loaded: Backup | BackupV1, replace
     const { error } = await db.from('task_positions').insert(backup.positions.map((p) => ({ ...p, user_id: userId })));
     if (error) throw new Error(`import positions: ${error.message}`);
   }
-  return { tasks: backup.tasks.length, positions: backup.positions.length };
+  const subtasks = backup.subtasks ?? [];
+  if (subtasks.length) {
+    const { error } = await db.from('subtasks').insert(subtasks.map((s) => ({ ...s, user_id: userId })));
+    if (error) throw new Error(`import subtasks: ${error.message}`);
+  }
+  return { tasks: backup.tasks.length, positions: backup.positions.length, subtasks: subtasks.length };
 }

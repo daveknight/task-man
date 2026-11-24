@@ -1,5 +1,5 @@
-import { applyPlan, planChange, planNewTask, type ISODate, type PositionWrite, type Task } from '@app/core';
-import { deleteForever, insertTask, loadSnapshot, searchTasks, writeChange, type Scope, type SearchOptions, type Snapshot } from '@app/data';
+import { applyPlan, applySubtaskChange, planChange, planNewTask, type ISODate, type PositionWrite, type SubtaskChange, type Task } from '@app/core';
+import { deleteForever, insertTask, loadSnapshot, searchTasks, writeChange, writeSubtaskChange, type Scope, type SearchOptions, type Snapshot } from '@app/data';
 import { keepPreviousData, notifyManager, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
@@ -97,6 +97,16 @@ export function useTaskWrites(today: ISODate) {
     [current, run, today],
   );
 
+  /** One subtask write. It builds on the task as the board has it now, so quick edits one after another all land. */
+  const subtask = useCallback(
+    async (task: Task, change: SubtaskChange) => {
+      const snapshot = current();
+      const tasks = snapshot.tasks.map((t) => (t.id === task.id ? { ...t, subtasks: applySubtaskChange(t.subtasks, change) } : t));
+      await run({ tasks, positions: snapshot.positions }, (s) => writeSubtaskChange(s, task.id, change));
+    },
+    [current, run],
+  );
+
   const remove = useCallback(
     async (task: Task) => {
       const snapshot = current();
@@ -107,7 +117,7 @@ export function useTaskWrites(today: ISODate) {
     [current, run],
   );
 
-  return useMemo(() => ({ change, add, remove, current }), [change, add, remove, current]);
+  return useMemo(() => ({ change, add, subtask, remove, current }), [change, add, subtask, remove, current]);
 }
 
 export type TaskWrites = ReturnType<typeof useTaskWrites>;

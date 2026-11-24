@@ -170,6 +170,8 @@ export const fontWeight = {
 /** Heights in px. Touch targets stay at 44 or more. */
 export const size = {
   row: { fine: 38, coarse: 46 },
+  /** A subtask row inside the task sheet's Subtasks card. */
+  subtask: { fine: 34, coarse: 46 },
   'section-header': { fine: 32, coarse: 44 },
   toolbar: { fine: 48, coarse: 52 },
   control: { fine: 28, coarse: 44 },

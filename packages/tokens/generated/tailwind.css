@@ -67,6 +67,7 @@
   --text-base--line-height: var(--line-height-headline);
   --spacing: var(--space-unit);
   --spacing-row: var(--size-row);
+  --spacing-subtask: var(--size-subtask);
   --spacing-section-header: var(--size-section-header);
   --spacing-toolbar: var(--size-toolbar);
   --spacing-control: var(--size-control);

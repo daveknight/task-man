@@ -67,6 +67,7 @@
   --font-size-large-title: 26px;
   --line-height-large-title: 32px;
   --size-row: 38px;
+  --size-subtask: 34px;
   --size-section-header: 32px;
   --size-toolbar: 48px;
   --size-control: 28px;
@@ -142,6 +143,7 @@
     --font-size-large-title: 34px;
     --line-height-large-title: 41px;
     --size-row: 46px;
+    --size-subtask: 46px;
     --size-section-header: 44px;
     --size-toolbar: 52px;
     --size-control: 44px;
