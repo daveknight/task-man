@@ -7,8 +7,8 @@ test.beforeEach(async ({ page }) => {
 });
 
 const editor = (page: Page) => page.locator('[data-slot=task-editor]');
-// The date fields only; every task also has the Tags row.
-const fields = (page: Page) => editor(page).locator('[data-field]').evaluateAll((els) => els.map((e) => e.getAttribute('data-field')).filter((name) => name !== 'Tags'));
+// Status-dependent date fields. Tags and Repeat are on every task.
+const fields = (page: Page) => editor(page).locator('[data-field]').evaluateAll((els) => els.map((e) => e.getAttribute('data-field')).filter((name) => name !== 'Tags' && name !== 'Repeat'));
 
 test('the detail pane shows Start and Due for Open, Hide until and Due for Waiting, and Due only for In Progress', async ({ page }) => {
   await row(page, 'Get car tires rotated').click();

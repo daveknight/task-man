@@ -186,6 +186,37 @@ test('phone rows show no tag chips, the sheet lists them, and the picker is a bo
   await expect(editor.locator('[data-field=Tags]')).toContainText('garden');
 });
 
+test('phone repeat: the row icon, a presets sheet, and custom in a bottom sheet', async ({ page }) => {
+  await expect(row(page, 'Take out garbage').locator('[data-slot=repeat-icon]')).toBeVisible();
+
+  const bare = 'Replace furnace filter';
+  await row(page, bare).getByText(bare).tap();
+  const editor = page.locator('[data-slot=task-editor]');
+  await editor.locator('[data-field=Repeat]').tap();
+  const sheet = page.locator('[data-slot=repeat-sheet]');
+  await expect(sheet.getByText('Repeat', { exact: true })).toBeVisible();
+  await expect(sheet.locator('[data-preset=daily]')).toBeVisible();
+  await sheet.locator('[data-preset=daily]').tap();
+  await expect.poll(() => showTask(bare).task.dueDate).toBe('2026-11-18');
+  await sheet.getByRole('button', { name: 'Close' }).tap();
+  await expect(sheet).toHaveCount(0);
+  await expect(editor.locator('[data-slot=repeat-value]')).toHaveText('Daily');
+
+  await editor.locator('[data-field=Repeat]').tap();
+  await sheet.locator('[data-preset=custom]').tap();
+  const custom = page.locator('[data-slot=repeat-custom]');
+  await expect(custom.getByText('Custom', { exact: true })).toBeVisible();
+  await custom.getByRole('button', { name: 'Repeat', exact: true }).tap();
+  await expect(sheet.locator('[data-preset=daily]')).toHaveAttribute('aria-pressed', 'true');
+  await sheet.locator('[data-preset=custom]').tap();
+  await custom.getByRole('button', { name: 'Frequency' }).tap();
+  await page.getByRole('menuitemradio', { name: 'month', exact: true }).tap();
+  await custom.locator('[data-monthly=last]').tap();
+  await custom.getByRole('button', { name: 'Done' }).tap();
+  await expect.poll(() => showTask(bare).task.repeat).toMatchObject({ freq: 'monthly', monthly: { day: -1 } });
+  await expect(editor.locator('[data-slot=repeat-value]')).toHaveText('Monthly on the last day');
+});
+
 test('phone search: the Tags filter narrows results, and result rows show no chips', async ({ page }) => {
   await page.getByRole('button', { name: 'Search', exact: true }).tap();
   await page.getByRole('button', { name: 'Tags' }).tap();

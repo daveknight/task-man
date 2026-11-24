@@ -13,8 +13,10 @@ import {
   restore,
   setDueDate,
   softDelete,
+  startForDue,
   waitPresets,
   waitUntil,
+  withRepeat,
   type ActionGroup,
   type ISODate,
   type PositionWrite,
@@ -23,6 +25,7 @@ import {
   type SubtaskChange,
   type Tag,
   type OccurrencePlan,
+  type RepeatRule,
   type Task,
   type UpcomingDropDecision,
 } from '@app/core';
@@ -55,6 +58,8 @@ export interface BoardActions {
   /** Dropped into Upcoming: asks for a future start date (first offering to remove a due date of today or earlier), and makes the task Open. */
   pickStart: (task: Task, drop?: DropPlanner) => void;
   setField: (task: Task, field: 'start' | 'due' | 'hideUntil', date: ISODate | null) => void;
+  /** Sets or clears the repeat. A rule with no due date is anchored to today. */
+  setRepeat: (task: Task, rule: RepeatRule | null) => void;
   /** Resolves once the write has settled, whether or not it succeeded. */
   edit: (task: Task, fields: Partial<Pick<Task, 'title' | 'description' | 'flagged'>>) => Promise<void>;
   reorder: (task: Task, drop: PositionWrite[]) => void;
@@ -259,10 +264,24 @@ export function BoardActionsProvider({
       },
       setField: (task, field, date) => {
         if (field === 'due') {
+          if (date === null && task.repeat) {
+            toast('A repeat needs a due date');
+            return;
+          }
           const result = setDueDate(task, date);
-          commit(task, result.task, undefined, result.startMoved ? `Start moved to ${shortDate(result.startMoved.to, today)}` : undefined);
+          let next = result.task;
+          if (next.status === 'open' && next.repeat && next.dueDate) next = { ...next, startDate: startForDue(next.dueDate, next.repeat) };
+          const startNote = next.startDate && next.startDate !== (task.startDate ?? null) ? `Start moved to ${shortDate(next.startDate, today)}` : undefined;
+          commit(task, next, undefined, startNote);
         } else if (field === 'hideUntil') commit(task, waitUntil(task, date));
         else commit(task, { ...task, startDate: date });
+      },
+      setRepeat: (task, rule) => {
+        try {
+          commit(task, withRepeat(task, rule, today));
+        } catch (error) {
+          toast.error(error instanceof Error ? error.message : String(error));
+        }
       },
       edit: (task, fields) => commit(task, { ...task, ...fields }),
       reorder: (task, drop) => commit(task, task, () => drop),

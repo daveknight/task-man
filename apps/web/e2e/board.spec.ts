@@ -119,7 +119,8 @@ test('the date pickers name what clearing does: No start date and No due date', 
   await expect(page.locator('[data-preset=clear]')).toHaveText('No due date');
   await page.keyboard.press('Escape');
 
-  await row(page, 'Pay the gardener').click();
+  // Pay the gardener repeats, so its sheet hides "No due date".
+  await row(page, 'Renew passport').click();
   const editor = page.locator('[data-slot=task-editor]');
   await editor.getByRole('button', { name: /^Due/ }).click();
   await expect(page.getByRole('button', { name: 'No due date' })).toBeVisible();
