@@ -43,9 +43,10 @@ seed [--file seed/tasks.json] [--reset]   load fixtures, dates relative to today
 reset                                     wipe all data for the dev user
 board [--completed] [--trash]             the main view, grouped and ordered like the app
 export / import <file> [--reset]          JSON backup and restore
-add "Title" [--desc] [--start] [--hide-until] [--due] [--status] [--flag]
+add "Title" [--desc] [--start] [--hide-until] [--due] [--status] [--flag] [--subtask "x" ...]
 show <task>                               fields, placement and the actions the app offers
 edit <task> [--title] [--desc] [--start <date>|none] [--hide-until <date>|none] [--due <date>|none] [--flag|--no-flag]
+     [--add-subtask "x" ...] [--done-subtask <ref> ...] [--undone-subtask <ref> ...] [--rename-subtask <ref>=<title> ...] [--remove-subtask <ref> ...] [--move-subtask <ref>=<position> ...]
 status <task> open|in_progress|waiting [--hide-until <date>|none]
 act <task> <action> [--date <date>]       a row action: due.tomorrow, moveToWaiting --hide-until +3d, moveToInProgress, ...
 move <task> --top | --before <task> | --after <task>
@@ -54,7 +55,7 @@ purge-trash                               remove Trash older than 30 days
 search "query" [--completed] [--flagged]
 ```
 
-`<task>` is an id, an id prefix, or a title prefix. `npm run -s cli -- --help` lists everything. Only Ready and Upcoming tasks have a start date, and only Waiting tasks have a hide-until date: `--start` on a Waiting or In Progress task fails, as does `--hide-until` on any other task. Status changes never ask: going into Waiting or In Progress clears the start date, leaving Waiting clears the hide-until date, and going into Waiting with no `--hide-until` is Don't hide. Only `move <task> --upcoming` for a task due today or earlier still asks (exit code 2) unless `--clear-due` answers it. `export` writes backup version 2; `import` also reads version 1.
+`<task>` is an id, an id prefix, or a title prefix. `npm run -s cli -- --help` lists everything. Only Ready and Upcoming tasks have a start date, and only Waiting tasks have a hide-until date: `--start` on a Waiting or In Progress task fails, as does `--hide-until` on any other task. Status changes never ask: going into Waiting or In Progress clears the start date, leaving Waiting clears the hide-until date, and going into Waiting with no `--hide-until` is Don't hide. Only `move <task> --upcoming` for a task due today or earlier still asks (exit code 2) unless `--clear-due` answers it. A subtask `<ref>` is its position (1 is the top), an id prefix, or a title prefix, always read against the list as it was before the edit; renames and ticks apply first, then removals, then adds, then moves (`<position>` is the final place, 1 is the top). `show` and `board --json` list each task's subtasks and a `subtaskCount` of `done` and `total`. `export` writes backup version 2 (with subtasks; older backups import without any); `import` also reads version 1.
 
 `--today` takes `YYYY-MM-DD` or a date relative to the real today (`+1d`, `-2w`, `+1m`). The CLI refuses any Supabase URL that isn't localhost.
 
@@ -68,7 +69,7 @@ search "query" [--completed] [--flagged]
 | `npm run db:reset && npm run db:lint` | yes | every migration applies from scratch; Supabase linter |
 | `npm run test:db` | yes | RLS on every table as real signed-in users, `user_id default auth.uid()`, trigger-set `updated_at`, start ≤ due, start only on Open and hide-until only on Waiting, completion uniqueness, tombstones, byte-wise sort keys; `search_tasks` (own tasks only, never Trash, literal `%` and `_`) and `purge_trash` (30 days, not callable by users, scheduled daily) |
 | `npm run check:seed -- 2026-11-18 2026-11-21` | yes | seeds through the real CLI and compares `board --json` with every `expect` in `seed/tasks.json` |
-| `npm run e2e -w @app/web` | yes | Playwright against the dev server at the pinned Wednesday: the board matches `board --json`, and the main actions (complete and undo, presets, Waiting picker, drag-and-drop, quick add, sheet edits, search, Trash) in light, dark and on an iPhone-sized touch screen. Uses the installed Google Chrome |
+| `npm run e2e -w @app/web` | yes | Playwright against the dev server at the pinned Wednesday: the board matches `board --json`, and the main actions (complete and undo, presets, subtasks, Waiting picker, drag-and-drop, quick add, sheet edits, search, Trash) in light, dark and on an iPhone-sized touch screen. Uses the installed Google Chrome |
 
 CI (`.github/workflows/ci.yml`) runs all of these. The end-to-end suite is split across two jobs so they run in parallel (light and phone with the database checks, dark in its own job), and pull requests that change only docs, `.cursor/` or the keep-alive workflow skip the two local-Supabase jobs, which then report as skipped (passing). Core tests and Hosted safety always run.
 

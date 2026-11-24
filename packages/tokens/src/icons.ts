@@ -18,6 +18,7 @@ export const icons = {
   resume: { phosphor: 'PlayCircle', sfSymbol: 'play.circle' },
   flag: { phosphor: 'Flag', sfSymbol: 'flag', sfSymbolActive: 'flag.fill' },
   repeat: { phosphor: 'Repeat', sfSymbol: 'repeat' },
+  subtasks: { phosphor: 'ListChecks', sfSymbol: 'checklist' },
   trash: { phosphor: 'Trash', sfSymbol: 'trash' },
   capture: { phosphor: 'Sparkle', sfSymbol: 'sparkles' },
   complete: { phosphor: 'Check', sfSymbol: 'checkmark' },

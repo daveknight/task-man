@@ -1,6 +1,6 @@
-import { MAIN_VIEW_ID, type ChangePlan, type ISODate, type PositionWrite, type Task } from '@app/core';
+import { MAIN_VIEW_ID, sortSubtasks, type ChangePlan, type ISODate, type PositionWrite, type Subtask, type SubtaskChange, type Task } from '@app/core';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { patchToRow, rowForInsert, TASK_COLUMNS, taskFromRow, type TaskRow } from './rows.ts';
+import { patchToRow, rowForInsert, subtaskFromRow, subtaskRow, SUBTASK_COLUMNS, TASK_COLUMNS, taskFromRow, type SubtaskRow, type TaskRow } from './rows.ts';
 
 /**
  * Every query filters by user_id. The web app's client is signed in, so row-level security would
@@ -21,15 +21,48 @@ function fail(what: string, error: { message: string } | null): void {
   if (error) throw new Error(`${what}: ${error.message}`);
 }
 
-export async function loadSnapshot({ db, userId }: Scope): Promise<Snapshot> {
-  const [tasks, positions] = await Promise.all([
+/** PostgREST returns at most 1000 rows a request, so a user's subtasks are read a page at a time. */
+const PAGE = 1000;
+
+async function selectSubtasks({ db, userId }: Scope, taskIds?: readonly string[]): Promise<SubtaskRow[]> {
+  const rows: SubtaskRow[] = [];
+  // A filter on task ids goes in the URL, so a long list is asked for in chunks.
+  const chunks = taskIds ? Array.from({ length: Math.ceil(taskIds.length / 100) }, (_, i) => taskIds.slice(i * 100, i * 100 + 100)) : [undefined];
+  for (const ids of chunks) {
+    for (let from = 0; ; from += PAGE) {
+      let query = db.from('subtasks').select(SUBTASK_COLUMNS).eq('user_id', userId);
+      if (ids) query = query.in('task_id', ids);
+      const { data, error } = await query.order('id').range(from, from + PAGE - 1).returns<SubtaskRow[]>();
+      fail('select subtasks', error);
+      rows.push(...(data ?? []));
+      if ((data?.length ?? 0) < PAGE) break;
+    }
+  }
+  return rows;
+}
+
+/** Attaches each task's subtasks, in order. A task with none gets an empty list. */
+function withSubtasks(tasks: Task[], rows: readonly SubtaskRow[]): Task[] {
+  const byTask = new Map<string, Subtask[]>();
+  for (const row of rows) {
+    const list = byTask.get(row.task_id) ?? [];
+    list.push(subtaskFromRow(row));
+    byTask.set(row.task_id, list);
+  }
+  return tasks.map((t) => ({ ...t, subtasks: sortSubtasks(byTask.get(t.id)) }));
+}
+
+export async function loadSnapshot(scope: Scope): Promise<Snapshot> {
+  const { db, userId } = scope;
+  const [tasks, positions, subtasks] = await Promise.all([
     db.from('tasks').select(TASK_COLUMNS).eq('user_id', userId).returns<TaskRow[]>(),
     db.from('task_positions').select('task_id,sort_key').eq('user_id', userId).eq('view_id', MAIN_VIEW_ID).returns<{ task_id: string; sort_key: string }[]>(),
+    selectSubtasks(scope),
   ]);
   fail('select tasks', tasks.error);
   fail('select positions', positions.error);
   return {
-    tasks: (tasks.data ?? []).map(taskFromRow),
+    tasks: withSubtasks((tasks.data ?? []).map(taskFromRow), subtasks),
     positions: new Map((positions.data ?? []).map((p) => [p.task_id, p.sort_key])),
   };
 }
@@ -60,7 +93,31 @@ export async function insertTask(scope: Scope, task: Task, positions: readonly P
   const { data, error } = await scope.db.from('tasks').insert(rowForInsert(task, scope.userId)).select(TASK_COLUMNS).single<TaskRow>();
   fail('insert task', error);
   await writePositions(scope, positions);
-  return taskFromRow(data!);
+  const subtasks = task.subtasks ?? [];
+  if (subtasks.length > 0) {
+    const { error: subtaskError } = await scope.db.from('subtasks').insert(subtasks.map((s) => subtaskRow(s, task.id, scope.userId)));
+    fail('insert subtasks', subtaskError);
+  }
+  return { ...taskFromRow(data!), subtasks: sortSubtasks(subtasks) };
+}
+
+/** One subtask write: a single row, so edits to different subtasks on two devices both survive. */
+export async function writeSubtaskChange({ db, userId }: Scope, taskId: string, change: SubtaskChange): Promise<void> {
+  const table = () => db.from('subtasks');
+  switch (change.kind) {
+    case 'add':
+      fail('add subtask', (await table().insert(subtaskRow(change.subtask, taskId, userId))).error);
+      return;
+    case 'edit':
+      fail('edit subtask', (await table().update(change.patch).eq('user_id', userId).eq('task_id', taskId).eq('id', change.id)).error);
+      return;
+    case 'move':
+      fail('move subtask', (await table().update({ sort_key: change.sortKey }).eq('user_id', userId).eq('task_id', taskId).eq('id', change.id)).error);
+      return;
+    case 'remove':
+      fail('remove subtask', (await table().delete().eq('user_id', userId).eq('task_id', taskId).eq('id', change.id)).error);
+      return;
+  }
 }
 
 /** Delete forever: removes the row; the database writes a tombstone. */
@@ -75,12 +132,14 @@ export interface SearchOptions {
 }
 
 /** Title and description search (full-text plus partial words). Never includes Trash. */
-export async function searchTasks({ db, userId }: Scope, query: string, options: SearchOptions = {}): Promise<Task[]> {
+export async function searchTasks(scope: Scope, query: string, options: SearchOptions = {}): Promise<Task[]> {
+  const { db, userId } = scope;
   const { data, error } = await db
     .rpc('search_tasks', { query, include_completed: options.completed ?? false, flagged_only: options.flagged ?? false })
     .eq('user_id', userId);
   fail('search', error);
-  return ((data ?? []) as TaskRow[]).map(taskFromRow);
+  const tasks = ((data ?? []) as TaskRow[]).map(taskFromRow);
+  return tasks.length === 0 ? tasks : withSubtasks(tasks, await selectSubtasks(scope, tasks.map((t) => t.id)));
 }
 
 /** The same code path as the daily job, for one user. Needs the service key. */

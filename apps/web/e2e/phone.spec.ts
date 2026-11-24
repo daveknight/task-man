@@ -130,3 +130,32 @@ test('checking off a task holds it struck through, then folds it away; the check
   expect(k.width / c.width).toBeGreaterThan(0.55);
   expect(k.width / c.width).toBeLessThan(0.8);
 });
+
+test('subtasks in the bottom sheet: the grip is always shown, tick and add work, and the row shows the count', async ({ page }) => {
+  const title = 'Order replacement dishwasher rack wheels';
+  await row(page, title).getByText(title).tap();
+  const sheet = page.locator('[data-slot=drawer-content] [data-slot=subtasks-card]');
+  await expect(sheet.locator('[data-slot=subtasks-progress]')).toHaveText('0 of 2');
+  await expect(sheet.getByRole('button', { name: /^Reorder/ }).first()).toHaveCSS('opacity', '1');
+  await expect(sheet.getByRole('button', { name: /^Delete / })).toHaveCount(0);
+
+  await sheet.getByRole('checkbox', { name: 'Find model number' }).tap();
+  await expect(sheet.locator('[data-slot=subtasks-progress]')).toHaveText('1 of 2');
+  await expect.poll(() => showTask(title).subtaskCount).toEqual({ done: 1, total: 2 });
+  await expect(row(page, title).locator('[data-slot=subtask-count]')).toContainText('1/2');
+
+  await sheet.getByRole('button', { name: 'Add subtask' }).tap();
+  await page.keyboard.type('Measure the old wheel');
+  await page.keyboard.press('Enter');
+  await page.keyboard.press('Escape');
+  await expect(sheet.locator('[data-slot=subtasks-progress]')).toHaveText('1 of 3');
+  await expect.poll(() => showTask(title).task.subtasks.map((s) => s.title)).toEqual(['Find model number', 'Order from parts site', 'Measure the old wheel']);
+
+  // Clearing a title deletes it, which is how a touch screen deletes one.
+  await sheet.locator('[data-slot=subtask-title]', { hasText: 'Measure the old wheel' }).tap();
+  await page.keyboard.press('Control+A');
+  await page.keyboard.press('Backspace');
+  await page.keyboard.press('Enter');
+  await page.keyboard.press('Escape');
+  await expect.poll(() => showTask(title).subtaskCount).toEqual({ done: 1, total: 2 });
+});

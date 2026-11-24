@@ -6,7 +6,7 @@ import { exportAll, importAll, type Backup, type BackupV1 } from './backup.ts';
 import { loadBoard, reset, seed } from './commands.ts';
 import { DEFAULT_SEED_FILE } from './config.ts';
 import { adminClient, devUserId } from './db.ts';
-import { formatBoard, formatTask } from './format.ts';
+import { formatBoard, formatSubtasks, formatTask } from './format.ts';
 import {
   addTask,
   DecisionNeeded,
@@ -38,9 +38,13 @@ Board and data:
 
 Tasks (<task> is an id, an id prefix of 4+ characters, or a title prefix):
   add "Title" [--desc text] [--start <date>] [--hide-until <date>] [--due <date>] [--status open|in_progress|waiting] [--flag]
-  show <task>                               fields, placement and the actions the app offers
+              [--subtask "text" ...]
+  show <task>                               fields, subtasks, placement and the actions the app offers
   edit <task> [--title t] [--desc text] [--start <date>|none] [--hide-until <date>|none] [--due <date>|none]
               [--flag|--no-flag]
+              [--add-subtask "text" ...] [--done-subtask <subtask> ...] [--undone-subtask <subtask> ...]
+              [--rename-subtask <subtask>=<new title> ...] [--move-subtask <subtask>=<position> ...]
+              [--remove-subtask <subtask> ...]
   status <task> open|in_progress|waiting [--hide-until <date>|none]
   act <task> <action> [--date <date>] [--hide-until <date>|none]
                                             a row action, as in the app: due.tomorrow, moveToWaiting --hide-until +3d,
@@ -55,6 +59,11 @@ Tasks (<task> is an id, an id prefix of 4+ characters, or a title prefix):
   purge-trash                               permanently remove Trash older than 30 days
   search "query" [--completed] [--flagged]  title and description; never Trash
                                             --completed: include completed, --flagged: only flagged
+
+A <subtask> is its position as 'show' lists it (1 is the top), an id prefix of 4+ characters, or a title prefix.
+Within one edit they are resolved against the list as it was before: renames and ticks first, then removals,
+then new subtasks at the bottom, and moves last (so --move-subtask x=1 puts x at the top of the final list).
+'show', 'board --json' and every change report include the task's subtasks and subtaskCount ({ done, total }).
 
 Only Ready and Upcoming tasks have a start date, and only Waiting tasks have a hide-until date.
 --start on a Waiting or In Progress task fails; --hide-until on any other task fails. Status
@@ -72,7 +81,7 @@ Options (every command):
 Dates: YYYY-MM-DD, today, or relative to today: +3d, -2d, +2w, +1m, +1y.
 `;
 
-const PHASE_2_FLAGS = ['tags', 'repeat', 'repeat-mode', 'start-offset', 'subtask'] as const;
+const PHASE_2_FLAGS = ['tags', 'repeat', 'repeat-mode', 'start-offset'] as const;
 
 function today(value: string | undefined): ISODate {
   const real = localDate();
@@ -113,6 +122,12 @@ async function main(argv: string[]): Promise<void> {
       'repeat-mode': { type: 'string' },
       'start-offset': { type: 'string' },
       subtask: { type: 'string', multiple: true },
+      'add-subtask': { type: 'string', multiple: true },
+      'done-subtask': { type: 'string', multiple: true },
+      'undone-subtask': { type: 'string', multiple: true },
+      'remove-subtask': { type: 'string', multiple: true },
+      'rename-subtask': { type: 'string', multiple: true },
+      'move-subtask': { type: 'string', multiple: true },
     },
   });
   const [command, ...args] = positionals;
@@ -149,7 +164,7 @@ async function main(argv: string[]): Promise<void> {
         .join(', ');
       print(
         result,
-        `${result.reset ? `Reset (${result.reset.tasks} tasks removed). ` : ''}Seeded ${result.tasks} tasks for ${day}` +
+        `${result.reset ? `Reset (${result.reset.tasks} tasks removed). ` : ''}Seeded ${result.tasks} tasks and ${result.subtasks} subtasks for ${day}` +
           (skipped ? `; skipped until their phase: ${skipped}.` : '.'),
       );
       return;
@@ -166,7 +181,7 @@ async function main(argv: string[]): Promise<void> {
     }
     case 'add':
       return printChanged(
-        await addTask(ctx, arg(0, 'a title'), { description: values.desc, start: values.start, hideUntil: values['hide-until'], due: values.due, status: values.status, flag: values.flag }),
+        await addTask(ctx, arg(0, 'a title'), { description: values.desc, start: values.start, hideUntil: values['hide-until'], due: values.due, status: values.status, flag: values.flag, subtasks: values.subtask }),
         'Added',
       );
     case 'show': {
@@ -179,6 +194,7 @@ async function main(argv: string[]): Promise<void> {
           `  id ${t.id}`,
           `  status ${t.status}${t.flagged ? ' · flagged' : ''}${result.sortKey ? ` · sort key ${result.sortKey}` : ''}`,
           ...(t.description ? ['', ...t.description.split('\n').map((l) => `  ${l}`), ''] : []),
+          ...formatSubtasks(t.subtasks),
           `  actions: ${result.actions.join(' | ')}`,
         ].join('\n'),
       );
@@ -186,7 +202,17 @@ async function main(argv: string[]): Promise<void> {
     }
     case 'edit':
       return printChanged(
-        await editTask(ctx, arg(0, 'a task'), { title: values.title, description: values.desc, start: values.start, hideUntil: values['hide-until'], due: values.due, flag }),
+        await editTask(ctx, arg(0, 'a task'), { title: values.title, description: values.desc, start: values.start, hideUntil: values['hide-until'], due: values.due,
+          flag,
+          subtasks: {
+            add: values['add-subtask'],
+            done: values['done-subtask'],
+            undone: values['undone-subtask'],
+            remove: values['remove-subtask'],
+            rename: values['rename-subtask'],
+            move: values['move-subtask'],
+          },
+        }),
         'Edited',
       );
     case 'status':
@@ -228,7 +254,7 @@ async function main(argv: string[]): Promise<void> {
     case 'import': {
       const file = resolve(process.env.INIT_CWD ?? process.cwd(), arg(0, 'a backup file'));
       const result = await importAll(ctx.scope, JSON.parse(readFileSync(file, 'utf8')) as Backup | BackupV1, values.reset);
-      print(result, `Imported ${result.tasks} tasks and ${result.positions} positions.`);
+      print(result, `Imported ${result.tasks} tasks, ${result.positions} positions and ${result.subtasks} subtasks.`);
       return;
     }
     default:

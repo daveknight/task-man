@@ -49,6 +49,16 @@ for (const today of days) {
     if (got !== task.expect) fail(`"${task.title}": expected ${task.expect}, got ${got}`);
   }
 
+  // Every seeded subtask is there, in file order, with its done flag.
+  const byTitle = new Map([...board.sections.flatMap((s) => [...s.tasks, ...(s.later ?? [])])].map((t) => [t.title, t]));
+  for (const task of file.tasks) {
+    const wanted = (task.subtasks ?? []).map((s) => `${s.done ? 'x' : ' '} ${s.title}`);
+    const got = (byTitle.get(task.title)?.subtasks ?? []).map((s) => `${s.done ? 'x' : ' '} ${s.title}`);
+    if (JSON.stringify(got) !== JSON.stringify(wanted)) fail(`"${task.title}": expected subtasks ${JSON.stringify(wanted)}, got ${JSON.stringify(got)}`);
+    const count = byTitle.get(task.title)?.subtaskCount;
+    if (count?.total !== wanted.length || count.done !== wanted.filter((w) => w.startsWith('x')).length) fail(`"${task.title}": wrong subtaskCount ${JSON.stringify(count)}`);
+  }
+
   // Ready keeps the seed file's order.
   const ready = board.sections.find((s) => s.id === 'ready')!.tasks.map((t) => t.title);
   const expectedReady = file.tasks.filter((t) => t.expect === 'ready').map((t) => t.title);

@@ -7,6 +7,7 @@ export * from './list-format.ts';
 export * from './policy.ts';
 export * from './sections.ts';
 export * from './sort-keys.ts';
+export * from './subtasks.ts';
 export * from './transitions.ts';
 export * from './types.ts';
 export * from './validate.ts';

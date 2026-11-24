@@ -82,6 +82,21 @@ All desktop 1440.
 - [ ] Title edit at overlay width: rows only edit in place from 1024px wide, so the row opens the sheet and the title field is live there – overlay 900
 - [ ] Tapping a row on phone opens the task instead of editing in place – phone
 
+## Subtasks
+
+Not captured in Figma yet; these are the states to add when Dave asks. The designs are on Figma node 132-2.
+
+- [ ] Task sheet with subtasks: “Draft holiday card list” – the Subtasks card with the “N of M” count, a mix of done and not done – desktop 1440
+- [ ] Subtasks card in the overlay and the phone bottom sheet – overlay 900 and phone
+- [ ] Adding: tap Add subtask, field live with the hint “Return saves and adds another. Escape finishes.” – desktop 1440
+- [ ] Editing a subtask title in place (hint showing) – desktop 1440
+- [ ] A task with none yet: only the Add subtask row, no count – desktop 1440
+- [ ] Dragging a subtask by its grip: the lifted row and the drop position – desktop 1440
+- [ ] Board rows with subtasks show done/total next to the dates – desktop 1440 and phone
+- [ ] Hover shows the delete button on a subtask row (fine pointers only) – desktop 1440
+- [ ] A task in Trash: subtasks visible but read-only, no Add row – desktop 1440
+- [ ] Offline: subtasks read-only – desktop 1440
+
 ## Dialogs, prompts and pickers
 
 All desktop 1440 unless noted.

@@ -50,14 +50,15 @@ export interface CliTask {
   completedAt: string | null;
   deletedAt: string | null;
   description: string;
+  subtasks: { id: string; title: string; done: boolean; sortKey: string }[];
 }
 
-export function showTask(title: string): { task: CliTask; placement: string } {
+export function showTask(title: string): { task: CliTask; placement: string; subtaskCount: { done: number; total: number } } {
   return cliJson('show', title);
 }
 
 /** For polling until a just-created task reaches the database. */
-export function findTask(title: string): { task: CliTask; placement: string } | null {
+export function findTask(title: string): { task: CliTask; placement: string; subtaskCount: { done: number; total: number } } | null {
   try {
     return showTask(title);
   } catch {

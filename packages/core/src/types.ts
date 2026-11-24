@@ -1,6 +1,15 @@
 /** A calendar day, `YYYY-MM-DD`, with no time or time zone. */
 export type ISODate = string;
 
+/** A checklist item that exists only inside its parent task. */
+export interface Subtask {
+  id: string;
+  title: string;
+  done: boolean;
+  /** Orders the subtasks within their task; compare byte-wise (see `compareSortKeys`). */
+  sortKey: string;
+}
+
 export type Status = 'open' | 'in_progress' | 'waiting';
 
 export const STATUSES: readonly Status[] = ['open', 'in_progress', 'waiting'];
@@ -22,6 +31,8 @@ export interface Task {
   deletedAt?: string | null;
   deletedOn?: ISODate | null;
   createdAt?: string;
+  /** Loaded alongside the task. Not part of a task patch: subtasks are written one at a time. */
+  subtasks?: Subtask[];
 }
 
 export type Section = 'in_progress' | 'waiting' | 'ready' | 'upcoming' | 'completed' | 'trash';

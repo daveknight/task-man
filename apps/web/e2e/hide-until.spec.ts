@@ -84,7 +84,8 @@ test('rows hidden until later show the hourglass and their hide-until date; Wait
   // A visible Waiting task with a past hide-until date shows no date for it.
   const reimbursement = row(page, 'Reimbursement for conference travel');
   await expect(reimbursement.locator('[data-slot=trailing-meta]')).toHaveText('Mon');
-  const meta = await section(page, 'in_progress').locator('[data-slot=trailing-meta]').allTextContents();
+  const metas = await section(page, 'in_progress').locator('[data-slot=trailing-meta]').allTextContents();
+  const meta = metas.map((text) => text.replace(/\d+\/\d+ subtasks done/, '').trim()).filter(Boolean);
   expect(meta).toEqual(['Nov 28', 'Nov 28'].slice(0, meta.length));
 });
 

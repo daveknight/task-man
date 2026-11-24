@@ -12,7 +12,14 @@ import {
   buildBoard,
   isValidSortKey,
   keyBetween,
+  applySubtaskChange,
   nextWeekdayOnOrAfter,
+  normalizeSubtaskTitle,
+  planAddSubtask,
+  planEditSubtask,
+  planMoveSubtask,
+  planRemoveSubtask,
+  resetSubtasks,
   resolveDate,
   changeStatus,
   resume,
@@ -22,6 +29,10 @@ import {
   waitUntil,
   waitingStateFor,
   weekdayOf,
+  sortSubtasks,
+  subtaskCount,
+  type Subtask,
+  type SubtaskChange,
   type Task,
   type UpcomingDropChoice,
   type Weekday,
@@ -265,5 +276,65 @@ describe('validate.json', () => {
 
   it.each(cases)('$name', ({ task, expect: expected }) => {
     expect(validateTask(task).map((i) => i.field).sort()).toEqual([...expected].sort());
+  });
+});
+
+describe('subtasks.json', () => {
+  type Case = { name: string; subtasks: Subtask[]; expectError?: boolean };
+  const vectors = load<{
+    sortSubtasks: (Case & { expect: string[] })[];
+    subtaskCount: (Case & { expect: { done: number; total: number } })[];
+    normalizeSubtaskTitle: { input: string; expect: string | null }[];
+    planAdd: (Case & { id: string; title: string; expect?: { subtask: Subtask; order: string[] } })[];
+    planEdit: (Case & { id: string; fields: { title?: string; done?: boolean }; expect?: SubtaskChange | null })[];
+    planMove: (Case & { id: string; toIndex: number; expect?: { sortKey: string; order: string[]; done?: string[] } | null })[];
+    planRemove: (Case & { id: string; expect?: { order: string[] } })[];
+    resetSubtasks: (Case & { expect: Subtask[] })[];
+  }>('subtasks.json');
+  const ids = (list: Subtask[]) => list.map((s) => s.id);
+
+  it.each(vectors.sortSubtasks)('sortSubtasks: $name', ({ subtasks, expect: expected }) => {
+    expect(ids(sortSubtasks(subtasks))).toEqual(expected);
+  });
+
+  it.each(vectors.subtaskCount)('subtaskCount: $name', ({ subtasks, expect: expected }) => {
+    expect(subtaskCount(subtasks)).toEqual(expected);
+  });
+
+  it.each(vectors.normalizeSubtaskTitle)('normalizeSubtaskTitle($input)', ({ input, expect: expected }) => {
+    expect(normalizeSubtaskTitle(input)).toBe(expected);
+  });
+
+  it.each(vectors.planAdd)('planAdd: $name', ({ subtasks, id, title, expect: expected, expectError }) => {
+    if (expectError) return expect(() => planAddSubtask(subtasks, { id, title }, keyBetween)).toThrow();
+    const change = planAddSubtask(subtasks, { id, title }, keyBetween);
+    expect(change).toEqual({ kind: 'add', subtask: expected!.subtask });
+    expect(ids(applySubtaskChange(subtasks, change))).toEqual(expected!.order);
+  });
+
+  it.each(vectors.planEdit)('planEdit: $name', ({ subtasks, id, fields, expect: expected, expectError }) => {
+    if (expectError) return expect(() => planEditSubtask(subtasks, id, fields)).toThrow();
+    const change = planEditSubtask(subtasks, id, fields);
+    expect(change).toEqual(expected);
+    if (change) expect(ids(applySubtaskChange(subtasks, change))).toEqual(ids(sortSubtasks(subtasks)));
+  });
+
+  it.each(vectors.planMove)('planMove: $name', ({ subtasks, id, toIndex, expect: expected, expectError }) => {
+    if (expectError) return expect(() => planMoveSubtask(subtasks, id, toIndex, keyBetween)).toThrow();
+    const change = planMoveSubtask(subtasks, id, toIndex, keyBetween);
+    if (expected === null) return expect(change).toBeNull();
+    expect(change).toEqual({ kind: 'move', id, sortKey: expected!.sortKey });
+    const after = applySubtaskChange(subtasks, change!);
+    expect(ids(after)).toEqual(expected!.order);
+    expect(after.filter((s) => s.done).map((s) => s.id)).toEqual(expected!.done ?? after.filter((s) => s.done).map((s) => s.id));
+  });
+
+  it.each(vectors.planRemove)('planRemove: $name', ({ subtasks, id, expect: expected, expectError }) => {
+    if (expectError) return expect(() => planRemoveSubtask(subtasks, id)).toThrow();
+    expect(ids(applySubtaskChange(subtasks, planRemoveSubtask(subtasks, id)))).toEqual(expected!.order);
+  });
+
+  it.each(vectors.resetSubtasks)('resetSubtasks: $name', ({ subtasks, expect: expected }) => {
+    expect(resetSubtasks(subtasks)).toEqual(expected);
   });
 });

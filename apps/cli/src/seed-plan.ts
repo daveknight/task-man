@@ -9,7 +9,7 @@ import {
   type Status,
   type Weekday,
 } from '@app/core';
-import type { TaskRow } from '@app/data';
+import type { SubtaskRow, TaskRow } from '@app/data';
 
 export interface SeedRepeat {
   mode: 'schedule' | 'after_completion' | 'dates';
@@ -44,13 +44,15 @@ export interface SeedFile {
 }
 
 export type NewTaskRow = Omit<TaskRow, 'updated_at'>;
+export type NewSubtaskRow = Omit<SubtaskRow, 'created_at' | 'updated_at'>;
 
 export interface SeedPlan {
   today: ISODate;
   tasks: NewTaskRow[];
+  subtasks: NewSubtaskRow[];
   positions: { task_id: string; sort_key: string }[];
   /** Fields left out because their feature isn't built yet; counts of seed tasks that had them. */
-  skipped: { tags: number; subtasks: number; repeat: number };
+  skipped: { tags: number; repeat: number };
 }
 
 /** Noon UTC on the given day, which is the same calendar day in nearly every time zone. */
@@ -67,14 +69,15 @@ export interface PlanOptions {
 
 /**
  * Turns a seed file into rows, with dates resolved against `today`.
- * Repeats aren't stored until Phase 2, but their date effects are applied:
+ * Subtasks are stored in file order. Repeats aren't stored until Phase 2, but their date effects are applied:
  * the due date moves to the next byWeekday day, and startOffsetDays sets the start date.
  */
 export function planSeed(file: SeedFile, today: ISODate, options: PlanOptions): SeedPlan {
   const now = options.now ?? new Date();
   const newId = options.newId ?? (() => crypto.randomUUID());
-  const skipped = { tags: 0, subtasks: 0, repeat: 0 };
+  const skipped = { tags: 0, repeat: 0 };
   const tasks: NewTaskRow[] = [];
+  const subtasks: NewSubtaskRow[] = [];
   const positioned: string[] = [];
 
   file.tasks.forEach((seed, index) => {
@@ -121,7 +124,10 @@ export function planSeed(file: SeedFile, today: ISODate, options: PlanOptions): 
     }
 
     if (seed.tags?.length) skipped.tags++;
-    if (seed.subtasks?.length) skipped.subtasks++;
+    const keys = sortKeysAfter(seed.subtasks?.length ?? 0);
+    (seed.subtasks ?? []).forEach((subtask, i) => {
+      subtasks.push({ id: newId(), user_id: options.userId, task_id: row.id, title: subtask.title, done: subtask.done, sort_key: keys[i]! });
+    });
     if (seed.repeat) skipped.repeat++;
 
     tasks.push(row);
@@ -132,5 +138,5 @@ export function planSeed(file: SeedFile, today: ISODate, options: PlanOptions): 
 
   const keys = sortKeysAfter(positioned.length);
   const positions = positioned.map((task_id, i) => ({ task_id, sort_key: keys[i]! }));
-  return { today, tasks, positions, skipped };
+  return { today, tasks, subtasks, positions, skipped };
 }

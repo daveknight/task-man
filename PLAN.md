@@ -355,6 +355,7 @@ board [--today 2026-12-01] [--json]            the main view, grouped and ordere
 add "Title" [--desc ...] [--start +3d] [--due 2026-12-01] [--status waiting --hide-until +3d]
             [--tags a,b] [--flag] [--repeat "weekly" --repeat-mode after_completion --start-offset 2]
             [--subtask "x" ...]
+            (edit: --add-subtask, --done-subtask, --undone-subtask, --rename-subtask ref=title, --remove-subtask, --move-subtask ref=position)
 show <id|title-prefix>      edit <id> [same flags, --start <date>|none, --hide-until <date>|none]      status <id> open|in_progress|waiting [--hide-until <date>|none]
 move <id> --before <id> | --after <id> | --top
 move <id> --upcoming --start <date> [--clear-due]
@@ -367,7 +368,7 @@ export > backup.json         import backup.json
 - `--today` overrides "today" everywhere, so an agent can check Upcoming-to-Ready changes, recurrence and trash purges without waiting days. The web app has a matching dev-only `?today=YYYY-MM-DD` URL parameter.
 - `board --json` is what Playwright end-to-end tests compare the UI against. Because the CLI and the web app share `core`, a bug in the rules would fool both, so the **independent checks** are the hand-written `expect` values in the seed file and the shared test vectors. The vectors cover sections, `actionsFor`, every row of the transition table, complete, skip and undo, and repeat math across month ends, weekends and time zones.
 - CI seeds with a pinned `--today` (a fixed Wednesday) so results never depend on the day CI runs, plus a second run pinned to a Saturday. Playwright also fakes the browser clock, since timestamps still use real time.
-- The seeder writes board positions in file order, and skips fields whose feature isn't built yet (tags, subtasks and repeats before Phase 2).
+- The seeder writes board positions in file order, and skips fields whose feature isn't built yet (tags and repeats before Phase 2; subtasks are loaded).
 - Seed data lives in `seed/tasks.json`: 51 tasks covering every section, both Waiting sub-states, overdue and due-today dates, start dates of today and in the past (boundary cases), long titles, emoji and accents, nested bullets, a description-only search word ("zucchini"), all three repeat modes with and without start offsets, subtasks inside recurring tasks, flagged tasks, and trash items at 29, 30 and 31 days (only 31 is removed by `purge-trash`).
 
 ## Phases
@@ -405,6 +406,9 @@ Each phase ends with something you can use day to day and give feedback on befor
 **Phase 2b: free-form capture**
 - The Capture box, the `parse-capture` Edge Function with Gemini first and Claude and ChatGPT behind the same interface, the review sheet, the plain-lines fallback, `capture_log`, the CLI `capture` commands and the example set. It comes after Phase 2 so the model can fill in tags, subtasks and repeats.
 - The Capture box and review sheet (cards with field chips) are designed in the Figma web kit first.
+
+**Phase 2c: completed log**
+- A "what I finished" view across all tasks, grouped by day and week, including each recurring task's completion history (built on the completions recorded since Phase 2). It is a read-only view, so it needs no new task rules, and it is designed in the Figma web kit first. It comes before the native apps so Phase 3 can build it once, on the final data.
 
 **Phase 3: native iOS + macOS**
 - SwiftUI multiplatform app with the same rules (passes the shared test vectors), local cache and offline queue, realtime sync, native drag-and-drop, and a bottom-sheet editor like your screenshots.
