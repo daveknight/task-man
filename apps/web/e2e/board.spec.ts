@@ -292,10 +292,10 @@ const shown = (l: Locator) => expect(l).toBeInViewport({ ratio: 1 });
 const notShown = (l: Locator) => expect(l).not.toBeInViewport({ ratio: 1 });
 
 test('row quick actions show on hover, just left of the dates and flag, in every section', async ({ page }) => {
-  for (const { title, last, meta } of [
-    { title: 'Twitter litigation claim', last: /^Due Nov 28$/, meta: 'Nov 28' },
-    { title: 'Reimbursement for conference travel', last: 'Move to In Progress', meta: 'Mon' },
-    { title: 'Renew passport', last: /^Due Nov 15$/, meta: 'Nov 15' },
+  for (const { title, last, meta, isDate } of [
+    { title: 'Twitter litigation claim', last: /^Due Nov 28$/, meta: 'Nov 28', isDate: true },
+    { title: 'Reimbursement for conference travel', last: 'Move to In Progress', meta: 'Mon', isDate: false },
+    { title: 'Renew passport', last: /^Due Nov 15$/, meta: 'Nov 15', isDate: true },
   ]) {
     const target = row(page, title);
     const button = target.getByRole('button', { name: last, exact: typeof last === 'string' });
@@ -304,7 +304,9 @@ test('row quick actions show on hover, just left of the dates and flag, in every
     await shown(button);
     const b = (await button.boundingBox())!;
     const m = (await target.getByText(meta, { exact: true }).boundingBox())!;
-    expect(b.x + b.width).toBeGreaterThanOrEqual(m.x + m.width);
+    // A set due date is the last button, with the date inside it; other rows' buttons end before the date.
+    if (isDate) expect(b.x + b.width).toBeGreaterThanOrEqual(m.x + m.width);
+    else expect(b.x + b.width).toBeLessThan(m.x);
   }
 
   const plumber = row(page, 'Plumber quote for kitchen sink');
