@@ -4,7 +4,7 @@ Everything here uses Supabase's free plan and Vercel's free Hobby plan. Developm
 
 | Piece | Where | How it gets there |
 |---|---|---|
-| Web app | Vercel project `task-man`, free `*.vercel.app` address | Vercel builds `main` on every push, using [`apps/web/vercel.json`](../apps/web/vercel.json) |
+| Web app | Vercel project `task-man`, free address `https://task-man-lake.vercel.app` | Vercel builds `main` on every push, using [`apps/web/vercel.json`](../apps/web/vercel.json) |
 | Database schema | Supabase project `aihwgaginnmrrcasmhwt` | The Supabase GitHub integration applies `supabase/migrations/` when something merges to `main` |
 | Auth settings (sign-ups off, redirect URLs) | Supabase dashboard | By hand, once (below). `supabase/config.toml` is local only |
 | Your user | Supabase dashboard | By hand, once |
@@ -15,14 +15,14 @@ Everything here uses Supabase's free plan and Vercel's free Hobby plan. Developm
 - **Environment Variables**, **Production only**: `VITE_SUPABASE_URL` (the Project URL) and `VITE_SUPABASE_ANON_KEY` (the anon or publishable key). Both are public by design. Never put the `service_role` or secret key anywhere in Vercel.
 - Preview deployments have no Supabase variables on purpose, so a pull request preview can't reach real data; the app says it has no Supabase address. A Production build without the variables fails with a message saying so.
 - The service worker (`sw.js`) is served with no caching, so a new deploy reaches installed copies on their next open.
-- If the `.vercel.app` address asks for a Vercel login, turn off Deployment Protection for Production.
+- If `https://task-man-lake.vercel.app` asks for a Vercel login, turn off Deployment Protection for Production.
 
 ## Supabase dashboard, once
 
 1. **Authentication**, **Sign In / Providers**, **Email**: turn off **Allow new users to sign up**. This is not covered by migrations or `config.toml`, so do it before sharing the address.
 2. **Authentication**, **Users**, **Add user**, **Create new user**: your email and password, tick **Auto Confirm User**.
-3. **Authentication**, **URL Configuration**: **Site URL** `https://<your-address>.vercel.app`, and add `https://<your-address>.vercel.app/**` under **Redirect URLs**. Password reset links return there.
-4. Password reset emails use Supabase's built-in sender, which is limited to a few emails an hour and to your own team's addresses. That's fine for one user.
+3. **Authentication**, **URL Configuration**: **Site URL** `https://task-man-lake.vercel.app` (no trailing slash), and under **Redirect URLs** add `https://task-man-lake.vercel.app/**` and `http://localhost:5179/**` (the second keeps local testing working). Password reset links return there.
+4. Password reset emails use Supabase's built-in sender, which is limited to a few emails an hour and only delivers to addresses of members of your Supabase team. So "Forgot password?" works only if your login email is also your Supabase account email; otherwise set a new password from **Authentication**, **Users**, the user's row, **Update user**.
 
 ## How migrations reach the hosted database
 
