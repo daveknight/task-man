@@ -3,13 +3,15 @@ import {
   buildBoard,
   MAIN_VIEW_ID,
   placementFor,
+  subtaskCount,
   type Board,
   type ISODate,
+  type SubtaskCount,
   type Task,
 } from '@app/core';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { check, checkRows } from './db.ts';
-import { TASK_COLUMNS, taskFromRow, type TaskRow } from '@app/data';
+import { check } from './db.ts';
+import { loadSnapshot } from '@app/data';
 import { planSeed, type SeedFile } from './seed-plan.ts';
 
 export interface ResetResult {
@@ -36,7 +38,8 @@ export interface SeedResult {
   reset?: ResetResult;
   tasks: number;
   positions: number;
-  skipped: { tags: number; subtasks: number; repeat: number };
+  subtasks: number;
+  skipped: { tags: number; repeat: number };
 }
 
 export async function seed(
@@ -49,6 +52,7 @@ export async function seed(
   const resetResult = options.reset ? await reset(db, userId) : undefined;
 
   check(await db.from('tasks').insert(plan.tasks), 'insert tasks');
+  if (plan.subtasks.length > 0) check(await db.from('subtasks').insert(plan.subtasks), 'insert subtasks');
   if (plan.positions.length > 0) {
     check(
       await db
@@ -63,6 +67,7 @@ export async function seed(
     ...(resetResult ? { reset: resetResult } : {}),
     tasks: plan.tasks.length,
     positions: plan.positions.length,
+    subtasks: plan.subtasks.length,
     skipped: plan.skipped,
   };
 }
@@ -72,6 +77,7 @@ export interface BoardTask extends Task {
   sortKey: string | null;
   hasDescription: boolean;
   overdue: boolean;
+  subtaskCount: SubtaskCount;
 }
 
 export async function loadBoard(
@@ -79,31 +85,16 @@ export async function loadBoard(
   userId: string,
   options: { today: ISODate; completed: boolean; trash: boolean },
 ): Promise<Board<BoardTask>> {
-  const rows = checkRows(
-    await db.from('tasks').select(TASK_COLUMNS).eq('user_id', userId).returns<TaskRow[]>(),
-    'select tasks',
-  );
-  const positionRows = checkRows(
-    await db
-      .from('task_positions')
-      .select('task_id,sort_key')
-      .eq('user_id', userId)
-      .eq('view_id', MAIN_VIEW_ID)
-      .returns<{ task_id: string; sort_key: string }[]>(),
-    'select positions',
-  );
-  const positions = new Map(positionRows.map((p) => [p.task_id, p.sort_key]));
-  const tasks: BoardTask[] = rows.map((row) => {
-    const task = taskFromRow(row);
-    return {
-      ...task,
-      placement: placementFor(task, options.today),
-      sortKey: positions.get(task.id) ?? null,
-      hasDescription: (task.description ?? '').trim() !== '',
-      overdue: !!task.dueDate && task.dueDate < options.today && !task.completedAt,
-    };
-  });
-  return buildBoard(tasks, positions, options.today, {
+  const snapshot = await loadSnapshot({ db, userId });
+  const tasks: BoardTask[] = snapshot.tasks.map((task) => ({
+    ...task,
+    placement: placementFor(task, options.today),
+    sortKey: snapshot.positions.get(task.id) ?? null,
+    hasDescription: (task.description ?? '').trim() !== '',
+    overdue: !!task.dueDate && task.dueDate < options.today && !task.completedAt,
+    subtaskCount: subtaskCount(task.subtasks),
+  }));
+  return buildBoard(tasks, snapshot.positions, options.today, {
     showCompleted: options.completed,
     showTrash: options.trash,
   });

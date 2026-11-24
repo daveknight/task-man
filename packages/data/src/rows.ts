@@ -1,4 +1,4 @@
-import type { EditableField, ISODate, Status, Task, TaskPatch } from '@app/core';
+import type { EditableField, ISODate, Status, Subtask, Task, TaskPatch } from '@app/core';
 
 /** A public.tasks row as PostgREST returns it. */
 export interface TaskRow {
@@ -79,4 +79,26 @@ export function rowForInsert(task: Task, userId: string): Omit<TaskRow, 'created
     deleted_at: task.deletedAt ?? null,
     deleted_on: task.deletedOn ?? null,
   };
+}
+
+/** A public.subtasks row as PostgREST returns it. */
+export interface SubtaskRow {
+  id: string;
+  user_id: string;
+  task_id: string;
+  title: string;
+  done: boolean;
+  sort_key: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export const SUBTASK_COLUMNS = 'id,user_id,task_id,title,done,sort_key';
+
+export function subtaskFromRow(row: Pick<SubtaskRow, 'id' | 'title' | 'done' | 'sort_key'>): Subtask {
+  return { id: row.id, title: row.title, done: row.done, sortKey: row.sort_key };
+}
+
+export function subtaskRow(subtask: Subtask, taskId: string, userId: string): Omit<SubtaskRow, 'created_at' | 'updated_at'> {
+  return { id: subtask.id, user_id: userId, task_id: taskId, title: subtask.title, done: subtask.done, sort_key: subtask.sortKey };
 }

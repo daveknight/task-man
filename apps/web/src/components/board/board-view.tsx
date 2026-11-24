@@ -110,7 +110,7 @@ type RowProps = {
 };
 
 /** The handle is the only place a drag starts, so the rest of the row stays free for clicking and editing. */
-function DragHandle({
+export function DragHandle({
   title,
   attributes,
   listeners,

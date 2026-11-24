@@ -1,0 +1,286 @@
+{
+  "description": "Subtasks: ordering, progress count, add / edit / move / remove plans, and reset. Keys come from keyBetween (deterministic), so every platform writes the same sortKey. A subtask is { id, title, done, sortKey }; `order` lists ids top to bottom after applying the change.",
+  "sortSubtasks": [
+    { "name": "empty", "subtasks": [], "expect": [] },
+    {
+      "name": "by sort key, whatever order they arrive in",
+      "subtasks": [
+        { "id": "s3", "title": "Third", "done": false, "sortKey": "a2" },
+        { "id": "s1", "title": "First", "done": true, "sortKey": "a0" },
+        { "id": "s2", "title": "Second", "done": false, "sortKey": "a1" }
+      ],
+      "expect": ["s1", "s2", "s3"]
+    },
+    {
+      "name": "keys compare byte-wise, not by locale: upper case sorts before lower case and fractions sit between integers",
+      "subtasks": [
+        { "id": "s1", "title": "One", "done": false, "sortKey": "a1" },
+        { "id": "s2", "title": "Two", "done": false, "sortKey": "Zz" },
+        { "id": "s3", "title": "Three", "done": false, "sortKey": "a0V" },
+        { "id": "s4", "title": "Four", "done": false, "sortKey": "a0" }
+      ],
+      "expect": ["s2", "s4", "s3", "s1"]
+    },
+    {
+      "name": "the same key breaks the tie by id",
+      "subtasks": [
+        { "id": "s2", "title": "B", "done": false, "sortKey": "a1" },
+        { "id": "s1", "title": "A", "done": false, "sortKey": "a1" }
+      ],
+      "expect": ["s1", "s2"]
+    }
+  ],
+  "subtaskCount": [
+    { "name": "no subtasks", "subtasks": [], "expect": { "done": 0, "total": 0 } },
+    {
+      "name": "none done",
+      "subtasks": [
+        { "id": "s1", "title": "A", "done": false, "sortKey": "a0" },
+        { "id": "s2", "title": "B", "done": false, "sortKey": "a1" }
+      ],
+      "expect": { "done": 0, "total": 2 }
+    },
+    {
+      "name": "some done",
+      "subtasks": [
+        { "id": "s1", "title": "A", "done": true, "sortKey": "a0" },
+        { "id": "s2", "title": "B", "done": false, "sortKey": "a1" },
+        { "id": "s3", "title": "C", "done": true, "sortKey": "a2" },
+        { "id": "s4", "title": "D", "done": false, "sortKey": "a3" }
+      ],
+      "expect": { "done": 2, "total": 4 }
+    },
+    {
+      "name": "all done",
+      "subtasks": [
+        { "id": "s1", "title": "A", "done": true, "sortKey": "a0" },
+        { "id": "s2", "title": "B", "done": true, "sortKey": "a1" }
+      ],
+      "expect": { "done": 2, "total": 2 }
+    }
+  ],
+  "normalizeSubtaskTitle": [
+    { "input": "Pack lunch", "expect": "Pack lunch" },
+    { "input": "  Pack lunch \n", "expect": "Pack lunch" },
+    { "input": "", "expect": null },
+    { "input": "   \t ", "expect": null },
+    { "input": "Café ☕ 日本語", "expect": "Café ☕ 日本語" }
+  ],
+  "planAdd": [
+    {
+      "name": "the first subtask gets the first key",
+      "subtasks": [],
+      "id": "n1",
+      "title": "Check the weather",
+      "expect": { "subtask": { "id": "n1", "title": "Check the weather", "done": false, "sortKey": "a0" }, "order": ["n1"] }
+    },
+    {
+      "name": "a new subtask goes to the bottom",
+      "subtasks": [
+        { "id": "s1", "title": "A", "done": true, "sortKey": "a0" },
+        { "id": "s2", "title": "B", "done": false, "sortKey": "a1" }
+      ],
+      "id": "n1",
+      "title": "  C  ",
+      "expect": { "subtask": { "id": "n1", "title": "C", "done": false, "sortKey": "a2" }, "order": ["s1", "s2", "n1"] }
+    },
+    {
+      "name": "below the highest key even when the list arrives out of order",
+      "subtasks": [
+        { "id": "s2", "title": "B", "done": false, "sortKey": "a5" },
+        { "id": "s1", "title": "A", "done": false, "sortKey": "a1" }
+      ],
+      "id": "n1",
+      "title": "C",
+      "expect": { "subtask": { "id": "n1", "title": "C", "done": false, "sortKey": "a6" }, "order": ["s1", "s2", "n1"] }
+    },
+    { "name": "an empty title is refused", "subtasks": [], "id": "n1", "title": "   ", "expectError": true },
+    {
+      "name": "a duplicate id is refused",
+      "subtasks": [{ "id": "s1", "title": "A", "done": false, "sortKey": "a0" }],
+      "id": "s1",
+      "title": "Again",
+      "expectError": true
+    }
+  ],
+  "planEdit": [
+    {
+      "name": "tick",
+      "subtasks": [{ "id": "s1", "title": "A", "done": false, "sortKey": "a0" }],
+      "id": "s1",
+      "fields": { "done": true },
+      "expect": { "kind": "edit", "id": "s1", "patch": { "done": true } }
+    },
+    {
+      "name": "untick",
+      "subtasks": [{ "id": "s1", "title": "A", "done": true, "sortKey": "a0" }],
+      "id": "s1",
+      "fields": { "done": false },
+      "expect": { "kind": "edit", "id": "s1", "patch": { "done": false } }
+    },
+    {
+      "name": "rename trims the title",
+      "subtasks": [{ "id": "s1", "title": "A", "done": false, "sortKey": "a0" }],
+      "id": "s1",
+      "fields": { "title": "  Fill water bottles and a thermos " },
+      "expect": { "kind": "edit", "id": "s1", "patch": { "title": "Fill water bottles and a thermos" } }
+    },
+    {
+      "name": "rename and tick together",
+      "subtasks": [{ "id": "s1", "title": "A", "done": false, "sortKey": "a0" }],
+      "id": "s1",
+      "fields": { "title": "B", "done": true },
+      "expect": { "kind": "edit", "id": "s1", "patch": { "title": "B", "done": true } }
+    },
+    {
+      "name": "writing the same values changes nothing",
+      "subtasks": [{ "id": "s1", "title": "A", "done": true, "sortKey": "a0" }],
+      "id": "s1",
+      "fields": { "title": " A ", "done": true },
+      "expect": null
+    },
+    {
+      "name": "an empty title is refused",
+      "subtasks": [{ "id": "s1", "title": "A", "done": false, "sortKey": "a0" }],
+      "id": "s1",
+      "fields": { "title": "" },
+      "expectError": true
+    },
+    { "name": "an unknown id is refused", "subtasks": [], "id": "nope", "fields": { "done": true }, "expectError": true }
+  ],
+  "planMove": [
+    {
+      "name": "down one place, between its new neighbours",
+      "subtasks": [
+        { "id": "s1", "title": "1", "done": false, "sortKey": "a0" },
+        { "id": "s2", "title": "2", "done": false, "sortKey": "a1" },
+        { "id": "s3", "title": "3", "done": false, "sortKey": "a2" },
+        { "id": "s4", "title": "4", "done": false, "sortKey": "a3" }
+      ],
+      "id": "s1",
+      "toIndex": 2,
+      "expect": { "sortKey": "a2V", "order": ["s2", "s3", "s1", "s4"] }
+    },
+    {
+      "name": "to the top",
+      "subtasks": [
+        { "id": "s1", "title": "1", "done": false, "sortKey": "a0" },
+        { "id": "s2", "title": "2", "done": false, "sortKey": "a1" },
+        { "id": "s3", "title": "3", "done": false, "sortKey": "a2" },
+        { "id": "s4", "title": "4", "done": false, "sortKey": "a3" }
+      ],
+      "id": "s4",
+      "toIndex": 0,
+      "expect": { "sortKey": "Zz", "order": ["s4", "s1", "s2", "s3"] }
+    },
+    {
+      "name": "up one place",
+      "subtasks": [
+        { "id": "s1", "title": "1", "done": false, "sortKey": "a0" },
+        { "id": "s2", "title": "2", "done": false, "sortKey": "a1" },
+        { "id": "s3", "title": "3", "done": false, "sortKey": "a2" },
+        { "id": "s4", "title": "4", "done": false, "sortKey": "a3" }
+      ],
+      "id": "s3",
+      "toIndex": 1,
+      "expect": { "sortKey": "a0V", "order": ["s1", "s3", "s2", "s4"] }
+    },
+    {
+      "name": "past the end means the bottom",
+      "subtasks": [
+        { "id": "s1", "title": "1", "done": false, "sortKey": "a0" },
+        { "id": "s2", "title": "2", "done": false, "sortKey": "a1" },
+        { "id": "s3", "title": "3", "done": false, "sortKey": "a2" },
+        { "id": "s4", "title": "4", "done": false, "sortKey": "a3" }
+      ],
+      "id": "s1",
+      "toIndex": 99,
+      "expect": { "sortKey": "a4", "order": ["s2", "s3", "s4", "s1"] }
+    },
+    {
+      "name": "a negative index means the top",
+      "subtasks": [
+        { "id": "s1", "title": "1", "done": false, "sortKey": "a0" },
+        { "id": "s2", "title": "2", "done": false, "sortKey": "a1" }
+      ],
+      "id": "s2",
+      "toIndex": -3,
+      "expect": { "sortKey": "Zz", "order": ["s2", "s1"] }
+    },
+    {
+      "name": "already there",
+      "subtasks": [
+        { "id": "s1", "title": "1", "done": false, "sortKey": "a0" },
+        { "id": "s2", "title": "2", "done": false, "sortKey": "a1" },
+        { "id": "s3", "title": "3", "done": false, "sortKey": "a2" }
+      ],
+      "id": "s2",
+      "toIndex": 1,
+      "expect": null
+    },
+    {
+      "name": "the only subtask stays put",
+      "subtasks": [{ "id": "s1", "title": "1", "done": false, "sortKey": "a0" }],
+      "id": "s1",
+      "toIndex": 0,
+      "expect": null
+    },
+    {
+      "name": "a done subtask moves like any other and stays done",
+      "subtasks": [
+        { "id": "s1", "title": "1", "done": true, "sortKey": "a0" },
+        { "id": "s2", "title": "2", "done": false, "sortKey": "a1" }
+      ],
+      "id": "s1",
+      "toIndex": 1,
+      "expect": { "sortKey": "a2", "order": ["s2", "s1"], "done": ["s1"] }
+    },
+    {
+      "name": "two devices wrote the same key: the move lands after both rather than between them",
+      "subtasks": [
+        { "id": "s1", "title": "1", "done": false, "sortKey": "a1" },
+        { "id": "s2", "title": "2", "done": false, "sortKey": "a1" },
+        { "id": "s3", "title": "3", "done": false, "sortKey": "a2" }
+      ],
+      "id": "s3",
+      "toIndex": 1,
+      "expect": { "sortKey": "a2", "order": ["s1", "s2", "s3"] }
+    },
+    { "name": "an unknown id is refused", "subtasks": [], "id": "nope", "toIndex": 0, "expectError": true }
+  ],
+  "planRemove": [
+    {
+      "name": "removes one and leaves the order alone",
+      "subtasks": [
+        { "id": "s1", "title": "1", "done": false, "sortKey": "a0" },
+        { "id": "s2", "title": "2", "done": true, "sortKey": "a1" },
+        { "id": "s3", "title": "3", "done": false, "sortKey": "a2" }
+      ],
+      "id": "s2",
+      "expect": { "order": ["s1", "s3"] }
+    },
+    {
+      "name": "removing the last one leaves none",
+      "subtasks": [{ "id": "s1", "title": "1", "done": false, "sortKey": "a0" }],
+      "id": "s1",
+      "expect": { "order": [] }
+    },
+    { "name": "an unknown id is refused", "subtasks": [], "id": "nope", "expectError": true }
+  ],
+  "resetSubtasks": [
+    { "name": "nothing to reset", "subtasks": [], "expect": [] },
+    {
+      "name": "every subtask goes back to not done, in order",
+      "subtasks": [
+        { "id": "s2", "title": "B", "done": true, "sortKey": "a1" },
+        { "id": "s1", "title": "A", "done": true, "sortKey": "a0" },
+        { "id": "s3", "title": "C", "done": false, "sortKey": "a2" }
+      ],
+      "expect": [
+        { "id": "s1", "title": "A", "done": false, "sortKey": "a0" },
+        { "id": "s2", "title": "B", "done": false, "sortKey": "a1" },
+        { "id": "s3", "title": "C", "done": false, "sortKey": "a2" }
+      ]
+    }
+  ]
+}

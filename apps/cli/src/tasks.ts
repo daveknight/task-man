@@ -2,14 +2,19 @@ import {
   actionsFor,
   applyDateEffect,
   applyPlan,
+  applySubtaskChange,
   buildBoard,
   changeStatus,
   complete,
   markNotDone,
   placementFor,
+  planAddSubtask,
   planChange,
   planDrop,
+  planEditSubtask,
+  planMoveSubtask,
   planNewTask,
+  planRemoveSubtask,
   planUpcomingDrop,
   REORDERABLE,
   resolveDate,
@@ -17,16 +22,21 @@ import {
   sectionFor,
   setDueDate,
   softDelete,
+  sortSubtasks,
+  subtaskCount,
   waitUntil,
   type ISODate,
   type PositionWrite,
   type Preset,
   type Section,
   type Status,
+  type Subtask,
+  type SubtaskChange,
+  type SubtaskCount,
   type Task,
   type UpcomingDropDecision,
 } from '@app/core';
-import { deleteForever, insertTask, loadSnapshot, purgeTrash, searchTasks, writeChange, type Scope, type Snapshot } from '@app/data';
+import { deleteForever, insertTask, loadSnapshot, purgeTrash, searchTasks, writeChange, writeSubtaskChange, type Scope, type Snapshot } from '@app/data';
 
 export interface Context {
   scope: Scope;
@@ -56,12 +66,13 @@ const HIDE_UNTIL_ONLY_WAITING = 'Hide until only applies to Waiting tasks.';
 export interface Changed {
   task: Task;
   placement: string;
+  subtaskCount: SubtaskCount;
   /** Extra information, such as "Start moved to 2026-11-20". */
   note?: string;
 }
 
 function changed(task: Task, today: ISODate, note?: string): Changed {
-  return { task, placement: placementFor(task, today), ...(note ? { note } : {}) };
+  return { task, placement: placementFor(task, today), subtaskCount: subtaskCount(task.subtasks), ...(note ? { note } : {}) };
 }
 
 /** Finds a task by id, id prefix (at least 4 characters) or title prefix (case-insensitive). */
@@ -99,6 +110,8 @@ export interface AddOptions {
   due?: string;
   status?: string;
   flag?: boolean;
+  /** Titles of subtasks to create, in order. */
+  subtasks?: string[];
 }
 
 function parseStatus(value: string): Status {
@@ -124,6 +137,10 @@ export async function addTask(ctx: Context, title: string, options: AddOptions):
     hideUntil,
     dueDate: parseDateFlag(options.due, ctx.today) ?? null,
   };
+  for (const title of options.subtasks ?? []) {
+    const change = planAddSubtask(task.subtasks, { id: crypto.randomUUID(), title });
+    task.subtasks = applySubtaskChange(task.subtasks, change);
+  }
   const positions = planNewTask(snapshot.tasks, snapshot.positions, task, ctx.today);
   const saved = await insertTask(ctx.scope, task, positions);
   return changed(saved, ctx.today);
@@ -136,6 +153,93 @@ export interface EditOptions {
   hideUntil?: string;
   due?: string;
   flag?: boolean;
+  subtasks?: SubtaskEdits;
+}
+
+/**
+ * Subtask changes for one `edit`. Each ref (a position as `show` lists them, an id prefix or a title prefix) is
+ * resolved against the list as it was before the edit. Renames and ticks come first, then removals, then new
+ * subtasks at the bottom, and moves last, so a move's position is where the subtask ends up in the final list.
+ */
+export interface SubtaskEdits {
+  add?: string[];
+  done?: string[];
+  undone?: string[];
+  remove?: string[];
+  /** `ref=New title` */
+  rename?: string[];
+  /** `ref=position`, 1 is the top */
+  move?: string[];
+}
+
+export function hasSubtaskEdits(edits: SubtaskEdits | undefined): boolean {
+  return !!edits && Object.values(edits).some((list) => list && list.length > 0);
+}
+
+/** Finds a subtask by position (1 is the top), id, id prefix (at least 4 characters) or title prefix (case-insensitive). */
+export function findSubtask(subtasks: readonly Subtask[], ref: string): Subtask {
+  const list = sortSubtasks(subtasks);
+  if (/^\d+$/.test(ref)) {
+    const at = Number(ref);
+    const found = list[at - 1];
+    if (found) return found;
+    // Four or more digits can still be the start of an id.
+    if (ref.length < 4) throw new Error(list.length === 0 ? `No subtask ${at}: the task has none` : `No subtask ${at}: the task has ${list.length}`);
+  }
+  const needle = ref.toLowerCase();
+  const byId = /^[0-9a-f-]{4,}$/.test(needle) ? list.filter((s) => s.id.startsWith(needle)) : [];
+  const matches = byId.length > 0 ? byId : list.filter((s) => s.title.toLowerCase().startsWith(needle));
+  if (matches.length === 1) return matches[0]!;
+  const sameTitle = matches.filter((s) => s.title.toLowerCase() === needle);
+  if (sameTitle.length === 1) return sameTitle[0]!;
+  if (matches.length === 0) throw new Error(`No subtask matches "${ref}"`);
+  throw new Error(`"${ref}" matches ${matches.length} subtasks; use its position or more of the title:\n${matches.map((s) => `  ${list.indexOf(s) + 1}. ${s.title}`).join('\n')}`);
+}
+
+function splitAssignment(value: string, flag: string, what: string): [string, string] {
+  const at = value.indexOf('=');
+  if (at <= 0) throw new Error(`--${flag} takes <subtask>=<${what}>`);
+  return [value.slice(0, at), value.slice(at + 1)];
+}
+
+/** Turns the edits into the writes that make them, against the task's current subtasks. */
+export function planSubtaskEdits(subtasks: readonly Subtask[] | undefined, edits: SubtaskEdits): SubtaskChange[] {
+  const original = sortSubtasks(subtasks);
+  const fields = new Map<string, { title?: string; done?: boolean }>();
+  const patch = (ref: string, change: { title?: string; done?: boolean }) => {
+    const id = findSubtask(original, ref).id;
+    fields.set(id, { ...fields.get(id), ...change });
+  };
+  for (const ref of edits.done ?? []) patch(ref, { done: true });
+  for (const ref of edits.undone ?? []) patch(ref, { done: false });
+  for (const value of edits.rename ?? []) {
+    const [ref, title] = splitAssignment(value, 'rename-subtask', 'new title');
+    patch(ref, { title });
+  }
+  const removed = (edits.remove ?? []).map((ref) => findSubtask(original, ref).id);
+  const moves = (edits.move ?? []).map((value) => {
+    const [ref, position] = splitAssignment(value, 'move-subtask', 'position');
+    if (!/^\d+$/.test(position) || Number(position) < 1) throw new Error(`--move-subtask position must be 1 or more, got "${position}"`);
+    return { id: findSubtask(original, ref).id, to: Number(position) - 1 };
+  });
+
+  const changes: SubtaskChange[] = [];
+  let working = original;
+  const apply = (change: SubtaskChange | null) => {
+    if (!change) return;
+    changes.push(change);
+    working = applySubtaskChange(working, change);
+  };
+  for (const [id, change] of fields) {
+    if (!removed.includes(id)) apply(planEditSubtask(working, id, change));
+  }
+  for (const id of new Set(removed)) apply(planRemoveSubtask(working, id));
+  for (const title of edits.add ?? []) apply(planAddSubtask(working, { id: crypto.randomUUID(), title }));
+  for (const { id, to } of moves) {
+    if (removed.includes(id)) throw new Error('A subtask can\'t be moved and removed in the same edit');
+    apply(planMoveSubtask(working, id, to));
+  }
+  return changes;
 }
 
 /** Field edits. A due date before the start moves the start, like the app. */
@@ -161,7 +265,14 @@ export async function editTask(ctx: Context, ref: string, options: EditOptions):
     after = result.task;
     if (result.startMoved) note = `Start moved to ${result.startMoved.to}`;
   }
-  return commit(ctx, snapshot, before, after, undefined, note);
+  const subtaskChanges = hasSubtaskEdits(options.subtasks) ? planSubtaskEdits(before.subtasks, options.subtasks!) : [];
+  if (subtaskChanges.length > 0 && before.deletedAt) throw new Error('Subtasks of a task in Trash can\'t be changed; restore it first');
+  const result = await commit(ctx, snapshot, before, after, undefined, note);
+  if (subtaskChanges.length === 0) return result;
+  for (const change of subtaskChanges) await writeSubtaskChange(ctx.scope, before.id, change);
+  const next = { ...result.task, subtasks: subtaskChanges.reduce((list, change) => applySubtaskChange(list, change), sortSubtasks(before.subtasks)) };
+  Object.assign(snapshot, { tasks: snapshot.tasks.map((t) => (t.id === next.id ? next : t)) });
+  return changed(next, ctx.today, note);
 }
 
 /**
@@ -316,7 +427,7 @@ export async function deleteTask(ctx: Context, ref: string, forever: boolean): P
   if (forever) {
     if (!before.deletedAt) throw new Error('Delete forever only works on tasks in Trash; delete it first');
     await deleteForever(ctx.scope, before.id);
-    return { task: before, placement: 'deleted_forever' };
+    return { task: before, placement: 'deleted_forever', subtaskCount: subtaskCount(before.subtasks) };
   }
   return commit(ctx, snapshot, before, softDelete(before, ctx.now, ctx.today));
 }
@@ -335,6 +446,7 @@ export async function showTask(ctx: Context, ref: string) {
     task,
     placement: placementFor(task, ctx.today),
     sortKey: snapshot.positions.get(task.id) ?? null,
+    subtaskCount: subtaskCount(task.subtasks),
     actions: [actions.date, ...actions.state]
       .filter((g) => g !== null)
       .map((g) => (g.presets.length ? `${g.id}: ${g.presets.map((p) => p.id).join(' ')}` : g.id))
