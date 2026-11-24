@@ -8,6 +8,7 @@ Everything here uses Supabase's free plan and Vercel's free Hobby plan. Developm
 | Database schema | Supabase project `aihwgaginnmrrcasmhwt` | The Supabase GitHub integration applies `supabase/migrations/` when something merges to `main` |
 | Auth settings (sign-ups off, redirect URLs) | Supabase dashboard | By hand, once (below). `supabase/config.toml` is local only |
 | Your user | Supabase dashboard | By hand, once |
+| Keep-alive | GitHub Actions in this repo | A daily workflow pings the hosted API so the free project never pauses; needs two repository secrets (below) |
 
 ## Vercel
 
@@ -50,3 +51,19 @@ supabase db push                                    # shows what it will apply a
 ```
 
 then turn **Deploy to production** back on.
+
+## Keep-alive (stops the free project pausing)
+
+A free Supabase project pauses after a week with no activity. [`.github/workflows/keep-alive.yml`](../.github/workflows/keep-alive.yml) runs once a day (about 11:47 UTC) and sends one read-only request to the API with the public anon key. It reads nothing (the anon key sees no tasks) and writes nothing; the request just counts as activity. Daily use of the app counts too, so this only matters if you stop using it for a few days.
+
+It needs two repository secrets, both public-by-design values:
+
+1. In Supabase, **Project Settings** (gear), then **API Keys** (or **API**): copy the **Project URL** and the **anon / publishable** key. Never use the `service_role` or secret key here.
+2. On GitHub open `https://github.com/daveknight/task-man`, then **Settings** (top tab), **Secrets and variables** (left menu), **Actions**, then the green **New repository secret** button. Add `SUPABASE_URL` (the Project URL) and click **Add secret**; then add `SUPABASE_ANON_KEY` the same way.
+3. First run by hand: **Actions** tab, **Keep alive** in the left list, **Run workflow** (right side), then the green **Run workflow** button. After about 20 seconds, refresh: a green tick and "Supabase answered 200" in the log means it works. Red with "Add the SUPABASE_URL and SUPABASE_ANON_KEY repository secrets" means a secret is missing or misspelled.
+
+GitHub emails you if a scheduled run fails. GitHub also turns scheduled workflows off in a repo with no commits for 60 days; if that ever happens, open the **Actions** tab and re-enable it.
+
+## Backups (later)
+
+Backups are not part of Phase 1b; they are the last phase in `PLAN.md`. The finished work (read-only `backup_reader` role migration, export and restore commands, the restore round-trip test, and the backup repo template) is kept on the branch `cursor/backup-later-5a30`, with no pull request, so it can be revived later. Until then Supabase's free plan keeps no backups of the hosted database.
