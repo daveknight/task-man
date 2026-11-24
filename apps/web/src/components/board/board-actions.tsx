@@ -1,5 +1,6 @@
 import {
   applyDateEffect,
+  buildBoard,
   changeStatus,
   complete,
   markNotDone,
@@ -22,7 +23,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import type { TaskWrites } from '@/data/board-data';
 import { longDate, shortDate } from '@/lib/day-label';
-import { flashDropped, leaveThen } from '@/lib/transient';
+import { cancelMove, canAnimateMoves, flashDropped, hasMove, leaveThen, pulse, startMove, type MoveSource } from '@/lib/transient';
 import { PresetPanel, type PresetGroup } from './preset-panel';
 import { Surface } from './surface';
 
@@ -69,6 +70,18 @@ type Pending =
 
 const quiet = () => {};
 
+/** Where a task sits in the board, Completed included, so a ghost can hold its place while it leaves. */
+function placementOf(task: Task, snapshot: ReturnType<TaskWrites['current']>, today: ISODate): { from: MoveSource; index: number } | null {
+  const board = buildBoard(snapshot.tasks, snapshot.positions, today, { showCompleted: true });
+  for (const section of board.sections) {
+    const index = section.tasks.findIndex((t) => t.id === task.id);
+    if (index !== -1) return { from: section.id, index };
+    const later = section.later?.findIndex((t) => t.id === task.id) ?? -1;
+    if (later !== -1) return { from: 'waiting_later', index: later };
+  }
+  return null;
+}
+
 export function BoardActionsProvider({
   today,
   writes,
@@ -104,6 +117,22 @@ export function BoardActionsProvider({
     [commit],
   );
 
+  /**
+   * Completing and un-completing. The change is written at once, so nothing waits on the animation: the
+   * row stays where it was for a moment, then folds away as it grows into its new list. Toggling the same
+   * row again, or a write that fails, drops the animation and the list shows the data.
+   */
+  const flip = useCallback(
+    (before: Task, after: Task, onSaved?: () => void) => {
+      const rapid = hasMove(before.id);
+      const place = !rapid && canAnimateMoves() ? placementOf(before, writes.current(), today) : null;
+      if (rapid) cancelMove(before.id);
+      if (place) startMove({ after, ...place });
+      writes.change(before, after).then(onSaved, () => cancelMove(before.id));
+    },
+    [today, writes],
+  );
+
   const actions = useMemo<BoardActions>(() => {
     const preset = (task: Task, p: Preset, picked?: ISODate) => {
       const effect = p.effect;
@@ -121,18 +150,16 @@ export function BoardActionsProvider({
       open: onOpen,
       complete: (task) => {
         const after = complete(task, new Date().toISOString(), today);
-        writes.change(task, after).then(
-          () => toast(`Completed “${task.title}”`, { action: { label: 'Undo', onClick: () => void writes.change(after, markNotDone(after)).catch(quiet) } }),
-          quiet,
-        );
+        pulse();
+        flip(task, after, () => toast(`Completed “${task.title}”`, { action: { label: 'Undo', onClick: () => flip(after, markNotDone(after)) } }));
       },
-      markNotDone: (task) => commit(task, markNotDone(task)),
+      markNotDone: (task) => flip(task, markNotDone(task)),
       toggleFlag: (task) => commit(task, { ...task, flagged: !task.flagged }),
       preset,
       group: (task, group) => {
         const effect = group.effect;
         if (!effect) return;
-        if (effect.kind === 'undone') commit(task, markNotDone(task));
+        if (effect.kind === 'undone') flip(task, markNotDone(task));
         else if (effect.kind === 'restore') commit(task, restore(task));
         else setStatus(task, effect.to);
       },
@@ -163,7 +190,7 @@ export function BoardActionsProvider({
       },
       removeForever: (task) => void leaveThen(task.id, () => writes.remove(task).catch(quiet)),
     };
-  }, [commit, onOpen, setStatus, today, writes]);
+  }, [commit, flip, onOpen, setStatus, today, writes]);
 
   return (
     <BoardActionsContext.Provider value={actions}>

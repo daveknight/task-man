@@ -105,3 +105,28 @@ test('with no hover the drag handle stays visible, and keeps its column', async 
   expect(await grip.evaluate((el) => Number(getComputedStyle(el).opacity))).toBe(1);
   expect((await grip.boundingBox())!.width).toBeGreaterThan(0);
 });
+
+test('checking off a task holds it struck through, then folds it away; the check mark fills the circle in Completed', async ({ page }) => {
+  const circle = row(page, 'Buy new watch band').getByRole('checkbox');
+  const size = (await circle.boundingBox())!.width;
+  await circle.tap();
+  const held = page.locator('[data-ghost=done]', { hasText: 'Buy new watch band' });
+  await expect(held).toHaveCount(1);
+  await expect(held.locator('[data-slot=task-title]')).toHaveCSS('text-decoration-line', 'line-through');
+  await expect(held).toHaveCount(0);
+  await expect.poll(() => showTask('Buy new watch band').task.completedAt).not.toBeNull();
+
+  await page.getByRole('button', { name: 'Menu', exact: true }).tap();
+  await page.getByRole('menuitemcheckbox', { name: 'Show completed' }).tap();
+  await page.keyboard.press('Escape');
+  await section(page, 'completed').getByRole('button', { name: /^Completed/ }).tap();
+  const done = section(page, 'completed').getByRole('checkbox', { name: 'Complete Buy new watch band' });
+  await expect(done).toBeVisible();
+  const { c, k } = await done.evaluate((el) => {
+    const rect = (e: Element) => e.getBoundingClientRect();
+    return { c: rect(el), k: rect(el.querySelector('svg')!) };
+  });
+  expect(c.width).toBe(size);
+  expect(k.width / c.width).toBeGreaterThan(0.55);
+  expect(k.width / c.width).toBeLessThan(0.8);
+});

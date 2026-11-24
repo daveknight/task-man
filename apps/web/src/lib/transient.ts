@@ -1,3 +1,4 @@
+import type { Section, Task } from '@app/core';
 import { useSyncExternalStore } from 'react';
 
 /** Small external stores for list feedback that outlives a render: live title text, rows leaving, the row just dropped. */
@@ -61,6 +62,70 @@ export async function leaveThen(id: string, change: () => Promise<unknown> | voi
     next.delete(id);
     leaving.set(next);
   }
+}
+
+/** How long a checked-off (or unchecked) row stays in its old place, struck through or not, before it folds away. */
+export const MOVE_HOLD_MS = 500;
+
+export type MoveSource = Section | 'waiting_later';
+
+/**
+ * A task that just changed between open and completed. The data has already changed (the write is never
+ * held back); this is only how the list shows it. Its new state stays in the list it left (the "ghost")
+ * during `hold`, then folds away during `leave` while the row grows into its new list.
+ */
+export interface Move {
+  /** The task after the change, which is what the ghost shows. */
+  after: Task;
+  /** The list the task left, and its place in it. */
+  from: MoveSource;
+  index: number;
+  phase: 'hold' | 'leave';
+}
+
+const moves = store<ReadonlyMap<string, Move>>(new Map());
+const moveTimers = new Map<string, ReturnType<typeof setTimeout>[]>();
+
+function setMove(id: string, move: Move | null) {
+  const next = new Map(moves.get());
+  if (move) next.set(id, move);
+  else next.delete(id);
+  moves.set(next);
+}
+
+/** Drops a move at once (a rapid toggle, or a write that failed), leaving the list as the data says. */
+export function cancelMove(id: string) {
+  moveTimers.get(id)?.forEach(clearTimeout);
+  moveTimers.delete(id);
+  if (moves.get().has(id)) setMove(id, null);
+}
+
+/** Skipped with reduced motion and offline, where the list should just show the data. */
+export function canAnimateMoves(): boolean {
+  return navigator.onLine && !prefersReducedMotion();
+}
+
+export function startMove(move: Omit<Move, 'phase'>) {
+  const id = move.after.id;
+  cancelMove(id);
+  setMove(id, { ...move, phase: 'hold' });
+  moveTimers.set(id, [
+    setTimeout(() => setMove(id, { ...move, phase: 'leave' }), MOVE_HOLD_MS),
+    setTimeout(() => cancelMove(id), MOVE_HOLD_MS + LEAVE_MS + 50),
+  ]);
+}
+
+export function hasMove(id: string): boolean {
+  return moves.get().has(id);
+}
+
+export function useMoves(): ReadonlyMap<string, Move> {
+  return useSyncExternalStore(moves.subscribe, moves.get);
+}
+
+/** A very short buzz when a task is checked off. Browsers without the Vibration API (iOS Safari) skip it. */
+export function pulse() {
+  if (typeof navigator.vibrate === 'function') navigator.vibrate(10);
 }
 
 /** How long a dropped row stays highlighted before it fades. */
