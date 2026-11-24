@@ -253,8 +253,8 @@ flowchart LR
 
 | Limit | Impact | Mitigation |
 |---|---|---|
-| Paused after 1 week with no activity | Only if you stop using it for a week | Daily use counts as activity. A daily scheduled job in the private backup repo makes one tiny request as a keep-alive. It lives there because GitHub disables schedules in repos with no commits for 60 days, and the backup's nightly commit keeps that repo active |
-| No automatic backups | Data loss risk | The same nightly job runs `cli export` with a read-only database role (not the all-powerful service key) and commits the JSON. CI runs an export, then import, then compare round trip so restore is known to work. Attachments get backed up from Phase 4 |
+| Paused after 1 week with no activity | Only if you stop using it for a week | Daily use counts as activity. A daily scheduled GitHub Actions workflow in this repo (`.github/workflows/keep-alive.yml`) makes one tiny read-only request with the public anon key as a keep-alive. GitHub disables schedules in a repo with no commits for 60 days, so if development stops for two months, re-enable it from the Actions tab |
+| No automatic backups | Data loss risk | Deferred to Phase 6 (the last phase): until then, run `cli export` by hand against the hosted project's data if you want a copy, and Supabase's free plan keeps no backups of its own. The planned design is a nightly export with a read-only database role (not the all-powerful service key) committed to a private repo, with a CI export, import, compare round trip so restore is known to work. Attachments get backed up from Phase 4 |
 | 500 MB database | Years of text tasks fit easily | Nothing needed |
 | 1 GB file storage, 50 MB per file | Matters only for attachments | Downscale photos before upload, and show storage usage in Settings |
 
@@ -391,7 +391,8 @@ Each phase ends with something you can use day to day and give feedback on befor
 
 **Phase 1b: go live**
 - The real login screen (built from the same shadcn components and tokens), the hosted Supabase project, and deploying the web app.
-- The backup repo with the nightly export and keep-alive job, and the restore round-trip test.
+- A daily keep-alive workflow in this repo, so the free Supabase project never pauses.
+- Backups are not part of this phase: see Phase 6.
 - From here you use it daily on your phone and laptop.
 
 **Phase 2: richer tasks**
@@ -416,5 +417,9 @@ Each phase ends with something you can use day to day and give feedback on befor
 
 **Phase 5: reminders**
 - Off by default. Three kinds: N minutes/hours/days before the due date, a time on the due date, or a specific date and time. All scheduled as local notifications on each native device.
+
+**Phase 6: backups**
+- A private backup repo with a nightly export of the database (and attachments, once Phase 4 exists), using a read-only database role rather than the service key, plus the restore round-trip test in CI (seed, export, wipe, restore, export, compare).
+- The work is already written and tested on the branch `cursor/backup-later-5a30` (read-only `backup_reader` role migration, export and restore commands, the round-trip test, and the backup repo template). Revive it by rebasing that branch onto `main`; it needs a fresh migration timestamp and a refresh for any tables added since.
 
 **Later ideas:** see [BACKLOG.md](BACKLOG.md).
