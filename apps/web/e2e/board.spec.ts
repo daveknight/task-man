@@ -119,7 +119,8 @@ test('the date pickers name what clearing does: No start date and No due date', 
   await expect(page.locator('[data-preset=clear]')).toHaveText('No due date');
   await page.keyboard.press('Escape');
 
-  await row(page, 'Pay the gardener').click();
+  // Pay the gardener repeats, so its sheet hides "No due date".
+  await row(page, 'Renew passport').click();
   const editor = page.locator('[data-slot=task-editor]');
   await editor.getByRole('button', { name: /^Due/ }).click();
   await expect(page.getByRole('button', { name: 'No due date' })).toBeVisible();
@@ -290,7 +291,9 @@ test('row quick actions show on hover, just left of the dates and flag, in every
   await plumber.hover();
   const r = (await plumber.boundingBox())!;
   const b = (await plumber.getByRole('button', { name: 'Move to In Progress' }).boundingBox())!;
-  expect(r.x + r.width - (b.x + b.width)).toBeLessThan(20);
+  // With no dates or flag the buttons end where the row does, or where its tag chips begin.
+  const chips = await plumber.locator('[data-slot=trailing-meta]').boundingBox();
+  expect((chips?.x ?? r.x + r.width) - (b.x + b.width)).toBeLessThan(20);
 });
 
 test('keyboard focus shows a row\'s quick actions and Tab reaches them', async ({ page }) => {

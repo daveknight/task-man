@@ -6,20 +6,26 @@ import { exportAll, importAll, type Backup, type BackupV1 } from './backup.ts';
 import { loadBoard, reset, seed } from './commands.ts';
 import { DEFAULT_SEED_FILE } from './config.ts';
 import { adminClient, devUserId } from './db.ts';
-import { formatBoard, formatTask } from './format.ts';
+import { formatBoard, formatHistory, formatRepeat, formatSubtasks, formatTask } from './format.ts';
+import { hasRepeatFlags, type RepeatFlags } from './repeat-flags.ts';
 import {
   addTask,
   DecisionNeeded,
+  deleteTag,
   deleteTask,
   doneTask,
   editTask,
+  historyTask,
+  listTags,
   moveTask,
   purge,
+  renameTag,
   restoreTask,
   runAction,
   search,
   setStatus,
   showTask,
+  skipTask,
   undoneTask,
   type Changed,
   type Context,
@@ -38,9 +44,18 @@ Board and data:
 
 Tasks (<task> is an id, an id prefix of 4+ characters, or a title prefix):
   add "Title" [--desc text] [--start <date>] [--hide-until <date>] [--due <date>] [--status open|in_progress|waiting] [--flag]
-  show <task>                               fields, placement and the actions the app offers
+              [--subtask "text" ...] [--tags a,b]
+              [--repeat daily|weekly|monthly|yearly|weekdays|none] [--repeat-mode schedule|after_completion|dates]
+              [--interval N] [--by-weekday mon,wed] [--monthly 31|last|2nd tue] [--dates d,d] [--start-offset N|none]
+              [--ends never|<date>|count:N]
+  show <task>                               fields, subtasks, placement and the actions the app offers
   edit <task> [--title t] [--desc text] [--start <date>|none] [--hide-until <date>|none] [--due <date>|none]
-              [--flag|--no-flag]
+              [--flag|--no-flag] [--tags a,b]
+              [--repeat ...] [--repeat-mode ...] [--interval N] [--by-weekday mon,wed] [--monthly ...]
+              [--dates d,d] [--start-offset N|none] [--ends ...]
+              [--add-subtask "text" ...] [--done-subtask <subtask> ...] [--undone-subtask <subtask> ...]
+              [--rename-subtask <subtask>=<new title> ...] [--move-subtask <subtask>=<position> ...]
+              [--remove-subtask <subtask> ...]
   status <task> open|in_progress|waiting [--hide-until <date>|none]
   act <task> <action> [--date <date>] [--hide-until <date>|none]
                                             a row action, as in the app: due.tomorrow, moveToWaiting --hide-until +3d,
@@ -50,11 +65,34 @@ Tasks (<task> is an id, an id prefix of 4+ characters, or a title prefix):
                                             drag-and-drop: reorder, or move into another section
   move <task> --upcoming --start <date> [--clear-due]
                                             drop into Upcoming: Open, starting on that date
-  done <task> [--on <date>]    undone <task>
+  done <task> [--on <date>]    undone <task>    skip <task> [--on <date>]
+  history <task>                            completions and skips, oldest first
   delete <task> [--forever]    restore <task>
   purge-trash                               permanently remove Trash older than 30 days
-  search "query" [--completed] [--flagged]  title and description; never Trash
-                                            --completed: include completed, --flagged: only flagged
+  search "query" [--completed] [--flagged] [--tag <tag> ...]
+                                            title, description and tag names; never Trash
+                                            --completed: include completed, --flagged: only flagged,
+                                            --tag (repeat it): only tasks that have every one of these tags
+  tags                                      every tag with how many tasks still to do have it
+  tags rename <tag> <new name>              rename a tag on every task at once
+  tags delete <tag>                         delete a tag and remove it from every task (the tasks stay)
+
+--tags a,b gives a task exactly these tags (--tags "" clears them) and creates any that don't exist. Tag names are
+unique ignoring case, at most 30 characters, with no commas. A <tag> is its name (any case) or an id prefix of 4+ characters.
+'show', 'board --json' and every change report include the task's tags, in the order they were added.
+
+A <subtask> is its position as 'show' lists it (1 is the top), an id prefix of 4+ characters, or a title prefix.
+Within one edit they are resolved against the list as it was before: renames and ticks first, then removals,
+then new subtasks at the bottom, and moves last (so --move-subtask x=1 puts x at the top of the final list).
+'show', 'board --json' and every change report include the task's subtasks and subtaskCount ({ done, total }).
+
+A repeat is one rule on the task. --repeat sets daily, weekly, monthly, yearly or weekdays (Mon–Fri); --repeat-mode
+picks schedule (by due date, the default), after_completion or dates. dates mode takes --dates. --monthly is 31,
+last, or an nth weekday such as "2nd tue". --ends is never, a date (that day is included) or count:N (completions
+and skips). --start-offset N shows the task N days before each due date (0 means the due date; leaving it off
+means no start date). A repeat with no due date uses today, or the first listed date. done --on and skip --on
+record that calendar day. history lists the task's occurrences. undone restores the latest one until the task
+is edited. --repeat none clears the rule.
 
 Only Ready and Upcoming tasks have a start date, and only Waiting tasks have a hide-until date.
 --start on a Waiting or In Progress task fails; --hide-until on any other task fails. Status
@@ -71,8 +109,6 @@ Options (every command):
 
 Dates: YYYY-MM-DD, today, or relative to today: +3d, -2d, +2w, +1m, +1y.
 `;
-
-const PHASE_2_FLAGS = ['tags', 'repeat', 'repeat-mode', 'start-offset', 'subtask'] as const;
 
 function today(value: string | undefined): ISODate {
   const real = localDate();
@@ -109,10 +145,22 @@ async function main(argv: string[]): Promise<void> {
       'clear-due': { type: 'boolean', default: false },
       forever: { type: 'boolean', default: false },
       tags: { type: 'string' },
+      tag: { type: 'string', multiple: true },
       repeat: { type: 'string' },
       'repeat-mode': { type: 'string' },
       'start-offset': { type: 'string' },
+      interval: { type: 'string' },
+      'by-weekday': { type: 'string' },
+      monthly: { type: 'string' },
+      dates: { type: 'string' },
+      ends: { type: 'string' },
       subtask: { type: 'string', multiple: true },
+      'add-subtask': { type: 'string', multiple: true },
+      'done-subtask': { type: 'string', multiple: true },
+      'undone-subtask': { type: 'string', multiple: true },
+      'remove-subtask': { type: 'string', multiple: true },
+      'rename-subtask': { type: 'string', multiple: true },
+      'move-subtask': { type: 'string', multiple: true },
     },
   });
   const [command, ...args] = positionals;
@@ -120,10 +168,6 @@ async function main(argv: string[]): Promise<void> {
     process.stdout.write(USAGE);
     return;
   }
-  for (const flag of PHASE_2_FLAGS) {
-    if (values[flag] !== undefined) throw new Error(`--${flag} arrives with Phase 2`);
-  }
-
   const json = values.json;
   const print = (data: unknown, text: string): void => {
     process.stdout.write(json ? `${JSON.stringify(data, null, 2)}\n` : `${text}\n`);
@@ -138,6 +182,20 @@ async function main(argv: string[]): Promise<void> {
   };
   const printChanged = (result: Changed, verb: string) => print(result, `${verb} ${formatTask(result, day)}${result.note ? `\n${result.note}` : ''}`);
   const flag = values.flag ? true : values['no-flag'] ? false : undefined;
+  const repeatFlags = (): RepeatFlags => ({
+    repeat: values.repeat,
+    mode: values['repeat-mode'],
+    interval: values.interval,
+    byWeekday: values['by-weekday'],
+    monthly: values.monthly,
+    dates: values.dates,
+    startOffset: values['start-offset'],
+    ends: values.ends,
+  });
+  const repeat = () => {
+    const flags = repeatFlags();
+    return hasRepeatFlags(flags) ? flags : undefined;
+  };
 
   switch (command) {
     case 'seed': {
@@ -149,7 +207,7 @@ async function main(argv: string[]): Promise<void> {
         .join(', ');
       print(
         result,
-        `${result.reset ? `Reset (${result.reset.tasks} tasks removed). ` : ''}Seeded ${result.tasks} tasks for ${day}` +
+        `${result.reset ? `Reset (${result.reset.tasks} tasks removed). ` : ''}Seeded ${result.tasks} tasks, ${result.subtasks} subtasks and ${result.tags} tags for ${day}` +
           (skipped ? `; skipped until their phase: ${skipped}.` : '.'),
       );
       return;
@@ -166,7 +224,7 @@ async function main(argv: string[]): Promise<void> {
     }
     case 'add':
       return printChanged(
-        await addTask(ctx, arg(0, 'a title'), { description: values.desc, start: values.start, hideUntil: values['hide-until'], due: values.due, status: values.status, flag: values.flag }),
+        await addTask(ctx, arg(0, 'a title'), { description: values.desc, start: values.start, hideUntil: values['hide-until'], due: values.due, status: values.status, flag: values.flag, subtasks: values.subtask, tags: values.tags, repeat: repeat() }),
         'Added',
       );
     case 'show': {
@@ -178,7 +236,9 @@ async function main(argv: string[]): Promise<void> {
           formatTask(result, day),
           `  id ${t.id}`,
           `  status ${t.status}${t.flagged ? ' · flagged' : ''}${result.sortKey ? ` · sort key ${result.sortKey}` : ''}`,
+          ...(t.repeat ? [`  repeat ${formatRepeat(t.repeat, t.dueDate)}`] : []),
           ...(t.description ? ['', ...t.description.split('\n').map((l) => `  ${l}`), ''] : []),
+          ...formatSubtasks(t.subtasks),
           `  actions: ${result.actions.join(' | ')}`,
         ].join('\n'),
       );
@@ -186,7 +246,19 @@ async function main(argv: string[]): Promise<void> {
     }
     case 'edit':
       return printChanged(
-        await editTask(ctx, arg(0, 'a task'), { title: values.title, description: values.desc, start: values.start, hideUntil: values['hide-until'], due: values.due, flag }),
+        await editTask(ctx, arg(0, 'a task'), { title: values.title, description: values.desc, start: values.start, hideUntil: values['hide-until'], due: values.due,
+          flag,
+          tags: values.tags,
+          repeat: repeat(),
+          subtasks: {
+            add: values['add-subtask'],
+            done: values['done-subtask'],
+            undone: values['undone-subtask'],
+            remove: values['remove-subtask'],
+            rename: values['rename-subtask'],
+            move: values['move-subtask'],
+          },
+        }),
         'Edited',
       );
     case 'status':
@@ -205,6 +277,13 @@ async function main(argv: string[]): Promise<void> {
           }), 'Moved');
     case 'done':
       return printChanged(await doneTask(ctx, arg(0, 'a task'), values.on), 'Completed');
+    case 'skip':
+      return printChanged(await skipTask(ctx, arg(0, 'a task'), values.on), 'Skipped');
+    case 'history': {
+      const rows = await historyTask(ctx, arg(0, 'a task'));
+      print(rows, formatHistory(rows));
+      return;
+    }
     case 'undone':
       return printChanged(await undoneTask(ctx, arg(0, 'a task')), 'Not done:');
     case 'delete':
@@ -216,8 +295,28 @@ async function main(argv: string[]): Promise<void> {
       print({ today: day, purged: ids }, `Purged ${ids.length} task${ids.length === 1 ? '' : 's'} deleted before ${resolveDate('-30d', day)}.`);
       return;
     }
+    case 'tags': {
+      const [action, ...rest] = args;
+      if (action === 'rename') {
+        const name = rest.slice(1).join(' ');
+        if (rest[0] === undefined || name === '') throw new Error('tags rename needs <tag> and <new name>. Run with --help.');
+        const result = await renameTag(ctx, rest[0], name);
+        print(result, result.tag.name === result.from ? `Tag “${result.from}” is already named that.` : `Renamed tag “${result.from}” to “${result.tag.name}”.`);
+        return;
+      }
+      if (action === 'delete') {
+        if (rest[0] === undefined) throw new Error('tags delete needs <tag>. Run with --help.');
+        const result = await deleteTag(ctx, rest[0]);
+        print(result, `Deleted tag “${result.tag.name}” (removed from ${result.tasks} task${result.tasks === 1 ? '' : 's'}).`);
+        return;
+      }
+      if (action !== undefined) throw new Error(`Unknown tags command "${action}" (rename, delete). Run with --help.`);
+      const listing = await listTags(ctx);
+      print(listing, listing.length ? listing.map((t) => `${String(t.count).padStart(3)}  ${t.name}`).join('\n') : 'No tags.');
+      return;
+    }
     case 'search': {
-      const results = await search(ctx, args[0] ?? '', { completed: values.completed, flagged: values.flagged });
+      const results = await search(ctx, args[0] ?? '', { completed: values.completed, flagged: values.flagged, tags: values.tag });
       print(results, results.length ? results.map((r) => formatTask(r, day)).join('\n') : 'No matches.');
       return;
     }
@@ -228,7 +327,7 @@ async function main(argv: string[]): Promise<void> {
     case 'import': {
       const file = resolve(process.env.INIT_CWD ?? process.cwd(), arg(0, 'a backup file'));
       const result = await importAll(ctx.scope, JSON.parse(readFileSync(file, 'utf8')) as Backup | BackupV1, values.reset);
-      print(result, `Imported ${result.tasks} tasks and ${result.positions} positions.`);
+      print(result, `Imported ${result.tasks} tasks, ${result.positions} positions, ${result.subtasks} subtasks and ${result.tags} tags.`);
       return;
     }
     default:

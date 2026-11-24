@@ -19,6 +19,8 @@
     { "name": "open: a start date is valid", "task": { "title": "x", "status": "open", "startDate": "2026-11-19", "dueDate": "2026-11-30" }, "expect": [] },
     { "name": "waiting: impossible hide-until date", "task": { "title": "x", "status": "waiting", "hideUntil": "2026-02-30" }, "expect": ["hideUntil"] },
     { "name": "completedAt without completedOn", "task": { "title": "x", "completedAt": "2026-11-17T12:00:00Z" }, "expect": ["completedOn"] },
-    { "name": "deletedOn without deletedAt", "task": { "title": "x", "deletedOn": "2026-11-17" }, "expect": ["deletedOn"] }
+    { "name": "deletedOn without deletedAt", "task": { "title": "x", "deletedOn": "2026-11-17" }, "expect": ["deletedOn"] },
+    { "name": "repeat needs a due date", "task": { "title": "x", "repeat": { "mode": "schedule", "freq": "daily", "interval": 1 } }, "expect": ["dueDate"] },
+    { "name": "repeat rejects a field the mode does not use", "task": { "title": "x", "dueDate": "2026-11-18", "repeat": { "mode": "after_completion", "freq": "daily", "interval": 1, "byWeekday": ["mon"] } }, "expect": ["repeat.byWeekday"] }
   ]
 }

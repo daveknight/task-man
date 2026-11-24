@@ -91,7 +91,7 @@ One shared function in `core`, `actionsFor(task, today)`, picks the actions from
 - **Start date, hide until, due date:** optional, blank by default. The start date is only for Open tasks and hide until only for Waiting tasks, so the sheet shows Start and Due for Open, Hide until and Due for Waiting, and Due only for In Progress.
 - **Flag:** a single on/off toggle for priority or "keep an eye on this," off by default. It's the flag button in the task sheet's header (as in TickTick) and a swipe action. A flagged row shows an orange flag. Flagging doesn't move a task; order stays manual. Search can filter to flagged tasks, and a future saved view could show only flagged ones. Completing a recurring occurrence keeps the flag.
 - **Status:** open, in progress or waiting, plus completed and deleted timestamps.
-- **Tags** (phase 2): many-to-many, used by search and future filtered views.
+- **Tags** (phase 2): many-to-many, used by search and future filtered views. A tag is just a name: unique per user ignoring case, up to 30 characters, no comma, and no color (the `color` column is unused). Names show as neutral grey chips; a task keeps its tags in the order they were added. Tags can be created from the picker, renamed and deleted (which removes them from every task but leaves the tasks). Search filters by tags with AND: a task must have every selected tag. Desktop rows show up to two chips then "+N"; phone rows show none, and the sheet and picker list them all.
 - **Subtasks** (phase 2): title and done flag, ordered, and they exist only inside their parent task.
 - **Repeat rule** (phase 2), **attachments** (phase 3), **reminders** (phase 5).
 
@@ -303,7 +303,7 @@ One table in `packages/tokens` maps each meaning to its icon on each platform, s
 | Move to In Progress (from Waiting) | `PlayCircle` | `play.circle` |
 | Flag | `Flag` (Fill when on) | `flag` / `flag.fill` |
 | Drag handle (reorder) | `DotsSixVertical` | `line.3.horizontal` |
-| Repeats | `Repeat` | `repeat` |
+| Repeats | `ArrowClockwise` | `arrow.clockwise` |
 | Trash | `Trash` | `trash` |
 | Capture | `Sparkle` | `sparkles` |
 
@@ -332,7 +332,7 @@ tasks(id uuid pk, user_id, title text, description text,
       created_at, updated_at, search tsvector generated)
 task_positions(user_id, view_id text, task_id, sort_key text, pk(view_id, task_id))
 subtasks(id, user_id, task_id, title, done bool, sort_key text, updated_at)
-tags(id, user_id, name unique per user, color)
+tags(id, user_id, name unique per user ignoring case, color unused)
 task_tags(user_id, task_id, tag_id)
 task_completions(id, user_id, task_id, occurrence_due date, kind: done|skip, completed_on date, completed_at, snapshot jsonb,
                  unique(task_id, occurrence_due))
@@ -353,11 +353,14 @@ board [--today 2026-12-01] [--json]            the main view, grouped and ordere
 add "Title" [--desc ...] [--start +3d] [--due 2026-12-01] [--status waiting --hide-until +3d]
             [--tags a,b] [--flag] [--repeat "weekly" --repeat-mode after_completion --start-offset 2]
             [--subtask "x" ...]
+            (edit: --add-subtask, --done-subtask, --undone-subtask, --rename-subtask ref=title, --remove-subtask, --move-subtask ref=position)
 show <id|title-prefix>      edit <id> [same flags, --start <date>|none, --hide-until <date>|none]      status <id> open|in_progress|waiting [--hide-until <date>|none]
 move <id> --before <id> | --after <id> | --top
 move <id> --upcoming --start <date> [--clear-due]
-done <id> [--on 2026-11-20]  undone <id>      delete <id>  restore <id>
-purge-trash [--today ...]    search "query" [--completed] [--flagged]
+done <id> [--on 2026-11-20]  skip <id> [--on <date>]  undone <id>  history <id>
+delete <id>  restore <id>
+purge-trash [--today ...]    search "query" [--completed] [--flagged] [--tag name ...]
+tags    tags rename <tag> <new name>    tags delete <tag>
 export > backup.json         import backup.json
 ```
 
@@ -365,7 +368,7 @@ export > backup.json         import backup.json
 - `--today` overrides "today" everywhere, so an agent can check Upcoming-to-Ready changes, recurrence and trash purges without waiting days. The web app has a matching dev-only `?today=YYYY-MM-DD` URL parameter.
 - `board --json` is what Playwright end-to-end tests compare the UI against. Because the CLI and the web app share `core`, a bug in the rules would fool both, so the **independent checks** are the hand-written `expect` values in the seed file and the shared test vectors. The vectors cover sections, `actionsFor`, every row of the transition table, complete, skip and undo, and repeat math across month ends, weekends and time zones.
 - CI seeds with a pinned `--today` (a fixed Wednesday) so results never depend on the day CI runs, plus a second run pinned to a Saturday. Playwright also fakes the browser clock, since timestamps still use real time.
-- The seeder writes board positions in file order, and skips fields whose feature isn't built yet (tags, subtasks and repeats before Phase 2).
+- The seeder writes board positions in file order. Subtasks, tags (in the order listed) and repeat rules are loaded. A repeat's weekday shift and start offset are applied to the seeded dates, and the rule itself is stored. Completion history is not seeded.
 - Seed data lives in `seed/tasks.json`: 51 tasks covering every section, both Waiting sub-states, overdue and due-today dates, start dates of today and in the past (boundary cases), long titles, emoji and accents, nested bullets, a description-only search word ("zucchini"), all three repeat modes with and without start offsets, subtasks inside recurring tasks, flagged tasks, and trash items at 29, 30 and 31 days (only 31 is removed by `purge-trash`).
 
 ## Phases
@@ -403,6 +406,9 @@ Each phase ends with something you can use day to day and give feedback on befor
 **Phase 2b: free-form capture**
 - The Capture box, the `parse-capture` Edge Function with Gemini first and Claude and ChatGPT behind the same interface, the review sheet, the plain-lines fallback, `capture_log`, the CLI `capture` commands and the example set. It comes after Phase 2 so the model can fill in tags, subtasks and repeats.
 - The Capture box and review sheet (cards with field chips) are designed in the Figma web kit first.
+
+**Phase 2c: completed log**
+- A "what I finished" view across all tasks, grouped by day and week, including each recurring task's completion history (built on the completions recorded since Phase 2). It is a read-only view, so it needs no new task rules, and it is designed in the Figma web kit first. It comes before the native apps so Phase 4 can build it once, on the final data.
 
 **Phase 3: attachments**
 - Photos and files on the web app through Supabase Storage, image downscaling, and thumbnails in the task sheet. Built before the native apps so they only have to add the Apple side (see Phase 4).

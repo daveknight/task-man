@@ -41,7 +41,8 @@ test.describe('completing', () => {
     await expect(held.locator('[data-slot=task-title]')).toHaveCSS('text-decoration-line', 'line-through');
     await expect(held).not.toHaveAttribute('data-leaving', /.*/);
 
-    await expect(held).toHaveAttribute('data-leaving', 'true');
+    // The fold lasts about 200ms, which the default polling can step over on a busy machine.
+    await page.waitForFunction((title) => [...document.querySelectorAll('[data-ghost]')].some((g) => g.textContent?.includes(title) && g.getAttribute('data-leaving') === 'true'), TITLE, { polling: 'raf' });
     const folding = Date.now();
     await expect(held).toHaveCount(0);
     await expect(section(page, 'ready').getByText(TITLE)).toHaveCount(0);

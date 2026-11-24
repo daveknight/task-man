@@ -1,4 +1,4 @@
-import { APP_NAME, weekdayOf, type Board, type ISODate, type Section, type Task } from '@app/core';
+import { APP_NAME, repeatLabel, sortSubtasks, subtaskCount, weekdayOf, type Board, type ISODate, type RepeatRule, type Section, type Subtask, type Task } from '@app/core';
 import type { BoardTask } from './commands.ts';
 
 const SECTION_TITLES: Record<Section, string> = {
@@ -21,6 +21,8 @@ export function shortDate(date: ISODate, today: ISODate): string {
 
 function details(task: BoardTask, today: ISODate): string {
   const parts: string[] = [];
+  if (task.subtaskCount.total > 0) parts.push(`subtasks ${task.subtaskCount.done}/${task.subtaskCount.total}`);
+  if (task.tags?.length) parts.push(`tags ${task.tags.map((t) => t.name).join(', ')}`);
   if (task.hideUntil && task.placement.startsWith('waiting')) parts.push(`hide until ${shortDate(task.hideUntil, today)}`);
   if (task.startDate && task.placement === 'upcoming') parts.push(`starts ${shortDate(task.startDate, today)}`);
   if (task.dueDate) parts.push(`due ${shortDate(task.dueDate, today)}${task.overdue ? ' (overdue)' : task.dueDate === today ? ' (today)' : ''}`);
@@ -52,6 +54,7 @@ export function formatTask({ task, placement }: { task: Task; placement: string 
       sortKey: null,
       hasDescription: (task.description ?? '').trim() !== '',
       overdue: !!task.dueDate && task.dueDate < today && !task.completedAt,
+      subtaskCount: subtaskCount(task.subtasks),
     },
     today,
   );
@@ -72,4 +75,22 @@ export function formatBoard(board: Board<BoardTask>): string {
     out.push('');
   }
   return out.join('\n');
+}
+
+/** The same phrase the repeat field shows, for `show`. Pass the due date so "Weekly on Thu" can read it. */
+export function formatRepeat(rule: RepeatRule, due?: ISODate | null): string {
+  return repeatLabel(rule, due);
+}
+
+export function formatHistory(rows: readonly { completedOn: string; kind: string; occurrenceDue: string }[]): string {
+  if (rows.length === 0) return 'No history.';
+  return rows.map((row) => `${row.completedOn}  ${row.kind}  due ${row.occurrenceDue}`).join('\n');
+}
+
+/** The subtasks, numbered the way `--done-subtask 2` and the other subtask flags count them. */
+export function formatSubtasks(subtasks: readonly Subtask[] | undefined): string[] {
+  const list = sortSubtasks(subtasks);
+  if (list.length === 0) return [];
+  const { done, total } = subtaskCount(list);
+  return [`  subtasks ${done} of ${total}`, ...list.map((s, i) => `    ${i + 1}. [${s.done ? 'x' : ' '}] ${s.title}`)];
 }

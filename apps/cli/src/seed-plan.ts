@@ -1,22 +1,31 @@
 import {
   addDays,
+  checkTagName,
+  findTagByName,
   nextWeekdayOnOrAfter,
   resolveDate,
   sortKeysAfter,
+  validateRepeat,
   validateTask,
   type ISODate,
   type Placement,
+  type RepeatEnds,
+  type RepeatFreq,
+  type RepeatRule,
   type Status,
   type Weekday,
 } from '@app/core';
-import type { TaskRow } from '@app/data';
+import type { SubtaskRow, TagRow, TaskRow, TaskTagRow } from '@app/data';
 
 export interface SeedRepeat {
-  mode: 'schedule' | 'after_completion' | 'dates';
+  mode: RepeatRule['mode'];
   freq?: string;
   interval?: number;
   byWeekday?: Weekday[];
+  monthly?: RepeatRule['monthly'];
+  /** Absolute or relative dates. Resolved against today before they're stored. */
   dates?: string[];
+  ends?: { never: true } | { onDate: string } | { afterCount: number };
   startOffsetDays?: number;
 }
 
@@ -44,13 +53,36 @@ export interface SeedFile {
 }
 
 export type NewTaskRow = Omit<TaskRow, 'updated_at'>;
+export type NewSubtaskRow = Omit<SubtaskRow, 'created_at' | 'updated_at'>;
+export type NewTagRow = Omit<TagRow, 'created_at' | 'updated_at'>;
+export type NewTaskTagRow = Required<TaskTagRow>;
 
 export interface SeedPlan {
   today: ISODate;
   tasks: NewTaskRow[];
+  subtasks: NewSubtaskRow[];
+  tags: NewTagRow[];
+  taskTags: NewTaskTagRow[];
   positions: { task_id: string; sort_key: string }[];
-  /** Fields left out because their feature isn't built yet; counts of seed tasks that had them. */
-  skipped: { tags: number; subtasks: number; repeat: number };
+  /** Fields left out because their feature isn't built yet. Empty once everything in the file is stored. */
+  skipped: Record<string, number>;
+}
+
+/** The seed's repeat, with relative dates resolved, checked by the same rules as a write. */
+function repeatFromSeed(seed: SeedRepeat, today: ISODate): RepeatRule {
+  const rule: RepeatRule = { mode: seed.mode };
+  if (seed.freq) rule.freq = seed.freq as RepeatFreq;
+  if (seed.interval != null) rule.interval = seed.interval;
+  if (seed.byWeekday?.length) rule.byWeekday = [...seed.byWeekday];
+  if (seed.monthly) rule.monthly = seed.monthly;
+  if (seed.dates?.length) rule.dates = seed.dates.map((date) => resolveDate(date, today));
+  if (seed.ends) {
+    rule.ends = 'onDate' in seed.ends ? { onDate: resolveDate(seed.ends.onDate, today) } : (seed.ends as RepeatEnds);
+  }
+  if (seed.startOffsetDays != null) rule.startOffsetDays = seed.startOffsetDays;
+  const issues = validateRepeat(rule);
+  if (issues.length > 0) throw new Error(issues.map((i) => `${i.field}: ${i.message}`).join('; '));
+  return rule;
 }
 
 /** Noon UTC on the given day, which is the same calendar day in nearly every time zone. */
@@ -67,14 +99,27 @@ export interface PlanOptions {
 
 /**
  * Turns a seed file into rows, with dates resolved against `today`.
- * Repeats aren't stored until Phase 2, but their date effects are applied:
- * the due date moves to the next byWeekday day, and startOffsetDays sets the start date.
+ * Subtasks are stored in file order, and so are a task's tags (each link is a millisecond after the last, which is how chips keep their order).
+ * Repeats are stored too. Their date effects are applied first: the due date moves to the next byWeekday day, and startOffsetDays sets the start date.
  */
 export function planSeed(file: SeedFile, today: ISODate, options: PlanOptions): SeedPlan {
   const now = options.now ?? new Date();
   const newId = options.newId ?? (() => crypto.randomUUID());
-  const skipped = { tags: 0, subtasks: 0, repeat: 0 };
+  const skipped: Record<string, number> = {};
   const tasks: NewTaskRow[] = [];
+  const subtasks: NewSubtaskRow[] = [];
+  const tags: NewTagRow[] = [];
+  const taskTags: NewTaskTagRow[] = [];
+  const tagFor = (name: string): NewTagRow => {
+    const existing = findTagByName(tags, name);
+    if (existing) return existing;
+    const checked = checkTagName(name, tags);
+    if (!checked.ok) throw new Error(`Seed tag "${name}": ${checked.message}`);
+    const row = { id: newId(), user_id: options.userId, name: checked.name };
+    tags.push(row);
+    return row;
+  };
+  for (const name of file.tags ?? []) tagFor(name);
   const positioned: string[] = [];
 
   file.tasks.forEach((seed, index) => {
@@ -87,6 +132,15 @@ export function planSeed(file: SeedFile, today: ISODate, options: PlanOptions): 
     const completedOn = seed.completed ? resolveDate(seed.completed, today) : null;
     const deletedOn = seed.deleted ? resolveDate(seed.deleted, today) : null;
 
+    let repeat: RepeatRule | null = null;
+    if (seed.repeat) {
+      try {
+        repeat = repeatFromSeed(seed.repeat, today);
+      } catch (error) {
+        throw new Error(`Seed task "${seed.title}": ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+
     const row: NewTaskRow = {
       id: newId(),
       user_id: options.userId,
@@ -97,7 +151,7 @@ export function planSeed(file: SeedFile, today: ISODate, options: PlanOptions): 
       start_date: start,
       hide_until: hideUntil,
       due_date: due,
-      repeat: null,
+      repeat,
       completed_at: completedOn ? middayOf(completedOn) : null,
       completed_on: completedOn,
       deleted_at: deletedOn ? middayOf(deletedOn) : null,
@@ -115,15 +169,21 @@ export function planSeed(file: SeedFile, today: ISODate, options: PlanOptions): 
       completedOn: row.completed_on,
       deletedAt: row.deleted_at,
       deletedOn: row.deleted_on,
+      repeat,
     });
     if (issues.length > 0) {
       throw new Error(`Seed task "${seed.title}": ${issues.map((i) => `${i.field}: ${i.message}`).join('; ')}`);
     }
 
-    if (seed.tags?.length) skipped.tags++;
-    if (seed.subtasks?.length) skipped.subtasks++;
-    if (seed.repeat) skipped.repeat++;
-
+    (seed.tags ?? []).forEach((name, i) => {
+      const tag = tagFor(name);
+      if (taskTags.some((l) => l.task_id === row.id && l.tag_id === tag.id)) return;
+      taskTags.push({ user_id: options.userId, task_id: row.id, tag_id: tag.id, created_at: new Date(now.getTime() + i).toISOString() });
+    });
+    const keys = sortKeysAfter(seed.subtasks?.length ?? 0);
+    (seed.subtasks ?? []).forEach((subtask, i) => {
+      subtasks.push({ id: newId(), user_id: options.userId, task_id: row.id, title: subtask.title, done: subtask.done, sort_key: keys[i]! });
+    });
     tasks.push(row);
     // A future start date means no stored position: Upcoming sorts by start date,
     // and the task lands at the bottom of Ready when its day comes.
@@ -132,5 +192,5 @@ export function planSeed(file: SeedFile, today: ISODate, options: PlanOptions): 
 
   const keys = sortKeysAfter(positioned.length);
   const positions = positioned.map((task_id, i) => ({ task_id, sort_key: keys[i]! }));
-  return { today, tasks, positions, skipped };
+  return { today, tasks, subtasks, tags, taskTags, positions, skipped };
 }

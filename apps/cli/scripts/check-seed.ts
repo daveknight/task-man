@@ -49,6 +49,30 @@ for (const today of days) {
     if (got !== task.expect) fail(`"${task.title}": expected ${task.expect}, got ${got}`);
   }
 
+  // Every seeded subtask is there, in file order, with its done flag.
+  const byTitle = new Map([...board.sections.flatMap((s) => [...s.tasks, ...(s.later ?? [])])].map((t) => [t.title, t]));
+  for (const task of file.tasks) {
+    const wanted = (task.subtasks ?? []).map((s) => `${s.done ? 'x' : ' '} ${s.title}`);
+    const got = (byTitle.get(task.title)?.subtasks ?? []).map((s) => `${s.done ? 'x' : ' '} ${s.title}`);
+    if (JSON.stringify(got) !== JSON.stringify(wanted)) fail(`"${task.title}": expected subtasks ${JSON.stringify(wanted)}, got ${JSON.stringify(got)}`);
+    const count = byTitle.get(task.title)?.subtaskCount;
+    if (count?.total !== wanted.length || count.done !== wanted.filter((w) => w.startsWith('x')).length) fail(`"${task.title}": wrong subtaskCount ${JSON.stringify(count)}`);
+  }
+
+  // Every seeded tag is on its task, in file order.
+  for (const task of file.tasks) {
+    const wanted = task.tags ?? [];
+    const got = (byTitle.get(task.title)?.tags ?? []).map((t) => t.name);
+    if (JSON.stringify(got) !== JSON.stringify(wanted)) fail(`"${task.title}": expected tags ${JSON.stringify(wanted)}, got ${JSON.stringify(got)}`);
+  }
+  const listed = cli('tags') as { name: string; count: number }[];
+  const catalog = [...new Set([...(file.tags ?? []), ...file.tasks.flatMap((t) => t.tags ?? [])])].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+  if (JSON.stringify(listed.map((t) => t.name)) !== JSON.stringify(catalog)) fail(`expected tags ${JSON.stringify(catalog)}, got ${JSON.stringify(listed.map((t) => t.name))}`);
+  for (const { name, count } of listed) {
+    const expected = file.tasks.filter((t) => !t.completed && !t.deleted && t.tags?.includes(name)).length;
+    if (count !== expected) fail(`tag "${name}": expected ${expected} tasks to do, got ${count}`);
+  }
+
   // Ready keeps the seed file's order.
   const ready = board.sections.find((s) => s.id === 'ready')!.tasks.map((t) => t.title);
   const expectedReady = file.tasks.filter((t) => t.expect === 'ready').map((t) => t.title);

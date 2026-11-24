@@ -1,6 +1,6 @@
-import type { ISODate } from './types.ts';
+import type { ISODate, Weekday } from './types.ts';
 
-export type Weekday = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
+export type { Weekday };
 
 /** Index 0 is Sunday, matching Date#getUTCDay. */
 const WEEKDAYS_FROM_SUNDAY: readonly Weekday[] = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
