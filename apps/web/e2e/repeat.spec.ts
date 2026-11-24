@@ -31,7 +31,8 @@ for (const item of MODES) {
     await expect(row(page, item.title)).toBeVisible();
 
     await row(page, item.title).hover();
-    await row(page, item.title).getByRole('button', { name: 'Due', exact: true }).click();
+    // A set due date is the button named "Due {date}", not a separate "Due" icon.
+    await row(page, item.title).getByRole('button', { name: /^Due / }).click();
     await page.locator('[data-preset=skip]').click();
     await expect.poll(() => task().dueDate).toBe(item.nextDue);
     expect(task().completedAt).toBeNull();

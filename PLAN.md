@@ -66,7 +66,7 @@ Not on the board by default: completed tasks (a "Show completed" toggle in the m
 
 One shared function in `core`, `actionsFor(task, today)`, picks the actions from the task's state, so phone swipes, the desktop right-click menu and hover buttons always match.
 
-- **Offline:** the app is read-only. A banner says so, and every control that would change something is disabled (checkboxes, hover buttons, context menu items, swipe buttons, the sheet's editing controls). Edits queue only in the native apps (Phase 3).
+- **Offline:** the app is read-only. A banner says so, and every control that would change something is disabled (checkboxes, hover buttons, context menu items, swipe buttons, the sheet's editing controls). Edits queue only in the native apps (Phase 4).
 - **Swipe right:** reveals the **Flag** toggle, and that's all. There's no full-swipe complete; completing is the checkbox.
 - **Hover buttons (desktop):** Delete, the state button, then the date button, left to right, so the date sits at the right next to the row's dates. Every open row has the Due button, Waiting rows too (a Waiting row's state buttons, Hide until and Move to In Progress, come first): the icon alone when no due date is set, and the due date itself (orange icon and the date) when one is. Clicking anywhere on it opens the Due picks. A completed task's due date is a plain label, struck through with its title, with a grey icon.
 - **Swipe left:** reveals the same buttons in the same order as desktop: **Delete** (red), the **state** button (blue; a follow-up gets two, Hide until and Move to In Progress), then the **date** buttons (orange): Start or Hide until where the row has one, then Due.

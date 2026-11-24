@@ -171,10 +171,11 @@ test.describe('completing', () => {
 test.describe('due date', () => {
   test('is struck through with the title once the task is completed', async ({ page }) => {
     const due = (title: string) => row(page, title).locator('[data-slot=due-label]');
-    await expect(due('Water the plants')).toHaveCSS('text-decoration-line', 'none');
+    // A task due today that does not repeat. Completing a repeat advances it instead of striking the date.
+    await expect(due('Call the dentist to move cleaning')).toHaveCSS('text-decoration-line', 'none');
 
-    await checkbox(page, 'Water the plants').click();
-    const held = ghost(page, 'Water the plants').locator('[data-slot=due-label]');
+    await checkbox(page, 'Call the dentist to move cleaning').click();
+    const held = ghost(page, 'Call the dentist to move cleaning').locator('[data-slot=due-label]');
     await expect(held).toHaveText('Today');
     await expect(held).toHaveCSS('text-decoration-line', 'line-through');
 
@@ -182,7 +183,7 @@ test.describe('due date', () => {
     const done = section(page, 'completed').locator('[data-slot=task-row]', { hasText: 'Pay November credit card bill' }).locator('[data-slot=due-label]');
     await expect(done).toHaveText('Nov 16');
     await expect(done).toHaveCSS('text-decoration-line', 'line-through');
-    await expect(section(page, 'completed').locator('[data-slot=task-row]', { hasText: 'Water the plants' }).locator('[data-slot=due-label]')).toHaveCSS('text-decoration-line', 'line-through');
+    await expect(section(page, 'completed').locator('[data-slot=task-row]', { hasText: 'Call the dentist to move cleaning' }).locator('[data-slot=due-label]')).toHaveCSS('text-decoration-line', 'line-through');
 
   });
 });
