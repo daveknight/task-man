@@ -91,7 +91,7 @@ One shared function in `core`, `actionsFor(task, today)`, picks the actions from
 - **Start date, hide until, due date:** optional, blank by default. The start date is only for Open tasks and hide until only for Waiting tasks, so the sheet shows Start and Due for Open, Hide until and Due for Waiting, and Due only for In Progress.
 - **Flag:** a single on/off toggle for priority or "keep an eye on this," off by default. It's the flag button in the task sheet's header (as in TickTick) and a swipe action. A flagged row shows an orange flag. Flagging doesn't move a task; order stays manual. Search can filter to flagged tasks, and a future saved view could show only flagged ones. Completing a recurring occurrence keeps the flag.
 - **Status:** open, in progress or waiting, plus completed and deleted timestamps.
-- **Tags** (phase 2): many-to-many, used by search and future filtered views.
+- **Tags** (phase 2): many-to-many, used by search and future filtered views. A tag is just a name: unique per user ignoring case, up to 30 characters, no comma, and no color (the `color` column is unused). Names show as neutral grey chips; a task keeps its tags in the order they were added. Tags can be created from the picker, renamed and deleted (which removes them from every task but leaves the tasks). Search filters by tags with AND: a task must have every selected tag. Desktop rows show up to two chips then "+N"; phone rows show none, and the sheet and picker list them all.
 - **Subtasks** (phase 2): title and done flag, ordered, and they exist only inside their parent task.
 - **Repeat rule** (phase 2), **attachments** (phase 4), **reminders** (phase 5).
 
@@ -332,7 +332,7 @@ tasks(id uuid pk, user_id, title text, description text,
       created_at, updated_at, search tsvector generated)
 task_positions(user_id, view_id text, task_id, sort_key text, pk(view_id, task_id))
 subtasks(id, user_id, task_id, title, done bool, sort_key text, updated_at)
-tags(id, user_id, name unique per user, color)
+tags(id, user_id, name unique per user ignoring case, color unused)
 task_tags(user_id, task_id, tag_id)
 task_completions(id, user_id, task_id, occurrence_due date, kind: done|skip, completed_on date, completed_at, snapshot jsonb,
                  unique(task_id, occurrence_due))
@@ -358,7 +358,8 @@ show <id|title-prefix>      edit <id> [same flags, --start <date>|none, --hide-u
 move <id> --before <id> | --after <id> | --top
 move <id> --upcoming --start <date> [--clear-due]
 done <id> [--on 2026-11-20]  undone <id>      delete <id>  restore <id>
-purge-trash [--today ...]    search "query" [--completed] [--flagged]
+purge-trash [--today ...]    search "query" [--completed] [--flagged] [--tag name ...]
+tags    tags rename <tag> <new name>    tags delete <tag>
 export > backup.json         import backup.json
 ```
 
@@ -366,7 +367,7 @@ export > backup.json         import backup.json
 - `--today` overrides "today" everywhere, so an agent can check Upcoming-to-Ready changes, recurrence and trash purges without waiting days. The web app has a matching dev-only `?today=YYYY-MM-DD` URL parameter.
 - `board --json` is what Playwright end-to-end tests compare the UI against. Because the CLI and the web app share `core`, a bug in the rules would fool both, so the **independent checks** are the hand-written `expect` values in the seed file and the shared test vectors. The vectors cover sections, `actionsFor`, every row of the transition table, complete, skip and undo, and repeat math across month ends, weekends and time zones.
 - CI seeds with a pinned `--today` (a fixed Wednesday) so results never depend on the day CI runs, plus a second run pinned to a Saturday. Playwright also fakes the browser clock, since timestamps still use real time.
-- The seeder writes board positions in file order, and skips fields whose feature isn't built yet (tags and repeats before Phase 2; subtasks are loaded).
+- The seeder writes board positions in file order, and skips fields whose feature isn't built yet (repeats before Phase 2; subtasks and tags are loaded, tags in the order listed).
 - Seed data lives in `seed/tasks.json`: 51 tasks covering every section, both Waiting sub-states, overdue and due-today dates, start dates of today and in the past (boundary cases), long titles, emoji and accents, nested bullets, a description-only search word ("zucchini"), all three repeat modes with and without start offsets, subtasks inside recurring tasks, flagged tasks, and trash items at 29, 30 and 31 days (only 31 is removed by `purge-trash`).
 
 ## Phases

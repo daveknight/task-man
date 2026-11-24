@@ -1,9 +1,11 @@
-import { SUBTASK_COLUMNS, TASK_COLUMNS, type Scope, type SubtaskRow, type TaskRow } from '@app/data';
+import { SUBTASK_COLUMNS, TAG_COLUMNS, TASK_COLUMNS, TASK_TAG_COLUMNS, type Scope, type SubtaskRow, type TagRow, type TaskRow, type TaskTagRow } from '@app/data';
 import { validateTask } from '@app/core';
 import { reset } from './commands.ts';
 
 export type BackupTask = Omit<TaskRow, 'user_id'>;
 export type BackupSubtask = Pick<SubtaskRow, 'id' | 'task_id' | 'title' | 'done' | 'sort_key'>;
+export type BackupTag = Pick<TagRow, 'id' | 'name'>;
+export type BackupTaskTag = Required<Pick<TaskTagRow, 'task_id' | 'tag_id' | 'created_at'>>;
 
 export interface Backup {
   version: 2;
@@ -12,6 +14,9 @@ export interface Backup {
   positions: { view_id: string; task_id: string; sort_key: string }[];
   /** Added with subtasks. A backup from before them has none, and imports without any. */
   subtasks?: BackupSubtask[];
+  /** Added with tags. A backup from before them has none, and imports without any. `task_tags` keeps each link's time, which is the order of a task's chips. */
+  tags?: BackupTag[];
+  task_tags?: BackupTaskTag[];
 }
 
 /** Version 1 had no `hide_until`: a Waiting task's start date was its hide-until date. */
@@ -33,7 +38,7 @@ export function upgradeBackup(backup: Backup | BackupV1): Backup {
   return { ...backup, version: 2, tasks: backup.tasks.map(upgradeV1Task) };
 }
 
-/** Everything the user owns that is stored so far: tasks (including completed and Trash), positions and subtasks. */
+/** Everything the user owns that is stored so far: tasks (including completed and Trash), positions, subtasks and tags. */
 export async function exportAll({ db, userId }: Scope): Promise<Backup> {
   const tasks = await db.from('tasks').select(TASK_COLUMNS).eq('user_id', userId).order('created_at').order('id').returns<TaskRow[]>();
   if (tasks.error) throw new Error(`export tasks: ${tasks.error.message}`);
@@ -55,17 +60,30 @@ export async function exportAll({ db, userId }: Scope): Promise<Backup> {
     .range(0, 9999)
     .returns<SubtaskRow[]>();
   if (subtasks.error) throw new Error(`export subtasks: ${subtasks.error.message}`);
+  const tags = await db.from('tags').select(TAG_COLUMNS).eq('user_id', userId).order('name').order('id').range(0, 9999).returns<TagRow[]>();
+  if (tags.error) throw new Error(`export tags: ${tags.error.message}`);
+  const links = await db
+    .from('task_tags')
+    .select(TASK_TAG_COLUMNS)
+    .eq('user_id', userId)
+    .order('task_id')
+    .order('tag_id')
+    .range(0, 9999)
+    .returns<BackupTaskTag[]>();
+  if (links.error) throw new Error(`export task tags: ${links.error.message}`);
   return {
     version: 2,
     exportedAt: new Date().toISOString(),
     tasks: (tasks.data ?? []).map(({ user_id: _, updated_at: __, ...row }) => row),
     positions: positions.data ?? [],
     subtasks: (subtasks.data ?? []).map(({ id, task_id, title, done, sort_key }) => ({ id, task_id, title, done, sort_key })),
+    tags: (tags.data ?? []).map(({ id, name }) => ({ id, name })),
+    task_tags: links.data ?? [],
   };
 }
 
 /** Loads a version 2 backup, or a version 1 one mapped like the migration, for the user. Ids are kept, so it fails if they already exist unless `replace` wipes first. */
-export async function importAll(scope: Scope, loaded: Backup | BackupV1, replace: boolean): Promise<{ tasks: number; positions: number; subtasks: number }> {
+export async function importAll(scope: Scope, loaded: Backup | BackupV1, replace: boolean): Promise<{ tasks: number; positions: number; subtasks: number; tags: number }> {
   const backup = upgradeBackup(loaded);
   for (const row of backup.tasks) {
     const issues = validateTask({
@@ -96,5 +114,15 @@ export async function importAll(scope: Scope, loaded: Backup | BackupV1, replace
     const { error } = await db.from('subtasks').insert(subtasks.map((s) => ({ ...s, user_id: userId })));
     if (error) throw new Error(`import subtasks: ${error.message}`);
   }
-  return { tasks: backup.tasks.length, positions: backup.positions.length, subtasks: subtasks.length };
+  const tags = backup.tags ?? [];
+  if (tags.length) {
+    const { error } = await db.from('tags').insert(tags.map((t) => ({ ...t, user_id: userId })));
+    if (error) throw new Error(`import tags: ${error.message}`);
+  }
+  const links = backup.task_tags ?? [];
+  if (links.length) {
+    const { error } = await db.from('task_tags').insert(links.map((l) => ({ ...l, user_id: userId })));
+    if (error) throw new Error(`import task tags: ${error.message}`);
+  }
+  return { tasks: backup.tasks.length, positions: backup.positions.length, subtasks: subtasks.length, tags: tags.length };
 }

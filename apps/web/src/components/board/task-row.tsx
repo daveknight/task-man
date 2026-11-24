@@ -24,6 +24,7 @@ import { InlineTitle } from './inline-title';
 import { PresetPanel } from './preset-panel';
 import { TWO_PANE_QUERY } from './surface';
 import { SwipeableRow } from './swipe-row';
+import { TagChips } from './tag-chip';
 
 export interface TaskRowProps {
   task: Task;
@@ -53,9 +54,11 @@ function TrailingMeta({ id, task, today, onClick }: { id: string; task: Task; to
   const dueToday = open && task.dueDate === today;
   const hiddenUntil = waiting === 'later' ? task.hideUntil : null;
   const subtasks = subtaskCount(task.subtasks);
-  if (!hiddenUntil && !task.dueDate && !task.flagged && subtasks.total === 0) return null;
+  const hasTags = (task.tags?.length ?? 0) > 0;
+  if (!hiddenUntil && !task.dueDate && !task.flagged && subtasks.total === 0 && !hasTags) return null;
   return (
     <span id={id} data-slot="trailing-meta" className="flex shrink-0 items-center gap-2" onClick={onClick}>
+      <TagChips tags={task.tags} className="max-md:hidden" />
       {subtasks.total > 0 && (
         <span data-slot="subtask-count" className="inline-flex items-center gap-1 text-footnote whitespace-nowrap text-muted-foreground">
           <Icon name="subtasks" className="size-3.5" />

@@ -19,6 +19,7 @@ export const icons = {
   flag: { phosphor: 'Flag', sfSymbol: 'flag', sfSymbolActive: 'flag.fill' },
   repeat: { phosphor: 'Repeat', sfSymbol: 'repeat' },
   subtasks: { phosphor: 'ListChecks', sfSymbol: 'checklist' },
+  tags: { phosphor: 'Tag', sfSymbol: 'tag' },
   trash: { phosphor: 'Trash', sfSymbol: 'trash' },
   capture: { phosphor: 'Sparkle', sfSymbol: 'sparkles' },
   complete: { phosphor: 'Check', sfSymbol: 'checkmark' },

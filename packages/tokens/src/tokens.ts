@@ -97,6 +97,7 @@ export const textPairs: readonly [text: ColorRole, on: ColorRole][] = [
   ['section-header', 'background'],
   ['section-header', 'card'],
   ['section-header', 'card-hover'],
+  ['section-header', 'accent'],
   ['sidebar-foreground', 'sidebar'],
   ['notice-foreground', 'notice'],
 ];

@@ -13,6 +13,25 @@ import {
   isValidSortKey,
   keyBetween,
   applySubtaskChange,
+  applyTagChange,
+  applyTaskTagChange,
+  checkTagName,
+  filterByTags,
+  normalizeTagName,
+  orderTaskTags,
+  parseTagList,
+  planCreateTag,
+  planDeleteTag,
+  planRenameTag,
+  planTaskTags,
+  sortTags,
+  tagChips,
+  tagCounts,
+  tagsMatching,
+  type Tag,
+  type TagChange,
+  type TagLink,
+  type TaskTagChange,
   nextWeekdayOnOrAfter,
   normalizeSubtaskTitle,
   planAddSubtask,
@@ -336,5 +355,102 @@ describe('subtasks.json', () => {
 
   it.each(vectors.resetSubtasks)('resetSubtasks: $name', ({ subtasks, expect: expected }) => {
     expect(resetSubtasks(subtasks)).toEqual(expected);
+  });
+});
+
+describe('tags.json', () => {
+  type TaskSpec = { id: string; tags?: string[]; completedAt?: string; deletedAt?: string };
+  const tag = (id: string): Tag => ({ id, name: id });
+  const tasksFrom = (specs: TaskSpec[]) => specs.map((t) => ({ ...taskFrom({ completedAt: t.completedAt ?? null, deletedAt: t.deletedAt ?? null }, t.id), ...(t.tags ? { tags: t.tags.map(tag) } : {}) }));
+  const label = (t: Tag) => `${t.id}:${t.name}`;
+  const vectors = load<{
+    normalizeTagName: { input: string; expect: string | null }[];
+    checkTagName: { name: string; tags: Tag[]; selfId?: string; input: string; expect: { ok: boolean; name?: string; reason?: string } }[];
+    sortTags: { name: string; tags: Tag[]; expect: string[] }[];
+    tagsMatching: { name: string; tags: Tag[]; text: string; expect: string[] }[];
+    orderTaskTags: { name: string; links: TagLink[]; expect: string[] }[];
+    tagChips: { name: string; tags: string[]; max?: number; expect: { visible: string[]; overflow: number } }[];
+    filterByTags: { name: string; tasks: TaskSpec[]; tagIds: string[]; expect: string[] }[];
+    tagCounts: { name: string; tags: Tag[]; tasks: TaskSpec[]; expect: [string, number][] }[];
+    planCreateTag: { name: string; tags: Tag[]; id: string; input: string; expect?: { tag: Tag; change: TagChange | null }; expectError?: boolean }[];
+    planRenameTag: { name: string; tags: Tag[]; id: string; input: string; expect?: TagChange | null; expectError?: boolean }[];
+    applyTagChange: { name: string; tags: Tag[]; tasks: TaskSpec[]; change: TagChange; expect: { tags: string[]; tasks: Record<string, string[]> } }[];
+    applyTaskTagChange: { name: string; tags?: Tag[]; change: TaskTagChange; expect: string[] }[];
+    parseTagList: { input: string; expect: string[] }[];
+    planTaskTags: { name: string; catalog: Tag[]; current: Tag[]; names: string[]; ids: string[]; expect?: { creates: string[]; attach: string[]; detach: string[]; tags: string[] }; expectError?: boolean }[];
+  }>('tags.json');
+
+  it.each(vectors.normalizeTagName)('normalizeTagName($input)', ({ input, expect: expected }) => {
+    expect(normalizeTagName(input)).toBe(expected);
+  });
+
+  it.each(vectors.checkTagName)('checkTagName: $name', ({ tags, selfId, input, expect: expected }) => {
+    const result = checkTagName(input, tags, selfId);
+    expect(result.ok).toBe(expected.ok);
+    if (result.ok) expect(result.name).toBe(expected.name);
+    else expect(result.reason).toBe(expected.reason);
+  });
+
+  it.each(vectors.sortTags)('sortTags: $name', ({ tags, expect: expected }) => {
+    expect(sortTags(tags).map((t) => t.id)).toEqual(expected);
+  });
+
+  it.each(vectors.tagsMatching)('tagsMatching: $name', ({ tags, text, expect: expected }) => {
+    expect(tagsMatching(tags, text).map((t) => t.id)).toEqual(expected);
+  });
+
+  it.each(vectors.orderTaskTags)('orderTaskTags: $name', ({ links, expect: expected }) => {
+    expect(orderTaskTags(links).map((t) => t.id)).toEqual(expected);
+  });
+
+  it.each(vectors.tagChips)('tagChips: $name', ({ tags, max, expect: expected }) => {
+    const chips = tagChips(tags.map(tag), max);
+    expect({ visible: chips.visible.map((t) => t.id), overflow: chips.overflow }).toEqual(expected);
+  });
+
+  it.each(vectors.filterByTags)('filterByTags: $name', ({ tasks, tagIds, expect: expected }) => {
+    expect(filterByTags(tasksFrom(tasks), tagIds).map((t) => t.id)).toEqual(expected);
+  });
+
+  it.each(vectors.tagCounts)('tagCounts: $name', ({ tags, tasks, expect: expected }) => {
+    expect(tagCounts(tasksFrom(tasks), tags).map((c) => [c.tag.id, c.count])).toEqual(expected);
+  });
+
+  it.each(vectors.planCreateTag)('planCreateTag: $name', ({ tags, id, input, expect: expected, expectError }) => {
+    if (expectError) return expect(() => planCreateTag(tags, { id, name: input })).toThrow();
+    expect(planCreateTag(tags, { id, name: input })).toEqual(expected);
+  });
+
+  it.each(vectors.planRenameTag)('planRenameTag: $name', ({ tags, id, input, expect: expected, expectError }) => {
+    if (expectError) return expect(() => planRenameTag(tags, id, input)).toThrow();
+    expect(planRenameTag(tags, id, input)).toEqual(expected);
+  });
+
+  it.each(vectors.applyTagChange)('applyTagChange: $name', ({ tags, tasks, change, expect: expected }) => {
+    const result = applyTagChange({ tags, tasks: tasksFrom(tasks).map((t, i) => ({ ...t, tags: tasks[i]!.tags?.map((id) => tags.find((g) => g.id === id)!) })) }, change);
+    expect(result.tags.map(label)).toEqual(expected.tags);
+    expect(Object.fromEntries(result.tasks.map((t) => [t.id, (t.tags ?? []).map(label)]))).toEqual(expected.tasks);
+  });
+
+  it('planDeleteTag refuses a tag that does not exist', () => {
+    expect(planDeleteTag([{ id: 'a', name: 'a' }], 'a')).toEqual({ kind: 'delete', id: 'a' });
+    expect(() => planDeleteTag([], 'a')).toThrow();
+  });
+
+  it.each(vectors.applyTaskTagChange)('applyTaskTagChange: $name', ({ tags, change, expect: expected }) => {
+    expect(applyTaskTagChange(tags, change).map(label)).toEqual(expected);
+  });
+
+  it.each(vectors.parseTagList)('parseTagList($input)', ({ input, expect: expected }) => {
+    expect(parseTagList(input)).toEqual(expected);
+  });
+
+  it.each(vectors.planTaskTags)('planTaskTags: $name', ({ catalog, current, names, ids, expect: expected, expectError }) => {
+    const queue = [...ids];
+    const newId = () => queue.shift() ?? 'unexpected-id';
+    if (expectError) return expect(() => planTaskTags(catalog, current, names, newId)).toThrow();
+    const plan = planTaskTags(catalog, current, names, newId);
+    expect({ creates: plan.creates.map((c) => label(c.tag)), attach: plan.attach.map(label), detach: plan.detach, tags: plan.tags.map(label) }).toEqual(expected);
+    expect(queue).toEqual([]);
   });
 });

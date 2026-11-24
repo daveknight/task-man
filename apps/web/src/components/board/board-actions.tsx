@@ -4,6 +4,9 @@ import {
   changeStatus,
   complete,
   markNotDone,
+  planCreateTag,
+  planDeleteTag,
+  planRenameTag,
   planUpcomingDrop,
   restore,
   setDueDate,
@@ -16,6 +19,7 @@ import {
   type Preset,
   type Status,
   type SubtaskChange,
+  type Tag,
   type Task,
   type UpcomingDropDecision,
 } from '@app/core';
@@ -53,6 +57,14 @@ export interface BoardActions {
   reorder: (task: Task, drop: PositionWrite[]) => void;
   /** One subtask add, edit, move or remove. Resolves once the write has settled, whether or not it succeeded. */
   changeSubtasks: (task: Task, change: SubtaskChange) => Promise<void>;
+  /** Puts a tag on or off a task. Resolves once the write has settled, whether or not it succeeded. */
+  setTag: (task: Task, tag: Tag, on: boolean) => Promise<void>;
+  /** A tag typed in the picker: made (or, if one has that name ignoring case, reused) and put on the task. */
+  createTag: (task: Task, name: string) => Promise<void>;
+  /** Renames a tag on every task at once. */
+  renameTag: (tag: Tag, name: string) => Promise<void>;
+  /** Deletes a tag and removes it from every task. */
+  deleteTag: (tag: Tag) => Promise<void>;
   remove: (task: Task) => void;
   removeForever: (task: Task) => void;
 }
@@ -72,6 +84,16 @@ type Pending =
   | { kind: 'presets'; task: Task; group: ActionGroup; pick?: Preset };
 
 const quiet = () => {};
+
+/** Runs a rule that throws for input it refuses (a bad tag name), showing why in a toast instead of a console error. */
+function attempt<T>(plan: () => T): T | null {
+  try {
+    return plan();
+  } catch (error) {
+    toast.error(error instanceof Error ? error.message : String(error));
+    return null;
+  }
+}
 
 /** Where a task sits in the board, Completed included, so a ghost can hold its place while it leaves. */
 function placementOf(task: Task, snapshot: ReturnType<TaskWrites['current']>, today: ISODate): { from: MoveSource; index: number } | null {
@@ -183,6 +205,19 @@ export function BoardActionsProvider({
       edit: (task, fields) => commit(task, { ...task, ...fields }),
       reorder: (task, drop) => commit(task, task, () => drop),
       changeSubtasks: (task, change) => writes.subtask(task, change).then(quiet, quiet),
+      setTag: (task, tag, on) => writes.taskTag(task, on ? { kind: 'attach', tag } : { kind: 'detach', tagId: tag.id }).then(quiet, quiet),
+      createTag: async (task, name) => {
+        const planned = attempt(() => planCreateTag(writes.current().tags, { id: crypto.randomUUID(), name }));
+        if (planned) await writes.taskTag(task, { kind: 'attach', tag: planned.tag }, planned.change ?? undefined).then(quiet, quiet);
+      },
+      renameTag: async (tag, name) => {
+        const change = attempt(() => planRenameTag(writes.current().tags, tag.id, name));
+        if (change) await writes.tagList(change).then(quiet, quiet);
+      },
+      deleteTag: async (tag) => {
+        const change = attempt(() => planDeleteTag(writes.current().tags, tag.id));
+        if (change) await writes.tagList(change).then(quiet, quiet);
+      },
       remove: (task) => {
         const after = softDelete(task, new Date().toISOString(), today);
         void leaveThen(task.id, () =>

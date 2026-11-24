@@ -1,4 +1,4 @@
-import type { EditableField, ISODate, Status, Subtask, Task, TaskPatch } from '@app/core';
+import type { EditableField, ISODate, Status, Subtask, Tag, Task, TaskPatch } from '@app/core';
 
 /** A public.tasks row as PostgREST returns it. */
 export interface TaskRow {
@@ -101,4 +101,34 @@ export function subtaskFromRow(row: Pick<SubtaskRow, 'id' | 'title' | 'done' | '
 
 export function subtaskRow(subtask: Subtask, taskId: string, userId: string): Omit<SubtaskRow, 'created_at' | 'updated_at'> {
   return { id: subtask.id, user_id: userId, task_id: taskId, title: subtask.title, done: subtask.done, sort_key: subtask.sortKey };
+}
+
+/** A public.tags row as PostgREST returns it. (The table also has an unused `color` column.) */
+export interface TagRow {
+  id: string;
+  user_id: string;
+  name: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export const TAG_COLUMNS = 'id,user_id,name';
+
+export function tagFromRow(row: Pick<TagRow, 'id' | 'name'>): Tag {
+  return { id: row.id, name: row.name };
+}
+
+/** A public.task_tags row: one tag on one task. `created_at` orders a task's chips. */
+export interface TaskTagRow {
+  user_id: string;
+  task_id: string;
+  tag_id: string;
+  created_at?: string;
+}
+
+export const TASK_TAG_COLUMNS = 'task_id,tag_id,created_at';
+
+/** Link rows for tags added together. Each gets a millisecond more than the last, so the chips keep the order they were given. */
+export function taskTagRows(tags: readonly Tag[], taskId: string, userId: string, start: number = Date.now()): Required<TaskTagRow>[] {
+  return tags.map((tag, i) => ({ user_id: userId, task_id: taskId, tag_id: tag.id, created_at: new Date(start + i).toISOString() }));
 }

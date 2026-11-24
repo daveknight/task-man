@@ -59,6 +59,20 @@ for (const today of days) {
     if (count?.total !== wanted.length || count.done !== wanted.filter((w) => w.startsWith('x')).length) fail(`"${task.title}": wrong subtaskCount ${JSON.stringify(count)}`);
   }
 
+  // Every seeded tag is on its task, in file order.
+  for (const task of file.tasks) {
+    const wanted = task.tags ?? [];
+    const got = (byTitle.get(task.title)?.tags ?? []).map((t) => t.name);
+    if (JSON.stringify(got) !== JSON.stringify(wanted)) fail(`"${task.title}": expected tags ${JSON.stringify(wanted)}, got ${JSON.stringify(got)}`);
+  }
+  const listed = cli('tags') as { name: string; count: number }[];
+  const catalog = [...new Set([...(file.tags ?? []), ...file.tasks.flatMap((t) => t.tags ?? [])])].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+  if (JSON.stringify(listed.map((t) => t.name)) !== JSON.stringify(catalog)) fail(`expected tags ${JSON.stringify(catalog)}, got ${JSON.stringify(listed.map((t) => t.name))}`);
+  for (const { name, count } of listed) {
+    const expected = file.tasks.filter((t) => !t.completed && !t.deleted && t.tags?.includes(name)).length;
+    if (count !== expected) fail(`tag "${name}": expected ${expected} tasks to do, got ${count}`);
+  }
+
   // Ready keeps the seed file's order.
   const ready = board.sections.find((s) => s.id === 'ready')!.tasks.map((t) => t.title);
   const expectedReady = file.tasks.filter((t) => t.expect === 'ready').map((t) => t.title);

@@ -10,11 +10,14 @@ import { formatBoard, formatSubtasks, formatTask } from './format.ts';
 import {
   addTask,
   DecisionNeeded,
+  deleteTag,
   deleteTask,
   doneTask,
   editTask,
+  listTags,
   moveTask,
   purge,
+  renameTag,
   restoreTask,
   runAction,
   search,
@@ -38,10 +41,10 @@ Board and data:
 
 Tasks (<task> is an id, an id prefix of 4+ characters, or a title prefix):
   add "Title" [--desc text] [--start <date>] [--hide-until <date>] [--due <date>] [--status open|in_progress|waiting] [--flag]
-              [--subtask "text" ...]
+              [--subtask "text" ...] [--tags a,b]
   show <task>                               fields, subtasks, placement and the actions the app offers
   edit <task> [--title t] [--desc text] [--start <date>|none] [--hide-until <date>|none] [--due <date>|none]
-              [--flag|--no-flag]
+              [--flag|--no-flag] [--tags a,b]
               [--add-subtask "text" ...] [--done-subtask <subtask> ...] [--undone-subtask <subtask> ...]
               [--rename-subtask <subtask>=<new title> ...] [--move-subtask <subtask>=<position> ...]
               [--remove-subtask <subtask> ...]
@@ -57,8 +60,17 @@ Tasks (<task> is an id, an id prefix of 4+ characters, or a title prefix):
   done <task> [--on <date>]    undone <task>
   delete <task> [--forever]    restore <task>
   purge-trash                               permanently remove Trash older than 30 days
-  search "query" [--completed] [--flagged]  title and description; never Trash
-                                            --completed: include completed, --flagged: only flagged
+  search "query" [--completed] [--flagged] [--tag <tag> ...]
+                                            title, description and tag names; never Trash
+                                            --completed: include completed, --flagged: only flagged,
+                                            --tag (repeat it): only tasks that have every one of these tags
+  tags                                      every tag with how many tasks still to do have it
+  tags rename <tag> <new name>              rename a tag on every task at once
+  tags delete <tag>                         delete a tag and remove it from every task (the tasks stay)
+
+--tags a,b gives a task exactly these tags (--tags "" clears them) and creates any that don't exist. Tag names are
+unique ignoring case, at most 30 characters, with no commas. A <tag> is its name (any case) or an id prefix of 4+ characters.
+'show', 'board --json' and every change report include the task's tags, in the order they were added.
 
 A <subtask> is its position as 'show' lists it (1 is the top), an id prefix of 4+ characters, or a title prefix.
 Within one edit they are resolved against the list as it was before: renames and ticks first, then removals,
@@ -81,7 +93,7 @@ Options (every command):
 Dates: YYYY-MM-DD, today, or relative to today: +3d, -2d, +2w, +1m, +1y.
 `;
 
-const PHASE_2_FLAGS = ['tags', 'repeat', 'repeat-mode', 'start-offset'] as const;
+const PHASE_2_FLAGS = ['repeat', 'repeat-mode', 'start-offset'] as const;
 
 function today(value: string | undefined): ISODate {
   const real = localDate();
@@ -118,6 +130,7 @@ async function main(argv: string[]): Promise<void> {
       'clear-due': { type: 'boolean', default: false },
       forever: { type: 'boolean', default: false },
       tags: { type: 'string' },
+      tag: { type: 'string', multiple: true },
       repeat: { type: 'string' },
       'repeat-mode': { type: 'string' },
       'start-offset': { type: 'string' },
@@ -164,7 +177,7 @@ async function main(argv: string[]): Promise<void> {
         .join(', ');
       print(
         result,
-        `${result.reset ? `Reset (${result.reset.tasks} tasks removed). ` : ''}Seeded ${result.tasks} tasks and ${result.subtasks} subtasks for ${day}` +
+        `${result.reset ? `Reset (${result.reset.tasks} tasks removed). ` : ''}Seeded ${result.tasks} tasks, ${result.subtasks} subtasks and ${result.tags} tags for ${day}` +
           (skipped ? `; skipped until their phase: ${skipped}.` : '.'),
       );
       return;
@@ -181,7 +194,7 @@ async function main(argv: string[]): Promise<void> {
     }
     case 'add':
       return printChanged(
-        await addTask(ctx, arg(0, 'a title'), { description: values.desc, start: values.start, hideUntil: values['hide-until'], due: values.due, status: values.status, flag: values.flag, subtasks: values.subtask }),
+        await addTask(ctx, arg(0, 'a title'), { description: values.desc, start: values.start, hideUntil: values['hide-until'], due: values.due, status: values.status, flag: values.flag, subtasks: values.subtask, tags: values.tags }),
         'Added',
       );
     case 'show': {
@@ -204,6 +217,7 @@ async function main(argv: string[]): Promise<void> {
       return printChanged(
         await editTask(ctx, arg(0, 'a task'), { title: values.title, description: values.desc, start: values.start, hideUntil: values['hide-until'], due: values.due,
           flag,
+          tags: values.tags,
           subtasks: {
             add: values['add-subtask'],
             done: values['done-subtask'],
@@ -242,8 +256,28 @@ async function main(argv: string[]): Promise<void> {
       print({ today: day, purged: ids }, `Purged ${ids.length} task${ids.length === 1 ? '' : 's'} deleted before ${resolveDate('-30d', day)}.`);
       return;
     }
+    case 'tags': {
+      const [action, ...rest] = args;
+      if (action === 'rename') {
+        const name = rest.slice(1).join(' ');
+        if (rest[0] === undefined || name === '') throw new Error('tags rename needs <tag> and <new name>. Run with --help.');
+        const result = await renameTag(ctx, rest[0], name);
+        print(result, result.tag.name === result.from ? `Tag “${result.from}” is already named that.` : `Renamed tag “${result.from}” to “${result.tag.name}”.`);
+        return;
+      }
+      if (action === 'delete') {
+        if (rest[0] === undefined) throw new Error('tags delete needs <tag>. Run with --help.');
+        const result = await deleteTag(ctx, rest[0]);
+        print(result, `Deleted tag “${result.tag.name}” (removed from ${result.tasks} task${result.tasks === 1 ? '' : 's'}).`);
+        return;
+      }
+      if (action !== undefined) throw new Error(`Unknown tags command "${action}" (rename, delete). Run with --help.`);
+      const listing = await listTags(ctx);
+      print(listing, listing.length ? listing.map((t) => `${String(t.count).padStart(3)}  ${t.name}`).join('\n') : 'No tags.');
+      return;
+    }
     case 'search': {
-      const results = await search(ctx, args[0] ?? '', { completed: values.completed, flagged: values.flagged });
+      const results = await search(ctx, args[0] ?? '', { completed: values.completed, flagged: values.flagged, tags: values.tag });
       print(results, results.length ? results.map((r) => formatTask(r, day)).join('\n') : 'No matches.');
       return;
     }
@@ -254,7 +288,7 @@ async function main(argv: string[]): Promise<void> {
     case 'import': {
       const file = resolve(process.env.INIT_CWD ?? process.cwd(), arg(0, 'a backup file'));
       const result = await importAll(ctx.scope, JSON.parse(readFileSync(file, 'utf8')) as Backup | BackupV1, values.reset);
-      print(result, `Imported ${result.tasks} tasks, ${result.positions} positions and ${result.subtasks} subtasks.`);
+      print(result, `Imported ${result.tasks} tasks, ${result.positions} positions, ${result.subtasks} subtasks and ${result.tags} tags.`);
       return;
     }
     default:

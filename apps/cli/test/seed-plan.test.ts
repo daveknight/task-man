@@ -52,7 +52,7 @@ describe.each(PINNED)('seed/tasks.json on $weekday $today', ({ today }) => {
     const standUp = byTitle.get('Stand-up notes')!;
     expect(['sat', 'sun']).not.toContain(weekdayOf(standUp.dueDate!));
     expect(seeded.tasks.every((t) => t.repeat === null)).toBe(true);
-    expect(seeded.skipped).toEqual({ tags: 43, repeat: 9 });
+    expect(seeded.skipped).toEqual({ repeat: 9 });
   });
 });
 
