@@ -10,9 +10,42 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Decides whether the two local-Supabase jobs are needed. Only pull requests that touch nothing but
+  # docs, Cursor skills or the keep-alive workflow skip them. A skipped job still reports as passing
+  # for branch protection. If this job itself fails, the heavy jobs run anyway.
+  changes:
+    name: Which checks are needed
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      heavy: ${{ steps.scope.outputs.heavy }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - id: scope
+        env:
+          EVENT: ${{ github.event_name }}
+        run: |
+          heavy=true
+          if [ "$EVENT" = "pull_request" ] && files=$(git diff --name-only HEAD^1 HEAD); then
+            heavy=false
+            while IFS= read -r file; do
+              [ -z "$file" ] && continue
+              case "$file" in
+                *.md | .cursor/* | docs/* | .github/workflows/keep-alive.yml) ;;
+                *) heavy=true ;;
+              esac
+            done <<< "$files"
+            echo "Changed files:"; echo "$files"
+          fi
+          echo "heavy=$heavy" >> "$GITHUB_OUTPUT"
+          echo "Heavy checks needed: $heavy"
+
   core:
     name: Core tests and vectors
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -35,6 +68,7 @@ jobs:
   hosted-safety:
     name: Hosted safety (migrations deploy to the real database on merge)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:
@@ -52,21 +86,17 @@ jobs:
             npm run check:hosted
           fi
 
+  # The e2e suite reseeds one database before every test, so its tests can't share a stack. Light and
+  # phone run here with the migration and database checks; dark runs in parallel in its own job.
   database:
     name: Migrations, RLS and seed checks (local Supabase)
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.heavy != 'false' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-      - uses: supabase/setup-cli@v1
-        with:
-          version: 3.1.0
-      - run: npm ci
-      - name: Start local Supabase (database, auth, REST and the Mailpit inbox for reset emails)
-        run: supabase start -x realtime,storage-api,imgproxy,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
+      - uses: ./.github/actions/local-supabase
       - name: "Migration check: apply every migration from scratch"
         run: supabase db reset
       - name: "Migration check: lint"
@@ -75,8 +105,8 @@ jobs:
         run: npm run test:db
       - name: Seed expectations through the CLI (Wednesday and Saturday)
         run: npm run check:seed -- 2026-11-18 2026-11-21
-      - name: "Web app end to end: the board against local Supabase, light, dark and phone"
-        run: npm run e2e -w @app/web
+      - name: "Web app end to end: the board against local Supabase, light and phone"
+        run: npm run e2e -w @app/web -- --project=desktop-light --project=phone
       - name: Upload the Playwright report
         if: failure()
         uses: actions/upload-artifact@v4
@@ -89,3 +119,22 @@ jobs:
         run: |
           npm run -s cli -- seed --reset --today 2026-11-18
           npm run -s cli -- board --today 2026-11-18 --completed --trash
+
+  e2e-dark:
+    name: Web end to end, dark theme (local Supabase)
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.heavy != 'false' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/local-supabase
+      - name: "Web app end to end: the board against local Supabase, dark"
+        run: npm run e2e -w @app/web -- --project=desktop-dark
+      - name: Upload the Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-dark
+          path: apps/web/playwright-report
+          retention-days: 7

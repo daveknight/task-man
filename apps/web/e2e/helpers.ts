@@ -7,9 +7,32 @@ export const TODAY = '2026-11-18';
 
 const root = resolve(import.meta.dirname, '../../..');
 
-/** Runs the CLI against local Supabase at the pinned day. */
+/**
+ * The local stack's connection settings, read once. The CLI would otherwise run `supabase status`
+ * (a Docker round trip) on every call, which cost about a second of each test.
+ */
+let stackEnv: NodeJS.ProcessEnv | undefined;
+function stack(): NodeJS.ProcessEnv {
+  if (stackEnv) return stackEnv;
+  const out = execFileSync('supabase', ['status', '-o', 'json'], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+  const status = JSON.parse(out.slice(out.indexOf('{'))) as Record<string, string>;
+  stackEnv = {
+    ...process.env,
+    SUPABASE_URL: status.API_URL!,
+    SUPABASE_SERVICE_ROLE_KEY: status.SERVICE_ROLE_KEY ?? status.SECRET_KEY!,
+    SUPABASE_ANON_KEY: status.ANON_KEY ?? status.PUBLISHABLE_KEY!,
+    SUPABASE_DB_URL: status.DB_URL!,
+  };
+  return stackEnv;
+}
+
+/** Runs the CLI against local Supabase at the pinned day (tsx directly, not through two layers of npm). */
 export function cli(...args: string[]): string {
-  return execFileSync('npm', ['run', '-s', 'cli', '--', ...args, '--today', TODAY], { cwd: root, encoding: 'utf8' });
+  return execFileSync(resolve(root, 'node_modules/.bin/tsx'), ['apps/cli/src/main.ts', ...args, '--today', TODAY], {
+    cwd: root,
+    encoding: 'utf8',
+    env: stack(),
+  });
 }
 
 export function cliJson<T = unknown>(...args: string[]): T {
