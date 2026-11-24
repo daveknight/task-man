@@ -133,7 +133,7 @@ describe('backup and deleting', () => {
     expect(mine.map((s) => s.title).sort()).toEqual(['First', 'Second']);
 
     await admin.from('tasks').delete().eq('id', task.id);
-    await importAll(ctx.scope, { ...backup, tasks: backup.tasks.filter((t) => t.id === task.id), positions: [], subtasks: mine }, false);
+    await importAll(ctx.scope, { ...backup, tasks: backup.tasks.filter((t) => t.id === task.id), positions: [], subtasks: mine, tags: [], task_tags: [] }, false);
     expect(marks((await show('backup')).task.subtasks)).toEqual(['[x] Second', '[ ] First']);
   });
 
@@ -141,7 +141,7 @@ describe('backup and deleting', () => {
     const backup = await exportAll(ctx.scope);
     const older = { ...backup };
     delete older.subtasks;
-    await importAll(ctx.scope, { ...older, tasks: [], positions: [] }, false);
+    await importAll(ctx.scope, { ...older, tasks: [], positions: [], tags: [], task_tags: [] }, false);
   });
 
   it('deleting a task for good takes its subtasks with it', async () => {

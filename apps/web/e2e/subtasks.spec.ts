@@ -14,7 +14,8 @@ const titles = (page: Page) => card(page).locator('[data-slot=subtask-row] [data
 const stored = (title = TASK) => showTask(title).task.subtasks.map((s) => ({ title: s.title, done: s.done }));
 
 async function openTask(page: Page, title = TASK) {
-  await row(page, title).click();
+  // The title, not the row's middle: a row with tag chips grows quick actions under the pointer on hover.
+  await row(page, title).locator('[data-slot=task-title]').click();
   await expect(card(page)).toBeVisible();
 }
 

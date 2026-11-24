@@ -26,6 +26,7 @@ import { useBoardActions } from './board-actions';
 import { FOLD_MOTION, RowList } from './board-view';
 import { DatePicker } from './preset-panel';
 import { SubtasksCard } from './subtasks-card';
+import { TagsField } from './tag-picker';
 import { PresetPopover } from './task-row';
 import { WIDE_QUERY } from './surface';
 
@@ -288,6 +289,7 @@ export function TaskEditor({ task, today, onClose }: { task: Task; today: ISODat
           />
         )}
         <DateField icon="dueDate" label="Due" clearLabel="No due date" date={task.dueDate} today={today} tone={overdue ? 'text-overdue' : undefined} onChange={(d) => actions?.setField(task, 'due', d)} />
+        <TagsField task={task} />
       </RowList>
 
       <SubtasksCard task={task} />

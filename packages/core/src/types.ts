@@ -10,6 +10,12 @@ export interface Subtask {
   sortKey: string;
 }
 
+/** A label on tasks. Many tasks share one tag, and a task can have many. */
+export interface Tag {
+  id: string;
+  name: string;
+}
+
 export type Status = 'open' | 'in_progress' | 'waiting';
 
 export const STATUSES: readonly Status[] = ['open', 'in_progress', 'waiting'];
@@ -33,6 +39,8 @@ export interface Task {
   createdAt?: string;
   /** Loaded alongside the task. Not part of a task patch: subtasks are written one at a time. */
   subtasks?: Subtask[];
+  /** Loaded alongside the task, in the order they were added (see `orderTaskTags`). Not part of a task patch: tags are written one link at a time. */
+  tags?: Tag[];
 }
 
 export type Section = 'in_progress' | 'waiting' | 'ready' | 'upcoming' | 'completed' | 'trash';

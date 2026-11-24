@@ -8,13 +8,17 @@ import {
   complete,
   markNotDone,
   placementFor,
+  parseTagList,
   planAddSubtask,
   planChange,
+  planDeleteTag,
   planDrop,
   planEditSubtask,
   planMoveSubtask,
   planNewTask,
   planRemoveSubtask,
+  planRenameTag,
+  planTaskTags,
   planUpcomingDrop,
   REORDERABLE,
   resolveDate,
@@ -24,6 +28,7 @@ import {
   softDelete,
   sortSubtasks,
   subtaskCount,
+  tagCounts,
   waitUntil,
   type ISODate,
   type PositionWrite,
@@ -33,10 +38,11 @@ import {
   type Subtask,
   type SubtaskChange,
   type SubtaskCount,
+  type Tag,
   type Task,
   type UpcomingDropDecision,
 } from '@app/core';
-import { deleteForever, insertTask, loadSnapshot, purgeTrash, searchTasks, writeChange, writeSubtaskChange, type Scope, type Snapshot } from '@app/data';
+import { deleteForever, insertTask, loadSnapshot, purgeTrash, searchTasks, writeChange, writeSubtaskChange, writeTagChange, writeTaskTagChange, type Scope, type Snapshot } from '@app/data';
 
 export interface Context {
   scope: Scope;
@@ -112,6 +118,8 @@ export interface AddOptions {
   flag?: boolean;
   /** Titles of subtasks to create, in order. */
   subtasks?: string[];
+  /** `--tags a,b`: names, comma separated. Tags that don't exist yet are created. */
+  tags?: string;
 }
 
 function parseStatus(value: string): Status {
@@ -141,6 +149,11 @@ export async function addTask(ctx: Context, title: string, options: AddOptions):
     const change = planAddSubtask(task.subtasks, { id: crypto.randomUUID(), title });
     task.subtasks = applySubtaskChange(task.subtasks, change);
   }
+  if (options.tags !== undefined) {
+    const plan = planTaskTags(snapshot.tags, [], parseTagList(options.tags), () => crypto.randomUUID());
+    for (const create of plan.creates) await writeTagChange(ctx.scope, create);
+    task.tags = plan.tags;
+  }
   const positions = planNewTask(snapshot.tasks, snapshot.positions, task, ctx.today);
   const saved = await insertTask(ctx.scope, task, positions);
   return changed(saved, ctx.today);
@@ -154,6 +167,8 @@ export interface EditOptions {
   due?: string;
   flag?: boolean;
   subtasks?: SubtaskEdits;
+  /** `--tags a,b` sets the task's tags to exactly these (`--tags ""` clears them). Tags that don't exist yet are created. */
+  tags?: string;
 }
 
 /**
@@ -267,10 +282,21 @@ export async function editTask(ctx: Context, ref: string, options: EditOptions):
   }
   const subtaskChanges = hasSubtaskEdits(options.subtasks) ? planSubtaskEdits(before.subtasks, options.subtasks!) : [];
   if (subtaskChanges.length > 0 && before.deletedAt) throw new Error('Subtasks of a task in Trash can\'t be changed; restore it first');
+  const tagPlan = options.tags === undefined ? null : planTaskTags(snapshot.tags, before.tags, parseTagList(options.tags), () => crypto.randomUUID());
+  if (tagPlan && before.deletedAt && (tagPlan.attach.length > 0 || tagPlan.detach.length > 0)) throw new Error('Tags of a task in Trash can\'t be changed; restore it first');
   const result = await commit(ctx, snapshot, before, after, undefined, note);
-  if (subtaskChanges.length === 0) return result;
+  if (subtaskChanges.length === 0 && !tagPlan) return result;
   for (const change of subtaskChanges) await writeSubtaskChange(ctx.scope, before.id, change);
-  const next = { ...result.task, subtasks: subtaskChanges.reduce((list, change) => applySubtaskChange(list, change), sortSubtasks(before.subtasks)) };
+  if (tagPlan) {
+    for (const create of tagPlan.creates) await writeTagChange(ctx.scope, create);
+    for (const tagId of tagPlan.detach) await writeTaskTagChange(ctx.scope, before.id, { kind: 'detach', tagId });
+    for (const tag of tagPlan.attach) await writeTaskTagChange(ctx.scope, before.id, { kind: 'attach', tag });
+  }
+  const next = {
+    ...result.task,
+    ...(subtaskChanges.length > 0 ? { subtasks: subtaskChanges.reduce((list, change) => applySubtaskChange(list, change), sortSubtasks(before.subtasks)) } : {}),
+    ...(tagPlan ? { tags: tagPlan.tags } : {}),
+  };
   Object.assign(snapshot, { tasks: snapshot.tasks.map((t) => (t.id === next.id ? next : t)) });
   return changed(next, ctx.today, note);
 }
@@ -454,9 +480,54 @@ export async function showTask(ctx: Context, ref: string) {
   };
 }
 
-export async function search(ctx: Context, query: string, options: { completed?: boolean; flagged?: boolean }) {
-  const tasks = await searchTasks(ctx.scope, query, options);
+/** Finds a tag by name (ignoring case), id or id prefix (at least 4 characters). */
+export function findTag(tags: readonly Tag[], ref: string): Tag {
+  const key = ref.trim().toLowerCase();
+  const byName = tags.filter((t) => t.name.toLowerCase() === key);
+  if (byName.length === 1) return byName[0]!;
+  const byId = tags.filter((t) => t.id === key || (key.length >= 4 && /^[0-9a-f-]+$/.test(key) && t.id.startsWith(key)));
+  if (byId.length === 1) return byId[0]!;
+  if (byId.length > 1) throw new Error(`"${ref}" matches ${byId.length} tags; use more of the id`);
+  throw new Error(`No tag named "${ref}"${tags.length ? ` (tags: ${tags.map((t) => t.name).join(', ')})` : ''}`);
+}
+
+export async function search(ctx: Context, query: string, options: { completed?: boolean; flagged?: boolean; tags?: string[] }) {
+  const tagIds = options.tags?.length ? findTags(await loadSnapshot(ctx.scope), options.tags) : [];
+  const tasks = await searchTasks(ctx.scope, query, { completed: options.completed, flagged: options.flagged, tagIds });
   return tasks.map((t) => changed(t, ctx.today));
+}
+
+function findTags(snapshot: Snapshot, refs: readonly string[]): string[] {
+  return refs.map((ref) => findTag(snapshot.tags, ref).id);
+}
+
+export interface TagListing {
+  id: string;
+  name: string;
+  count: number;
+}
+
+/** Every tag with how many tasks still to do have it (not completed, not in Trash). */
+export async function listTags(ctx: Context): Promise<TagListing[]> {
+  const snapshot = await loadSnapshot(ctx.scope);
+  return tagCounts(snapshot.tasks, snapshot.tags).map(({ tag, count }) => ({ id: tag.id, name: tag.name, count }));
+}
+
+/** Renames a tag on every task at once. Fails if the new name is taken by another tag (ignoring case). */
+export async function renameTag(ctx: Context, ref: string, name: string): Promise<{ tag: Tag; from: string }> {
+  const snapshot = await loadSnapshot(ctx.scope);
+  const tag = findTag(snapshot.tags, ref);
+  const change = planRenameTag(snapshot.tags, tag.id, name);
+  if (change) await writeTagChange(ctx.scope, change);
+  return { tag: change?.kind === 'rename' ? { id: tag.id, name: change.name } : tag, from: tag.name };
+}
+
+/** Deletes a tag and removes it from every task. The tasks stay. */
+export async function deleteTag(ctx: Context, ref: string): Promise<{ tag: Tag; tasks: number }> {
+  const snapshot = await loadSnapshot(ctx.scope);
+  const tag = findTag(snapshot.tags, ref);
+  await writeTagChange(ctx.scope, planDeleteTag(snapshot.tags, tag.id));
+  return { tag, tasks: snapshot.tasks.filter((t) => t.tags?.some((g) => g.id === tag.id)).length };
 }
 
 export async function purge(ctx: Context): Promise<string[]> {

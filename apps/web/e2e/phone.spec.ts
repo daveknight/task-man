@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { findTask, openBoard, recordDrop, reseed, row, section, showTask, titlesIn } from './helpers';
+import { findTask, openBoard, recordDrop, reseed, row, section, showTask, tagNames, titlesIn } from './helpers';
 
 test.beforeEach(async ({ page }) => {
   reseed();
@@ -158,4 +158,40 @@ test('subtasks in the bottom sheet: the grip is always shown, tick and add work,
   await page.keyboard.press('Enter');
   await page.keyboard.press('Escape');
   await expect.poll(() => showTask(title).subtaskCount).toEqual({ done: 1, total: 2 });
+});
+
+test('phone rows show no tag chips, the sheet lists them, and the picker is a bottom sheet', async ({ page }) => {
+  const title = 'Finance quarterly action items';
+  await expect(row(page, title)).toBeVisible();
+  await expect(page.locator('[data-slot=task-row] [data-slot=tag-chip]:visible')).toHaveCount(0);
+
+  await row(page, title).getByText(title).tap();
+  const editor = page.locator('[data-slot=drawer-content] [data-slot=task-editor]');
+  await expect(editor.locator('[data-field=Tags] [data-slot=tag-chip]')).toHaveText(tagNames(title));
+
+  await editor.locator('[data-field=Tags]').tap();
+  const sheet = page.locator('[data-slot=tag-sheet]');
+  await expect(sheet.getByText('Tags', { exact: true })).toBeVisible();
+  await expect(sheet.getByRole('button', { name: 'Done' })).toBeVisible();
+  await expect(sheet.locator('[data-slot=tag-count]')).toHaveCount(0);
+
+  await sheet.getByRole('option', { name: 'work', exact: true }).tap();
+  await expect.poll(() => tagNames(title)).toContain('work');
+  await sheet.getByPlaceholder('Search or create tag').fill('garden');
+  await sheet.locator('[data-slot=tag-create]').tap();
+  await expect.poll(() => tagNames(title)).toContain('garden');
+
+  await sheet.getByRole('button', { name: 'Done' }).tap();
+  await expect(sheet).toHaveCount(0);
+  await expect(editor.locator('[data-field=Tags]')).toContainText('garden');
+});
+
+test('phone search: the Tags filter narrows results, and result rows show no chips', async ({ page }) => {
+  await page.getByRole('button', { name: 'Search', exact: true }).tap();
+  await page.getByRole('button', { name: 'Tags' }).tap();
+  await page.locator('[data-slot=tags-menu]').getByRole('menuitemcheckbox', { name: /^finance/ }).tap();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('[data-slot=command-item][data-task-id]').first()).toBeVisible();
+  await expect(page.locator('[data-slot=command-item] [data-slot=tag-chip]:visible')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Remove tag finance' })).toBeVisible();
 });

@@ -51,7 +51,17 @@ export interface CliTask {
   deletedAt: string | null;
   description: string;
   subtasks: { id: string; title: string; done: boolean; sortKey: string }[];
+  tags: { id: string; name: string }[];
 }
+
+export interface CliTag {
+  id: string;
+  name: string;
+  count: number;
+}
+
+export const tagList = () => cliJson<CliTag[]>('tags');
+export const tagNames = (title: string) => showTask(title).task.tags.map((t) => t.name);
 
 export function showTask(title: string): { task: CliTask; placement: string; subtaskCount: { done: number; total: number } } {
   return cliJson('show', title);

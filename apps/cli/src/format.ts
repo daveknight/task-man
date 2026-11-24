@@ -22,6 +22,7 @@ export function shortDate(date: ISODate, today: ISODate): string {
 function details(task: BoardTask, today: ISODate): string {
   const parts: string[] = [];
   if (task.subtaskCount.total > 0) parts.push(`subtasks ${task.subtaskCount.done}/${task.subtaskCount.total}`);
+  if (task.tags?.length) parts.push(`tags ${task.tags.map((t) => t.name).join(', ')}`);
   if (task.hideUntil && task.placement.startsWith('waiting')) parts.push(`hide until ${shortDate(task.hideUntil, today)}`);
   if (task.startDate && task.placement === 'upcoming') parts.push(`starts ${shortDate(task.startDate, today)}`);
   if (task.dueDate) parts.push(`due ${shortDate(task.dueDate, today)}${task.overdue ? ' (overdue)' : task.dueDate === today ? ' (today)' : ''}`);

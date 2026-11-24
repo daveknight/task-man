@@ -93,6 +93,29 @@ Not captured in Figma yet; these are the states to add when Dave asks. The desig
 - [ ] A task in Trash: subtasks visible but read-only, no Add row – desktop 1440
 - [ ] Offline: subtasks read-only – desktop 1440
 
+## Tags
+
+Not captured in Figma yet; these are the states to add when Dave asks. The designs are on Figma node 132-2. Tags are a neutral grey name-only pill with no colors, and phone rows show no tags. The Figma frames have no rename or delete states; those are filled in from the picker and noted below.
+
+- [ ] Board rows with tags: up to two chips, then “+N” for the rest (“Finance quarterly action items” has three) – desktop 1440, light and dark
+- [ ] A selected row: its chips blend into the selected row – desktop 1440
+- [ ] Phone board: rows show no tag chips – phone
+- [ ] Task sheet with tags: the Tags row after Due lists every tag, right-aligned – desktop 1440 and overlay 900
+- [ ] Task sheet with no tags: the Tags row reads “None” – desktop 1440
+- [ ] Tag picker popover: search field “Search or create tag”, the tags alphabetically with a blue check on the ones the task has, no counts – desktop 1440, light and dark
+- [ ] Tag picker with “out” typed: the matching tag, then “Create “out”” in blue – desktop 1440
+- [ ] Tag picker bottom sheet: centered “Tags” title, blue Done, same list – phone
+- [ ] Phone task sheet with tags in the Tags row – phone
+- [ ] A refused name (a comma, or over 30 characters): the reason under the field, no Create row – desktop 1440 (not in Figma)
+- [ ] Rename: a row’s ⋯ menu, then the row turns into a field; a duplicate name shows its reason – desktop 1440 (not in Figma)
+- [ ] Delete: a row’s ⋯ menu, then the confirmation “Delete “someday”? It comes off N tasks.” with Cancel and Delete tag – desktop 1440 (not in Figma)
+- [ ] A task in Trash: tags visible, no picker – desktop 1440
+- [ ] Offline: the Tags row is read-only – desktop 1440
+- [ ] Search: the Tags chip beside Only flagged and Include completed – desktop 1440, light and dark
+- [ ] Search Tags menu open: every tag with its count, a blue check on the selected ones, the note “Shows tasks that have every selected tag.” – desktop 1440, light and dark
+- [ ] Search with two tags selected: removable blue-outlined chips, results that have both, with their tag chips – desktop 1440
+- [ ] Search on phone with a tag selected: the chips scroll sideways, results show no tag chips – phone
+
 ## Dialogs, prompts and pickers
 
 All desktop 1440 unless noted.

@@ -1,5 +1,5 @@
-import { applyPlan, applySubtaskChange, planChange, planNewTask, type ISODate, type PositionWrite, type SubtaskChange, type Task } from '@app/core';
-import { deleteForever, insertTask, loadSnapshot, searchTasks, writeChange, writeSubtaskChange, type Scope, type SearchOptions, type Snapshot } from '@app/data';
+import { applyPlan, applySubtaskChange, applyTagChange, applyTaskTagChange, planChange, planNewTask, type ISODate, type PositionWrite, type SubtaskChange, type TagChange, type Task, type TaskTagChange } from '@app/core';
+import { deleteForever, insertTask, loadSnapshot, searchTasks, writeChange, writeSubtaskChange, writeTagChange, writeTaskTagChange, type Scope, type SearchOptions, type Snapshot } from '@app/data';
 import { keepPreviousData, notifyManager, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
@@ -47,7 +47,7 @@ export interface ChangeOptions {
 export function useTaskWrites(today: ISODate) {
   const client = useQueryClient();
 
-  const current = useCallback((): Snapshot => client.getQueryData<Snapshot>(SNAPSHOT_KEY) ?? { tasks: [], positions: new Map() }, [client]);
+  const current = useCallback((): Snapshot => client.getQueryData<Snapshot>(SNAPSHOT_KEY) ?? { tasks: [], positions: new Map(), tags: [] }, [client]);
 
   const run = useCallback(
     async (optimistic: Snapshot, write: (s: Scope) => Promise<unknown>) => {
@@ -80,7 +80,7 @@ export function useTaskWrites(today: ISODate) {
     async (before: Task, after: Task, options: ChangeOptions = {}) => {
       const snapshot = current();
       const plan = planChange(snapshot.tasks, snapshot.positions, before, after, today, options.drop);
-      await run(applyPlan(snapshot.tasks, snapshot.positions, after, plan), (s) => writeChange(s, after.id, plan));
+      await run({ ...applyPlan(snapshot.tasks, snapshot.positions, after, plan), tags: snapshot.tags }, (s) => writeChange(s, after.id, plan));
     },
     [current, run, today],
   );
@@ -92,7 +92,7 @@ export function useTaskWrites(today: ISODate) {
       const next = new Map(snapshot.positions);
       for (const w of positions) next.set(w.taskId, w.sortKey);
       const optimistic = { ...task, createdAt: new Date().toISOString() };
-      await run({ tasks: [...snapshot.tasks, optimistic], positions: next }, (s) => insertTask(s, task, positions));
+      await run({ tasks: [...snapshot.tasks, optimistic], positions: next, tags: snapshot.tags }, (s) => insertTask(s, task, positions));
     },
     [current, run, today],
   );
@@ -102,7 +102,34 @@ export function useTaskWrites(today: ISODate) {
     async (task: Task, change: SubtaskChange) => {
       const snapshot = current();
       const tasks = snapshot.tasks.map((t) => (t.id === task.id ? { ...t, subtasks: applySubtaskChange(t.subtasks, change) } : t));
-      await run({ tasks, positions: snapshot.positions }, (s) => writeSubtaskChange(s, task.id, change));
+      await run({ ...snapshot, tasks }, (s) => writeSubtaskChange(s, task.id, change));
+    },
+    [current, run],
+  );
+
+  /**
+   * Puts one tag on or off a task. `create` is a new tag made in the same step (typed in the picker),
+   * written first so the link has something to point at.
+   */
+  const taskTag = useCallback(
+    async (task: Task, change: TaskTagChange, create?: TagChange) => {
+      const snapshot = current();
+      const tags = create ? applyTagChange({ tags: snapshot.tags, tasks: [] }, create).tags : snapshot.tags;
+      const tasks = snapshot.tasks.map((t) => (t.id === task.id ? { ...t, tags: applyTaskTagChange(t.tags, change) } : t));
+      await run({ ...snapshot, tasks, tags }, async (s) => {
+        if (create) await writeTagChange(s, create);
+        await writeTaskTagChange(s, task.id, change);
+      });
+    },
+    [current, run],
+  );
+
+  /** Creates, renames or deletes a tag. A rename or delete shows on every task that has it at once. */
+  const tagList = useCallback(
+    async (change: TagChange) => {
+      const snapshot = current();
+      const next = applyTagChange({ tags: snapshot.tags, tasks: snapshot.tasks }, change);
+      await run({ ...snapshot, tasks: next.tasks, tags: next.tags }, (s) => writeTagChange(s, change));
     },
     [current, run],
   );
@@ -112,12 +139,12 @@ export function useTaskWrites(today: ISODate) {
       const snapshot = current();
       const positions = new Map(snapshot.positions);
       positions.delete(task.id);
-      await run({ tasks: snapshot.tasks.filter((t) => t.id !== task.id), positions }, (s) => deleteForever(s, task.id));
+      await run({ ...snapshot, tasks: snapshot.tasks.filter((t) => t.id !== task.id), positions }, (s) => deleteForever(s, task.id));
     },
     [current, run],
   );
 
-  return useMemo(() => ({ change, add, subtask, remove, current }), [change, add, subtask, remove, current]);
+  return useMemo(() => ({ change, add, subtask, taskTag, tagList, remove, current }), [change, add, subtask, taskTag, tagList, remove, current]);
 }
 
 export type TaskWrites = ReturnType<typeof useTaskWrites>;
