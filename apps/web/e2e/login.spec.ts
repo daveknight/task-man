@@ -62,6 +62,42 @@ test('Forgot password asks for an email and says a link is on its way, whether o
   await expect(page.getByRole('heading', heading('Sign in'))).toBeVisible();
 });
 
+test('the divider between the fields runs the full width, and the fields follow the list\'s rounded corners so a focus ring is not cropped', async ({ page }) => {
+  await page.goto('/?autosignin=off');
+  const email = page.getByRole('textbox', { name: 'Email' });
+  const password = page.getByLabel('Password');
+  await expect(email).toBeVisible();
+  const style = (field: typeof email, prop: string, pseudo?: string) => field.evaluate((el, [p, ps]) => getComputedStyle(ps ? el.parentElement! : el, ps || null).getPropertyValue(p!), [prop, pseudo ?? '']);
+  expect(await style(password, 'left', '::before')).toBe('0px');
+  const radius = async (field: typeof email, corner: string) => parseFloat(await style(field, `border-${corner}-radius`));
+  expect(await radius(email, 'top-left')).toBeGreaterThan(0);
+  expect(await radius(email, 'bottom-left')).toBe(0);
+  expect(await radius(password, 'bottom-left')).toBeGreaterThan(0);
+  expect(await radius(password, 'top-left')).toBe(0);
+  await password.focus();
+  expect(await style(password, 'box-shadow')).not.toBe('none');
+});
+
+test('the primary buttons are 32px tall, the same as Add task', async ({ page }) => {
+  await page.goto('/?autosignin=off');
+  const height = async (name: string) => (await page.getByRole('button', { name, exact: true }).boundingBox())!.height;
+  expect(await height('Sign in')).toBe(32);
+  await page.getByRole('button', { name: 'Forgot password?' }).click();
+  expect(await height('Send reset link')).toBe(32);
+});
+
+test('Forgot password starts with the email already typed on Sign in', async ({ page }) => {
+  await page.goto('/?autosignin=off');
+  await page.getByRole('textbox', { name: 'Email' }).fill('someone@example.com');
+  await page.getByRole('button', { name: 'Forgot password?' }).click();
+  await expect(page.getByRole('heading', heading('Reset password'))).toBeVisible();
+  await expect(page.getByRole('textbox', { name: 'Email' })).toHaveValue('someone@example.com');
+  await expect(page.getByRole('button', { name: 'Send reset link' })).toBeEnabled();
+
+  await page.getByRole('button', { name: 'Back to sign in' }).click();
+  await expect(page.getByRole('textbox', { name: 'Email' })).toHaveValue('someone@example.com');
+});
+
 test('a reset link opens New password, and saving it signs in with the new password', async ({ page }) => {
   const db = admin();
   const { data, error } = await db.auth.admin.generateLink({ type: 'recovery', email: DEV.email, options: { redirectTo: 'http://127.0.0.1:5179' } });

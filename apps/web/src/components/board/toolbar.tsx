@@ -31,7 +31,7 @@ export interface BoardMenuProps {
   account?: { email: string; onSignOut: () => void };
 }
 
-/** The board menu: Show completed, Trash, and the Appearance setting. */
+/** The board menu: Show completed, Show deleted (the Trash screen), and the Appearance setting. */
 export function BoardMenu({ defaultOpen, showCompleted = false, onShowCompletedChange, onTrash, account }: BoardMenuProps) {
   const { appearance, setAppearance } = useAppearance();
   return (
@@ -44,10 +44,7 @@ export function BoardMenu({ defaultOpen, showCompleted = false, onShowCompletedC
           <DropdownMenuCheckboxItem checked={showCompleted} onCheckedChange={(checked) => onShowCompletedChange?.(checked)}>
             Show completed
           </DropdownMenuCheckboxItem>
-          <DropdownMenuItem onClick={onTrash}>
-            <Icon name="trash" />
-            Trash
-          </DropdownMenuItem>
+          <DropdownMenuItem onClick={onTrash}>Show deleted</DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>

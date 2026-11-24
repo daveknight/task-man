@@ -190,7 +190,7 @@ test.describe('drag handle', () => {
     expect(heading).toBeCloseTo(titles[0]!, 0);
   });
 
-  test('the icon is muted, using the checkbox ring color, and turns blue on hover', async ({ page }) => {
+  test('the icon is muted, using the checkbox ring color, and turns the medium grey on hover and focus, in light and dark', async ({ page }) => {
     const grip = handle(page, 'Fix squeaky closet door');
     await page.mouse.move(0, 0);
     const color = () => grip.evaluate((el) => getComputedStyle(el).color);
@@ -209,7 +209,29 @@ test.describe('drag handle', () => {
     expect(muted).not.toBe(titleColor);
     await grip.hover();
     await expect.poll(color).not.toBe(muted);
-    expect(await color()).toBe(await token('text-link'));
+    expect(await color()).toBe(await token('text-muted-foreground'));
+    expect(await color()).not.toBe(await token('text-link'));
+
+    await page.mouse.move(0, 0);
+    await expect.poll(color).toBe(muted);
+    await row(page, 'Fix squeaky closet door').getByRole('checkbox').focus();
+    await page.keyboard.press('Shift+Tab');
+    await expect(grip).toBeFocused();
+    expect(await color()).toBe(await token('text-muted-foreground'));
+  });
+
+  test('the focus ring on the first row\'s handle sits clear of the list\'s rounded corner', async ({ page }) => {
+    const first = section(page, 'in_progress').locator('[data-slot=task-row]').first();
+    const grip = first.getByRole('button', { name: /^Reorder/ });
+    await grip.focus();
+    await expect(grip).toBeFocused();
+    const g = (await grip.boundingBox())!;
+    const list = (await first.boundingBox())!;
+    // The ring is drawn inside the button, and the list clips what falls outside its corner.
+    expect(g.x - list.x).toBeGreaterThanOrEqual(4);
+    expect(g.y - list.y).toBeGreaterThanOrEqual(4);
+    expect(list.y + list.height - (g.y + g.height)).toBeGreaterThanOrEqual(4);
+    await expect.poll(() => grip.evaluate((el) => getComputedStyle(el).boxShadow)).not.toBe('none');
   });
 
   test('the grip shows only while the row is hovered, the handle has keyboard focus, or it is dragged, and never moves the title', async ({ page }) => {

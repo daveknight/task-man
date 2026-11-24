@@ -240,7 +240,7 @@ test('a task in Trash shows its subtasks without letting them change', async ({ 
   cli('delete', TASK);
   await page.reload();
   await page.getByRole('button', { name: 'Menu', exact: true }).click();
-  await page.getByRole('menuitem', { name: 'Trash' }).click();
+  await page.getByRole('menuitem', { name: 'Show deleted' }).click();
   await row(page, TASK).click();
   expect(await titles(page)).toEqual(['Find model number', 'Order from parts site']);
   await expect(subtaskRow(page, 'Find model number').getByRole('checkbox')).toBeDisabled();

@@ -120,7 +120,7 @@ function SubtaskRow({
           disabled={locked}
           onClick={onEdit}
           className={cn(
-            'flex min-h-subtask min-w-0 flex-1 items-center rounded-sm text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+            'flex min-h-subtask min-w-0 flex-1 items-center rounded-sm text-left outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/50',
             subtask.done && 'text-muted-foreground line-through',
           )}
         >
@@ -224,7 +224,7 @@ export function SubtasksCard({ task }: { task: Task }) {
                 type="button"
                 disabled={locked}
                 onClick={() => setEditing({ kind: 'new', nonce: Date.now() })}
-                className="flex min-h-subtask min-w-0 flex-1 items-center gap-row-gap rounded-sm text-left text-muted-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50"
+                className="flex min-h-subtask min-w-0 flex-1 items-center gap-row-gap rounded-sm text-left text-muted-foreground outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/50 disabled:opacity-50"
               >
                 <Icon name="add" className="size-checkbox shrink-0" />
                 <span className="optical-center text-body">Add subtask</span>

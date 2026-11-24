@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 import { findTask, openBoard, recordDrop, reseed, row, section, showTask, tagNames, titlesIn } from './helpers';
 
 test.beforeEach(async ({ page }) => {
@@ -31,8 +31,8 @@ test('scrolled to the bottom, the floating button leaves the last row tappable',
   await expect(page.locator('[data-section=upcoming] [data-slot=task-row]').first()).toBeVisible();
 });
 
-test('swipe left shows the row buttons; Due opens the quick picks', async ({ page }) => {
-  const target = row(page, 'Return library books');
+async function swipeLeft(page: Page, title: string) {
+  const target = row(page, title);
   const box = (await target.boundingBox())!;
   const y = box.y + box.height / 2;
   const pointer = (type: 'pointerdown' | 'pointermove' | 'pointerup', x: number) =>
@@ -40,10 +40,34 @@ test('swipe left shows the row buttons; Due opens the quick picks', async ({ pag
   await pointer('pointerdown', box.x + box.width - 20);
   for (let x = box.x + box.width - 40; x > box.x + 60; x -= 30) await pointer('pointermove', x);
   await pointer('pointerup', box.x + 60);
-  await expect(page.locator('[data-slot=swipe-row][data-open=left]')).toBeVisible();
-  await page.locator('[data-slot=swipe-row][data-open=left]').getByRole('button', { name: 'Due', exact: true }).tap();
+  const open = page.locator('[data-slot=swipe-row][data-open=left]');
+  await expect(open).toBeVisible();
+  return open.locator('[data-slot=swipe-tray][data-reveal=left]');
+}
+
+test('swipe left shows the row buttons; Due opens the quick picks', async ({ page }) => {
+  const tray = await swipeLeft(page, 'Return library books');
+  await tray.getByRole('button', { name: 'Due', exact: true }).tap();
   await page.locator('[data-slot=preset-sheet] [data-preset=nextMonday]').tap();
   await expect.poll(() => showTask('Return library books').task.dueDate).toBe('2026-11-23');
+});
+
+test('the swipe buttons run in the desktop order: Delete, state, date, then Due', async ({ page }) => {
+  const names = async (tray: Locator) => tray.locator('button').evaluateAll((els) => els.map((el) => el.getAttribute('aria-label')));
+  expect(await names(await swipeLeft(page, 'Return library books'))).toEqual(['Delete', 'Move to Waiting', 'Due']);
+  await page.reload();
+  expect(await names(await swipeLeft(page, 'Plumber quote for kitchen sink'))).toEqual(['Delete', 'Hide until', 'Move to In Progress', 'Due']);
+});
+
+test('offline, the swipe buttons are disabled', async ({ page, context }) => {
+  await context.setOffline(true);
+  await expect(page.locator('[data-slot=offline-banner]')).toBeVisible();
+  const tray = await swipeLeft(page, 'Return library books');
+  const buttons = tray.locator('button');
+  const count = await buttons.count();
+  expect(count).toBeGreaterThan(2);
+  for (let i = 0; i < count; i++) await expect(buttons.nth(i)).toBeDisabled();
+  await context.setOffline(false);
 });
 
 test('sections bleed to the screen edges, and section titles line up with task titles', async ({ page }) => {
