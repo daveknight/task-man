@@ -31,7 +31,6 @@ Email and password is the only method until the app is working end to end.
 
 ## Tracking and history
 
-- **Completed log:** a "what I finished" view grouped by day and week, including each recurring task's completion history.
 - Simple stats: completed per week, and average time spent waiting.
 
 ## Integrations
