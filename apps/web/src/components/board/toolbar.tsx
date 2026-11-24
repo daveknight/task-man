@@ -27,10 +27,12 @@ export interface BoardMenuProps {
   showCompleted?: boolean;
   onShowCompletedChange?: (show: boolean) => void;
   onTrash?: () => void;
+  /** The signed-in account, with its sign-out. Left out on the static design screens. */
+  account?: { email: string; onSignOut: () => void };
 }
 
 /** The board menu: Show completed, Trash, and the Appearance setting. */
-export function BoardMenu({ defaultOpen, showCompleted = false, onShowCompletedChange, onTrash }: BoardMenuProps) {
+export function BoardMenu({ defaultOpen, showCompleted = false, onShowCompletedChange, onTrash, account }: BoardMenuProps) {
   const { appearance, setAppearance } = useAppearance();
   return (
     <DropdownMenu defaultOpen={defaultOpen}>
@@ -59,6 +61,18 @@ export function BoardMenu({ defaultOpen, showCompleted = false, onShowCompletedC
             ))}
           </DropdownMenuRadioGroup>
         </DropdownMenuGroup>
+        {account && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuGroup>
+              {account.email && <DropdownMenuLabel className="truncate">{account.email}</DropdownMenuLabel>}
+              <DropdownMenuItem onClick={account.onSignOut}>
+                <Icon name="signOut" />
+                Sign out
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
+          </>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );

@@ -12,6 +12,7 @@ import {
   type Icon as PhosphorIcon,
 } from '@phosphor-icons/react';
 import { useMemo, useState, type ReactNode } from 'react';
+import { ForgotScreen, NewPasswordScreen, ResetSentScreen, SignInScreen } from '@/auth/auth-screens';
 import { BoardView, RowList, SECTION_TITLES } from '@/components/board/board-view';
 import { PresetPanel } from '@/components/board/preset-panel';
 import { SwipeRow, type SwipeReveal } from '@/components/board/swipe-row';
@@ -34,6 +35,11 @@ export const DESIGN_SCREENS = {
   'sheet-ready': 'Task sheet for an Open task: Start and Due',
   'sheet-waiting': 'Task sheet for a Waiting task: Hide until and Due',
   'resume-icons': 'Resume icon options',
+  login: 'Login: sign in',
+  'login-error': 'Login: wrong email or password',
+  'login-forgot': 'Login: reset password',
+  'login-sent': 'Login: reset email sent',
+  'login-new-password': 'Login: choose a new password',
 } as const;
 
 export type DesignScreen = keyof typeof DESIGN_SCREENS;
@@ -41,7 +47,7 @@ export type DesignScreen = keyof typeof DESIGN_SCREENS;
 function Page({ title, today, menuOpen, children }: { title: string; today: ISODate; menuOpen?: boolean; children: ReactNode }) {
   return (
     <main className={cn('mx-auto flex min-h-dvh max-w-2xl flex-col px-row-x pb-[max(2rem,env(safe-area-inset-bottom))]', FAB_CLEARANCE)} data-design-today={today}>
-      <Toolbar title={title} subtitle={longDate(today, today)} menuOpen={menuOpen} />
+      <Toolbar title={title} subtitle={longDate(today, today)} menuOpen={menuOpen} menu={menuOpen ? { account: { email: 'dave@example.com', onSignOut: () => {} } } : undefined} />
       <div className="pt-2">{children}</div>
       <AddTaskFab />
     </main>
@@ -251,6 +257,25 @@ export function DesignApp({ screen }: { screen: string }) {
       return <BoardScreen seed={seed} today={today} sheetFor="Read the HOA meeting minutes" />;
     case 'sheet-waiting':
       return <BoardScreen seed={seed} today={today} sheetFor="Reimbursement for conference travel" />;
+    case 'login':
+    case 'login-error':
+      return (
+        <SignInScreen
+          email="dave@example.com"
+          password={screen === 'login' ? '' : 'password'}
+          error={screen === 'login-error' ? 'Wrong email or password.' : null}
+          onEmailChange={() => {}}
+          onPasswordChange={() => {}}
+          onSubmit={() => {}}
+          onForgot={() => {}}
+        />
+      );
+    case 'login-forgot':
+      return <ForgotScreen email="dave@example.com" onEmailChange={() => {}} onSubmit={() => {}} onBack={() => {}} />;
+    case 'login-sent':
+      return <ResetSentScreen email="dave@example.com" onBack={() => {}} />;
+    case 'login-new-password':
+      return <NewPasswordScreen password="" onPasswordChange={() => {}} onSubmit={() => {}} />;
     default:
       return <Index />;
   }

@@ -38,6 +38,7 @@ export const icons = {
   reorder: { phosphor: 'DotsSixVertical', sfSymbol: 'line.3.horizontal' },
   close: { phosphor: 'X', sfSymbol: 'xmark' },
   offline: { phosphor: 'WifiSlash', sfSymbol: 'wifi.slash' },
+  signOut: { phosphor: 'SignOut', sfSymbol: 'rectangle.portrait.and.arrow.right' },
 } as const satisfies Record<string, IconSpec>;
 
 export type IconMeaning = keyof typeof icons;

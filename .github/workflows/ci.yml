@@ -65,8 +65,8 @@ jobs:
         with:
           version: 3.1.0
       - run: npm ci
-      - name: Start local Supabase (database, auth, REST only)
-        run: supabase start -x realtime,storage-api,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
+      - name: Start local Supabase (database, auth, REST and the Mailpit inbox for reset emails)
+        run: supabase start -x realtime,storage-api,imgproxy,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
       - name: "Migration check: apply every migration from scratch"
         run: supabase db reset
       - name: "Migration check: lint"
