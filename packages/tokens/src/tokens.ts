@@ -128,7 +128,7 @@ export const exactApplePairs: readonly [text: ColorRole, on: ColorRole][] = [
 /** The lowest contrast an exact-Apple pair may have (white icons on Apple orange). */
 export const exactAppleFloor = 2;
 
-/** Roles the native apps take from these tokens (Phase 3); everything else uses system colors there. */
+/** Roles the native apps take from these tokens (Phase 4); everything else uses system colors there. */
 export const nativeRoles: readonly ColorRole[] = [
   'flag',
   'overdue',
