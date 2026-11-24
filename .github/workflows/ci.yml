@@ -71,7 +71,7 @@ jobs:
         run: supabase db reset
       - name: "Migration check: lint"
         run: supabase db lint --level warning --fail-on warning
-      - name: Schema, RLS, sync-safety and backup restore round-trip tests
+      - name: Schema, RLS and sync-safety tests
         run: npm run test:db
       - name: Seed expectations through the CLI (Wednesday and Saturday)
         run: npm run check:seed -- 2026-11-18 2026-11-21

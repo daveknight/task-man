@@ -22,8 +22,6 @@
     "check:seed": "npm run check:seed -w @app/cli --",
     "web": "npm run dev -w @app/web",
     "screenshots": "npm run screenshots -w @app/web --",
-    "check:hosted": "npm run check:hosted -w @app/cli --",
-    "backup:export": "npm run backup:export -w @app/cli --",
-    "backup:restore": "npm run backup:restore -w @app/cli --"
+    "check:hosted": "npm run check:hosted -w @app/cli --"
   }
 }
