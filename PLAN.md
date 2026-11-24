@@ -404,6 +404,9 @@ Each phase ends with something you can use day to day and give feedback on befor
 - The Capture box, the `parse-capture` Edge Function with Gemini first and Claude and ChatGPT behind the same interface, the review sheet, the plain-lines fallback, `capture_log`, the CLI `capture` commands and the example set. It comes after Phase 2 so the model can fill in tags, subtasks and repeats.
 - The Capture box and review sheet (cards with field chips) are designed in the Figma web kit first.
 
+**Phase 2c: completed log**
+- A "what I finished" view across all tasks, grouped by day and week, including each recurring task's completion history (built on the completions recorded since Phase 2). It is a read-only view, so it needs no new task rules, and it is designed in the Figma web kit first. It comes before the native apps so Phase 3 can build it once, on the final data.
+
 **Phase 3: native iOS + macOS**
 - SwiftUI multiplatform app with the same rules (passes the shared test vectors), local cache and offline queue, realtime sync, native drag-and-drop, and a bottom-sheet editor like your screenshots.
 - **Built from Apple's system components:**
