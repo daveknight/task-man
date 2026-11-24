@@ -1,5 +1,5 @@
-import { applyPlan, applySubtaskChange, applyTagChange, applyTaskTagChange, planChange, planNewTask, type ISODate, type PositionWrite, type SubtaskChange, type TagChange, type Task, type TaskTagChange } from '@app/core';
-import { deleteForever, insertTask, loadSnapshot, searchTasks, writeChange, writeSubtaskChange, writeTagChange, writeTaskTagChange, type Scope, type SearchOptions, type Snapshot } from '@app/data';
+import { applyPlan, applySubtaskChange, applyTagChange, applyTaskTagChange, planChange, planNewTask, type ISODate, type OccurrencePlan, type PositionWrite, type SubtaskChange, type TagChange, type Task, type TaskTagChange, type UndoPlan } from '@app/core';
+import { deleteForever, insertTask, loadSnapshot, searchTasks, writeChange, writeOccurrence, writeSubtaskChange, writeTagChange, writeTaskTagChange, writeUndoOccurrence, type Scope, type SearchOptions, type Snapshot } from '@app/data';
 import { keepPreviousData, notifyManager, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
@@ -47,7 +47,7 @@ export interface ChangeOptions {
 export function useTaskWrites(today: ISODate) {
   const client = useQueryClient();
 
-  const current = useCallback((): Snapshot => client.getQueryData<Snapshot>(SNAPSHOT_KEY) ?? { tasks: [], positions: new Map(), tags: [] }, [client]);
+  const current = useCallback((): Snapshot => client.getQueryData<Snapshot>(SNAPSHOT_KEY) ?? { tasks: [], positions: new Map(), tags: [], completions: [] }, [client]);
 
   const run = useCallback(
     async (optimistic: Snapshot, write: (s: Scope) => Promise<unknown>) => {
@@ -80,7 +80,7 @@ export function useTaskWrites(today: ISODate) {
     async (before: Task, after: Task, options: ChangeOptions = {}) => {
       const snapshot = current();
       const plan = planChange(snapshot.tasks, snapshot.positions, before, after, today, options.drop);
-      await run({ ...applyPlan(snapshot.tasks, snapshot.positions, after, plan), tags: snapshot.tags }, (s) => writeChange(s, after.id, plan));
+      await run({ ...applyPlan(snapshot.tasks, snapshot.positions, after, plan), tags: snapshot.tags, completions: snapshot.completions }, (s) => writeChange(s, after.id, plan));
     },
     [current, run, today],
   );
@@ -92,7 +92,7 @@ export function useTaskWrites(today: ISODate) {
       const next = new Map(snapshot.positions);
       for (const w of positions) next.set(w.taskId, w.sortKey);
       const optimistic = { ...task, createdAt: new Date().toISOString() };
-      await run({ tasks: [...snapshot.tasks, optimistic], positions: next, tags: snapshot.tags }, (s) => insertTask(s, task, positions));
+      await run({ tasks: [...snapshot.tasks, optimistic], positions: next, tags: snapshot.tags, completions: snapshot.completions }, (s) => insertTask(s, task, positions));
     },
     [current, run, today],
   );
@@ -134,6 +134,29 @@ export function useTaskWrites(today: ISODate) {
     [current, run],
   );
 
+  const occur = useCallback(
+    async (before: Task, plan: OccurrencePlan) => {
+      const snapshot = current();
+      const positions = new Map(snapshot.positions);
+      if (plan.clearPosition) positions.delete(plan.task.id);
+      const tasks = snapshot.tasks.map((t) => (t.id === plan.task.id ? plan.task : t));
+      await run({ ...snapshot, tasks, positions, completions: [...snapshot.completions, plan.record] }, (s) => writeOccurrence(s, before, plan));
+    },
+    [current, run],
+  );
+
+  const undoOccurrence = useCallback(
+    async (currentTask: Task, plan: UndoPlan) => {
+      const snapshot = current();
+      const positions = new Map(snapshot.positions);
+      if (plan.sortKey) positions.set(plan.task.id, plan.sortKey);
+      else positions.delete(plan.task.id);
+      const tasks = snapshot.tasks.map((t) => (t.id === plan.task.id ? plan.task : t));
+      await run({ ...snapshot, tasks, positions, completions: snapshot.completions.filter((c) => c.id !== plan.completionId) }, (s) => writeUndoOccurrence(s, currentTask, plan));
+    },
+    [current, run],
+  );
+
   const remove = useCallback(
     async (task: Task) => {
       const snapshot = current();
@@ -144,7 +167,7 @@ export function useTaskWrites(today: ISODate) {
     [current, run],
   );
 
-  return useMemo(() => ({ change, add, subtask, taskTag, tagList, remove, current }), [change, add, subtask, taskTag, tagList, remove, current]);
+  return useMemo(() => ({ change, add, subtask, taskTag, tagList, occur, undoOccurrence, remove, current }), [change, add, subtask, taskTag, tagList, occur, undoOccurrence, remove, current]);
 }
 
 export type TaskWrites = ReturnType<typeof useTaskWrites>;

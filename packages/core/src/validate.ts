@@ -1,4 +1,5 @@
 import { isValidDate } from './dates.ts';
+import { validateRepeat } from './repeat.ts';
 import { STATUSES, type Task } from './types.ts';
 
 /** A start date after the due date. Hide until isn't covered: it may fall after the due date. */
@@ -42,6 +43,12 @@ export function validateTask(task: Partial<Task>): ValidationIssue[] {
   }
   if (!!task.deletedAt !== !!task.deletedOn) {
     issues.push({ field: 'deletedOn', message: 'deletedAt and deletedOn must be set together' });
+  }
+  if (task.repeat != null) {
+    for (const problem of validateRepeat(task.repeat)) {
+      issues.push({ field: `repeat.${problem.field}`, message: problem.message });
+    }
+    if (task.dueDate == null) issues.push({ field: 'dueDate', message: 'A repeat needs a due date' });
   }
   return issues;
 }

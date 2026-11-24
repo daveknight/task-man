@@ -33,6 +33,11 @@ import {
   type TagLink,
   type TaskTagChange,
   nextWeekdayOnOrAfter,
+  localDate,
+  nextDueDate,
+  planOccurrence,
+  planUndoOccurrence,
+  validateRepeat,
   normalizeSubtaskTitle,
   planAddSubtask,
   planEditSubtask,
@@ -52,6 +57,7 @@ import {
   subtaskCount,
   type Subtask,
   type SubtaskChange,
+  type RepeatRule,
   type Task,
   type UpcomingDropChoice,
   type Weekday,
@@ -452,5 +458,100 @@ describe('tags.json', () => {
     const plan = planTaskTags(catalog, current, names, newId);
     expect({ creates: plan.creates.map((c) => label(c.tag)), attach: plan.attach.map(label), detach: plan.detach, tags: plan.tags.map(label) }).toEqual(expected);
     expect(queue).toEqual([]);
+  });
+});
+
+describe('repeat.json', () => {
+  const vectors = load<{
+    validateRepeat: { name: string; rule: unknown; expect: string[] }[];
+    nextDue: { name: string; rule: RepeatRule; due?: string; on?: string; expect?: string | null; steps?: { due: string; on: string; expect: string | null; rule?: RepeatRule }[] }[];
+    occurrence: {
+      name: string;
+      task: Partial<Task>;
+      kind: 'done' | 'skip';
+      on: string;
+      historyCount: number;
+      sortKey: string | null;
+      expect: {
+        outcome: 'advance' | 'end';
+        dueDate: string;
+        startDate?: string | null;
+        status?: string;
+        flagged?: boolean;
+        hideUntil?: string | null;
+        completedOn: string | null;
+        subtasksDone?: boolean[];
+        clearPosition: boolean;
+        kind: 'done' | 'skip';
+      };
+    }[];
+    localDate: { name: string; instant: string; timeZone: string; expect: string }[];
+  }>('repeat.json');
+
+  it.each(vectors.validateRepeat)('validateRepeat: $name', ({ rule, expect: expected }) => {
+    expect(validateRepeat(rule).map((i) => i.field).sort()).toEqual([...expected].sort());
+  });
+
+  it.each(vectors.nextDue)('nextDueDate: $name', ({ rule, due, on, expect: expected, steps }) => {
+    const runs = steps ?? [{ due: due!, on: on!, expect: expected!, rule: undefined }];
+    for (const step of runs) {
+      expect(nextDueDate(step.rule ?? rule, step.due, step.on)).toBe(step.expect);
+    }
+  });
+
+  it.each(vectors.occurrence)('planOccurrence: $name', ({ task, kind, on, historyCount, sortKey, expect: expected }) => {
+    const planned = planOccurrence({ id: 'occ', task: taskFrom(task), kind, on, now: '2026-11-18T19:00:00.000Z', historyCount, sortKey });
+    expect(planned.outcome).toBe(expected.outcome);
+    expect(planned.task.dueDate).toBe(expected.dueDate);
+    expect(planned.task.status).toBe(expected.status ?? 'open');
+    expect(planned.task.hideUntil ?? null).toBe(expected.hideUntil ?? null);
+    expect(planned.task.completedOn ?? null).toBe(expected.completedOn);
+    expect(planned.clearPosition).toBe(expected.clearPosition);
+    expect(planned.record.kind).toBe(expected.kind);
+    expect(planned.record.occurrenceDue).toBe(task.dueDate);
+    if (expected.startDate !== undefined) expect(planned.task.startDate ?? null).toBe(expected.startDate);
+    if (expected.flagged !== undefined) expect(planned.task.flagged).toBe(expected.flagged);
+    if (expected.subtasksDone) expect((planned.task.subtasks ?? []).map((s) => s.done)).toEqual(expected.subtasksDone);
+    if (expected.outcome === 'advance') {
+      expect(planned.task.completedAt).toBeNull();
+      expect(planned.task.dueDate! > task.dueDate!).toBe(true);
+    } else {
+      expect(planned.task.completedAt).toBe('2026-11-18T19:00:00.000Z');
+      expect(planned.resetSubtaskIds).toEqual([]);
+    }
+  });
+
+  it('undo restores the previous occurrence and refuses an edit', () => {
+    const task = taskFrom({
+      dueDate: '2026-11-18',
+      flagged: true,
+      repeat: { mode: 'schedule', freq: 'weekly', interval: 1 },
+      subtasks: [
+        { id: 'a', title: 'Budget review', done: true, sortKey: 'a' },
+        { id: 'b', title: 'Rebalance', done: false, sortKey: 'b' },
+      ],
+    });
+    const planned = planOccurrence({ id: 'occ', task, kind: 'done', on: '2026-11-18', now: '2026-11-18T19:00:00.000Z', historyCount: 0, sortKey: 'pos' });
+    const restored = planUndoOccurrence(planned.task, planned.record, 0, null);
+    expect(restored.task.dueDate).toBe('2026-11-18');
+    expect(restored.task.subtasks?.map((s) => s.done)).toEqual([true, false]);
+    expect(restored.task.flagged).toBe(true);
+    expect(restored.sortKey).toBe('pos');
+    expect(restored.subtaskDone).toEqual([{ id: 'a', done: true }]);
+    expect(() => planUndoOccurrence({ ...planned.task, dueDate: '2026-12-01' }, planned.record, 0, null)).toThrow(/edited/);
+  });
+
+  it('undo of a finished series clears the completion and keeps the position', () => {
+    const task = taskFrom({ dueDate: '2026-11-18', repeat: { mode: 'dates', dates: ['2026-11-18'] } });
+    const planned = planOccurrence({ id: 'occ', task, kind: 'done', on: '2026-11-18', now: '2026-11-18T19:00:00.000Z', historyCount: 0, sortKey: 'pos' });
+    expect(planned.outcome).toBe('end');
+    const restored = planUndoOccurrence(planned.task, planned.record, 0, 'pos');
+    expect(restored.task.completedAt).toBeNull();
+    expect(restored.task.dueDate).toBe('2026-11-18');
+    expect(restored.sortKey).toBe('pos');
+  });
+
+  it.each(vectors.localDate)('localDate: $name', ({ instant, timeZone, expect: expected }) => {
+    expect(localDate(new Date(instant), timeZone)).toBe(expected);
   });
 });

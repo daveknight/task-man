@@ -171,7 +171,7 @@ describe('backups', () => {
         { id, title: name('imported v1'), description: '', status: 'waiting', flagged: false, start_date: '2026-12-01', due_date: '2026-11-20', repeat: null, completed_at: null, completed_on: null, deleted_at: null, deleted_on: null, created_at: '2026-11-01T00:00:00Z' },
       ],
     };
-    expect(await importAll(ctx.scope, backup, false)).toEqual({ tasks: 1, positions: 0, subtasks: 0, tags: 0 });
+    expect(await importAll(ctx.scope, backup, false)).toEqual({ tasks: 1, positions: 0, subtasks: 0, tags: 0, completions: 0 });
     expect(await show('imported v1')).toMatchObject({ status: 'waiting', startDate: null, hideUntil: '2026-12-01', dueDate: '2026-11-20' });
   });
 

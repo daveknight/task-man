@@ -357,7 +357,8 @@ add "Title" [--desc ...] [--start +3d] [--due 2026-12-01] [--status waiting --hi
 show <id|title-prefix>      edit <id> [same flags, --start <date>|none, --hide-until <date>|none]      status <id> open|in_progress|waiting [--hide-until <date>|none]
 move <id> --before <id> | --after <id> | --top
 move <id> --upcoming --start <date> [--clear-due]
-done <id> [--on 2026-11-20]  undone <id>      delete <id>  restore <id>
+done <id> [--on 2026-11-20]  skip <id> [--on <date>]  undone <id>  history <id>
+delete <id>  restore <id>
 purge-trash [--today ...]    search "query" [--completed] [--flagged] [--tag name ...]
 tags    tags rename <tag> <new name>    tags delete <tag>
 export > backup.json         import backup.json
@@ -367,7 +368,7 @@ export > backup.json         import backup.json
 - `--today` overrides "today" everywhere, so an agent can check Upcoming-to-Ready changes, recurrence and trash purges without waiting days. The web app has a matching dev-only `?today=YYYY-MM-DD` URL parameter.
 - `board --json` is what Playwright end-to-end tests compare the UI against. Because the CLI and the web app share `core`, a bug in the rules would fool both, so the **independent checks** are the hand-written `expect` values in the seed file and the shared test vectors. The vectors cover sections, `actionsFor`, every row of the transition table, complete, skip and undo, and repeat math across month ends, weekends and time zones.
 - CI seeds with a pinned `--today` (a fixed Wednesday) so results never depend on the day CI runs, plus a second run pinned to a Saturday. Playwright also fakes the browser clock, since timestamps still use real time.
-- The seeder writes board positions in file order, and skips fields whose feature isn't built yet (repeats before Phase 2; subtasks and tags are loaded, tags in the order listed).
+- The seeder writes board positions in file order. Subtasks, tags (in the order listed) and repeat rules are loaded. A repeat's weekday shift and start offset are applied to the seeded dates, and the rule itself is stored. Completion history is not seeded.
 - Seed data lives in `seed/tasks.json`: 51 tasks covering every section, both Waiting sub-states, overdue and due-today dates, start dates of today and in the past (boundary cases), long titles, emoji and accents, nested bullets, a description-only search word ("zucchini"), all three repeat modes with and without start offsets, subtasks inside recurring tasks, flagged tasks, and trash items at 29, 30 and 31 days (only 31 is removed by `purge-trash`).
 
 ## Phases

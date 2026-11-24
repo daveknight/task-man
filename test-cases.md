@@ -116,6 +116,18 @@ Not captured in Figma yet; these are the states to add when Dave asks. The desig
 - [ ] Search with two tags selected: removable blue-outlined chips, results that have both, with their tag chips – desktop 1440
 - [ ] Search on phone with a tag selected: the chips scroll sideways, results show no tag chips – phone
 
+## Repeats
+
+Not captured in Figma. The repeat picker (the Repeat field, presets and custom rule) is the next slice, so these are the board states only. Skip is the existing “Skip this occurrence” pick inside Due, shown when the task repeats. Completing or skipping advances the due date and leaves the task open, with the same toast and Undo as a normal completion (`Completed “title”`, or `Skipped “title”`). Undo puts that occurrence back. When the repeat ends, the task completes for good and the row strikes through.
+
+- [ ] Complete a repeating Ready task (“Take out garbage”): it leaves Ready for Upcoming, toast “Completed “Take out garbage”” with Undo, no strikethrough – desktop 1440
+- [ ] Undo that toast: the task is back in Ready on its previous due date – desktop 1440
+- [ ] Due picker on a repeating row, with “Skip this occurrence” – desktop 1440
+- [ ] Skip (“Water the plants”): the row stays in Ready on the next due date, toast “Skipped “Water the plants”” with Undo – desktop 1440
+- [ ] A dates repeat (“Pay estimated quarterly taxes”, brought into Ready): complete, then undo – desktop 1440
+- [ ] The last occurrence: the row strikes through and folds away like any completed task – desktop 1440
+- [ ] Phone: complete a repeating row, toast with Undo – phone
+
 ## Dialogs, prompts and pickers
 
 All desktop 1440 unless noted.
