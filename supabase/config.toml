@@ -426,6 +426,7 @@ enabled = true
 # format_options = "{\"keywordCase\":\"upper\",\"indent\":2,\"maxWidth\":180,\"commaStyle\":\"trailing\"}"
 
 # Capture. The provider key is a secret (`supabase secrets set`), never a VITE_ variable.
+# GEMINI_MODEL, also a secret, overrides the Gemini model. Unset, the function uses gemini-3.8-flash.
 # verify_jwt stays on: only a signed-in user can spend the quota.
 [functions.parse-capture]
 verify_jwt = true

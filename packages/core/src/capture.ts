@@ -107,12 +107,20 @@ const FAILURE_MESSAGES: Record<string, string> = {
   provider_error: "Capture didn't get an answer. Nothing was saved.",
 };
 
+const GENERIC_FAILURE = "Capture didn't get an answer. Nothing was saved.";
+
+function modelUnavailableMessage(model?: string): string {
+  const name = model?.trim();
+  return name ? `Capture's model ${name} is unavailable. Nothing was saved.` : "Capture's model is unavailable. Nothing was saved.";
+}
+
 /** A failed call, or a capture that isn't set up. No tasks, and nothing is saved. */
-export function reviewFromFailure(code?: string): CaptureReview {
+export function reviewFromFailure(code?: string, model?: string): CaptureReview {
+  const message = code === 'model_unavailable' ? modelUnavailableMessage(model) : (code && FAILURE_MESSAGES[code]) || GENERIC_FAILURE;
   return {
     summary: '',
     confidence: 'low',
-    message: (code && FAILURE_MESSAGES[code]) || "Capture didn't get an answer. Nothing was saved.",
+    message,
     notes: [],
     cards: [],
   };
@@ -122,11 +130,24 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+export interface CaptureFailure {
+  code: string;
+  /** The model the function called, when that model is unavailable. */
+  model?: string;
+}
+
 /** A provider error body, as opposed to a review the model actually returned. */
-export function captureFailureCode(value: unknown): string | null {
+export function captureFailure(value: unknown): CaptureFailure | null {
   if (!isRecord(value) || typeof value.error !== 'string') return null;
   if (value.confidence === 'high' || value.confidence === 'low') return null;
-  return value.error;
+  if (value.error !== 'model_unavailable') return { code: value.error };
+  const model = typeof value.model === 'string' ? value.model.trim() : '';
+  return model ? { code: value.error, model } : { code: value.error };
+}
+
+/** The error code from a provider failure body, or null when this is a real review. */
+export function captureFailureCode(value: unknown): string | null {
+  return captureFailure(value)?.code ?? null;
 }
 
 function low(summary: string, message: string = LOW_CONFIDENCE_MESSAGE): CaptureReview {
