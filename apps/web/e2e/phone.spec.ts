@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { findTask, openBoard, recordDrop, reseed, row, section, showTask, tagNames, titlesIn } from './helpers';
+import { findTask, openBoard, recordDrop, reseed, row, section, showTask, tagNames, titlesIn, TODAY } from './helpers';
 
 test.beforeEach(async ({ page }) => {
   reseed();
@@ -9,6 +9,22 @@ test.beforeEach(async ({ page }) => {
 test('tapping a row opens the bottom sheet', async ({ page }) => {
   await row(page, 'Buy new watch band').getByText('Buy new watch band').tap();
   await expect(page.locator('[data-slot=drawer-content] [data-slot=task-editor]')).toBeVisible();
+});
+
+test('Capture sits beside Add and saves a reviewed task', async ({ page }) => {
+  await page.goto(`/?today=${TODAY}&capture=replay`);
+  await expect(page.locator('[data-section=ready] [data-slot=task-row]').first()).toBeVisible();
+  const add = (await page.getByRole('button', { name: 'Add task' }).boundingBox())!;
+  const capture = (await page.getByRole('button', { name: 'Capture' }).boundingBox())!;
+  expect(capture.x).toBeLessThan(add.x);
+  expect(Math.abs(capture.y - add.y)).toBeLessThan(2);
+  await page.getByRole('button', { name: 'Capture' }).tap();
+  const dialog = page.getByRole('dialog', { name: 'Capture' });
+  await dialog.getByRole('textbox', { name: 'Note' }).fill('Add a task to pick up my dry cleaning on Friday');
+  await dialog.getByRole('button', { name: 'Done' }).tap();
+  await expect(dialog.locator('[data-slot=capture-card-title]')).toHaveText('Pick up dry cleaning');
+  await dialog.getByRole('button', { name: 'Add task' }).tap();
+  await expect.poll(async () => (await titlesIn(page, 'ready'))[0]).toBe('Pick up dry cleaning');
 });
 
 test('the floating Add task button quick-adds from anywhere on the board', async ({ page }) => {

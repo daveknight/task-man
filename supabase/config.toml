@@ -424,3 +424,8 @@ enabled = true
 # formatted with uppercase keywords, indent 2, max width 180, trailing commas,
 # and column/key alignment. Set to "null" to emit raw, unformatted SQL.
 # format_options = "{\"keywordCase\":\"upper\",\"indent\":2,\"maxWidth\":180,\"commaStyle\":\"trailing\"}"
+
+# Capture. The provider key is a secret (`supabase secrets set`), never a VITE_ variable.
+# verify_jwt stays on: only a signed-in user can spend the quota.
+[functions.parse-capture]
+verify_jwt = true

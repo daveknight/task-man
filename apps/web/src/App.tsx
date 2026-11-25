@@ -6,10 +6,12 @@ import { BoardView, RowList } from './components/board/board-view.tsx';
 import { SearchDialog } from './components/board/search-dialog.tsx';
 import { TWO_PANE_QUERY } from './components/board/surface.tsx';
 import { TaskPane, TaskSheet } from './components/board/task-sheet.tsx';
+import { CaptureSheet } from './components/board/capture-sheet.tsx';
 import { AddTaskFab, FAB_CLEARANCE, Toolbar } from './components/board/toolbar.tsx';
 import { Icon } from './components/icon.tsx';
 import { Toaster } from './components/ui/sonner.tsx';
 import { useSnapshot, useTaskWrites, type TaskWrites } from './data/board-data.ts';
+import { saveCapture } from './data/capture.ts';
 import { longDate } from './lib/day-label.ts';
 import { usePersistedBoolean } from './lib/persisted.ts';
 import { useToday } from './lib/today.ts';
@@ -64,6 +66,11 @@ export function App() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [adding, setAdding] = useState(false);
+  const [capturing, setCapturing] = useState(false);
+
+  useEffect(() => {
+    if (!online) setCapturing(false);
+  }, [online]);
   const [searching, setSearching] = useState(false);
   const appRef = useRef<HTMLDivElement>(null);
 
@@ -128,7 +135,14 @@ export function App() {
               title={APP_NAME}
               subtitle={longDate(today, today)}
               onSearch={() => setSearching(true)}
-              onAdd={() => setAdding(true)}
+              onCapture={() => {
+                setAdding(false);
+                setCapturing(true);
+              }}
+              onAdd={() => {
+                setCapturing(false);
+                setAdding(true);
+              }}
               addDisabled={!online}
               menu={{ showCompleted, onShowCompletedChange: setShowCompleted, onTrash: () => setView('trash'), account: auth.email ? { email: auth.email, onSignOut: () => void auth.signOut() } : undefined }}
             />
@@ -159,7 +173,26 @@ export function App() {
           </div>
         )}
       </div>
-      {view === 'board' && <AddTaskFab disabled={!online} onAdd={() => setAdding(true)} />}
+      {view === 'board' && (
+        <AddTaskFab
+          disabled={!online}
+          onCapture={() => {
+            setAdding(false);
+            setCapturing(true);
+          }}
+          onAdd={() => {
+            setCapturing(false);
+            setAdding(true);
+          }}
+        />
+      )}
+      <CaptureSheet
+        open={view === 'board' && capturing && online}
+        onOpenChange={setCapturing}
+        today={today}
+        tags={data?.tags.map((tag) => tag.name) ?? []}
+        onApply={(cards) => saveCapture(cards, writes, today)}
+      />
       {!twoPane && <TaskSheet task={selected} today={today} open={sheetOpen && !!selected} onOpenChange={setSheetOpen} />}
       <SearchDialog open={searching} onOpenChange={setSearching} today={today} onOpen={open} />
       <Toaster position="bottom-center" />

@@ -82,6 +82,7 @@ export function Toolbar({
   onBack,
   onSearch,
   onAdd,
+  onCapture,
   addDisabled,
   menu,
 }: {
@@ -92,6 +93,7 @@ export function Toolbar({
   onBack?: () => void;
   onSearch?: () => void;
   onAdd?: () => void;
+  onCapture?: () => void;
   addDisabled?: boolean;
   menu?: Omit<BoardMenuProps, 'defaultOpen'>;
 }) {
@@ -109,6 +111,12 @@ export function Toolbar({
         {!onBack && (
           <>
             {/* Phones get `AddTaskFab` instead. */}
+            {onCapture && (
+              <Button variant="outline" className="max-md:hidden pointer-coarse:h-control" disabled={addDisabled} onClick={onCapture}>
+                <Icon name="capture" data-icon="inline-start" />
+                <span className="optical-center">Capture</span>
+              </Button>
+            )}
             <Button className="mr-1 max-md:hidden pointer-coarse:mr-0 pointer-coarse:h-control" disabled={addDisabled} onClick={onAdd}>
               <Icon name="add" weight="bold" data-icon="inline-start" />
               <span className="optical-center">Add task</span>
@@ -132,16 +140,17 @@ export const FAB_CLEARANCE = 'max-md:pb-[calc(env(safe-area-inset-bottom)+6rem)]
  * The phone layout's Add task button, floating in the lower right. Render it outside the toolbar:
  * the toolbar's backdrop blur would pin a fixed child to the header instead of the screen.
  */
-export function AddTaskFab({ disabled, onAdd }: { disabled?: boolean; onAdd?: () => void }) {
+export function AddTaskFab({ disabled, onAdd, onCapture }: { disabled?: boolean; onAdd?: () => void; onCapture?: () => void }) {
   return (
-    <Button
-      aria-label="Add task"
-      data-slot="add-task-fab"
-      disabled={disabled}
-      onClick={onAdd}
-      className="fixed right-[calc(env(safe-area-inset-right)+1rem)] bottom-[calc(env(safe-area-inset-bottom)+1rem)] z-30 size-14 rounded-full shadow-lg md:hidden"
-    >
-      <Icon name="add" weight="bold" className="size-6" />
-    </Button>
+    <div className="fixed right-[calc(env(safe-area-inset-right)+1rem)] bottom-[calc(env(safe-area-inset-bottom)+1rem)] z-30 flex items-center gap-3 md:hidden">
+      {onCapture && (
+        <Button aria-label="Capture" variant="outline" disabled={disabled} onClick={onCapture} className="size-14 rounded-full bg-background shadow-lg">
+          <Icon name="capture" className="size-6" />
+        </Button>
+      )}
+      <Button aria-label="Add task" data-slot="add-task-fab" disabled={disabled} onClick={onAdd} className="size-14 rounded-full shadow-lg">
+        <Icon name="add" weight="bold" className="size-6" />
+      </Button>
+    </div>
   );
 }
