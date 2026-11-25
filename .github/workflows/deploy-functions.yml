@@ -16,6 +16,6 @@ jobs:
       - uses: supabase/setup-cli@v2.1.2
         with:
           version: 3.4.0
-      - run: supabase functions deploy parse-capture --remote=aihwgaginnmrrcasmhwt
+      - run: supabase functions deploy parse-capture --remote=aihwgaginnmrrcasmhwt --yes
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
