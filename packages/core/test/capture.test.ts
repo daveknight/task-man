@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { logThrownProviderError, readProviderReply } from '../../../supabase/functions/parse-capture/provider-error.ts';
 import {
   CAPTURE_MAX_CHARS,
   CAPTURE_RESPONSE_SCHEMA,
@@ -22,7 +23,12 @@ import {
 const TODAY = '2026-11-18';
 const examples = readCaptureExamples(JSON.parse(readFileSync(new URL('../../../seed/capture-examples.json', import.meta.url), 'utf8')));
 const functionSource = readFileSync(new URL('../../../supabase/functions/parse-capture/index.ts', import.meta.url), 'utf8');
+const providerErrorSource = readFileSync(new URL('../../../supabase/functions/parse-capture/provider-error.ts', import.meta.url), 'utf8');
 const functionSchema = JSON.parse(readFileSync(new URL('../../../supabase/functions/parse-capture/capture-schema.json', import.meta.url), 'utf8'));
+
+function providerResponse(status: number, body: string) {
+  return { ok: status >= 200 && status < 300, status, text: () => Promise.resolve(body) };
+}
 
 function review(reply: unknown, today: string = TODAY) {
   return reviewCapture(reply, today);
@@ -220,7 +226,112 @@ describe('capture prompt and schema', () => {
     expect(functionSource).not.toContain('VITE_');
     expect(functionSource).not.toContain('console.');
     expect(functionSource).not.toContain('?key=');
+    expect(functionSource).toContain('const secrets = [key, `Bearer ${key}`, text]');
+    expect(functionSource.match(/return readProviderReply\(name, res, secrets\);/g) ?? []).toHaveLength(3);
+    expect(functionSource).toContain('logThrownProviderError(name, error, secrets)');
+    expect(functionSource.match(/return json\(\{ error: 'provider_error' \}, 502\);/g)).toHaveLength(2);
+    const logged = [...providerErrorSource.matchAll(/console\.error\([^;]*\)/g)].map((match) => match[0]);
+    expect(logged.length).toBeGreaterThan(0);
+    for (const call of logged) {
+      expect(call).not.toContain('Authorization');
+      expect(call).not.toMatch(/\bkey\b/);
+      expect(call).not.toMatch(/\bprompt\b/);
+      expect(call).not.toMatch(/\btext\b/);
+    }
     expect(functionSchema).toEqual(CAPTURE_RESPONSE_SCHEMA);
+  });
+});
+
+describe('parse-capture provider errors', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it.each(['gemini', 'claude', 'openai'] as const)('logs a non-OK %s response with the name, status, and body', async (provider) => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const body = `quota exceeded for ${provider}`;
+    const reply = await readProviderReply(provider, providerResponse(429, body));
+    expect(reply).toBeNull();
+    expect(error).toHaveBeenCalledTimes(1);
+    expect(error).toHaveBeenCalledWith(provider, 429, body);
+  });
+
+  it('caps the logged response body at 2000 characters', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    await readProviderReply('gemini', providerResponse(503, 'a'.repeat(2000)));
+    await readProviderReply('claude', providerResponse(503, 'b'.repeat(2001)));
+    expect(error).toHaveBeenNthCalledWith(1, 'gemini', 503, 'a'.repeat(2000));
+    expect(error).toHaveBeenNthCalledWith(2, 'claude', 503, 'b'.repeat(2000));
+  });
+
+  it('logs a response body that is not JSON', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const body = '<html>unavailable</html>';
+    const reply = await readProviderReply('openai', providerResponse(200, body));
+    expect(reply).toBeNull();
+    expect(error).toHaveBeenCalledWith('openai', 200, body);
+  });
+
+  it('logs a model payload the function cannot parse', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const body = JSON.stringify({ candidates: [{ content: { parts: [{ text: 'not json' }] } }] });
+    const reply = await readProviderReply('gemini', providerResponse(200, body));
+    expect(reply).toBeNull();
+    expect(error).toHaveBeenCalledWith('gemini', 200, body);
+  });
+
+  it('logs a JSON body that is not a provider reply', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const body = JSON.stringify({ error: { message: 'schema rejected' } });
+    const reply = await readProviderReply('claude', providerResponse(200, body));
+    expect(reply).toBeNull();
+    expect(error).toHaveBeenCalledWith('claude', 200, body);
+  });
+
+  it('does not log a reply it could parse', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const capture = { summary: 'Pick up dry cleaning.', confidence: 'high', actions: [] };
+    const gemini = JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify(capture) }] } }] });
+    const claude = JSON.stringify({ content: [{ type: 'tool_use', input: capture }] });
+    const openai = JSON.stringify({ choices: [{ message: { content: JSON.stringify(capture) } }] });
+    expect(await readProviderReply('gemini', providerResponse(200, gemini))).toEqual(capture);
+    expect(await readProviderReply('claude', providerResponse(200, claude))).toEqual(capture);
+    expect(await readProviderReply('openai', providerResponse(200, openai))).toEqual(capture);
+    expect(error).not.toHaveBeenCalled();
+  });
+
+  it('logs a thrown error message with the provider name, capped at 2000 characters', () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    logThrownProviderError('openai', new Error('timed out'));
+    logThrownProviderError('gemini', new Error('x'.repeat(2005)));
+    expect(error).toHaveBeenNthCalledWith(1, 'openai', 'timed out');
+    expect(error).toHaveBeenNthCalledWith(2, 'gemini', 'x'.repeat(2000));
+  });
+
+  it('strips the API key and the note from what it logs', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const note = 'Call the clinic about the lab results';
+    const key = 'sk-live-secret-value';
+    const secrets = [key, `Bearer ${key}`, note];
+    const body = `bad request note=${note} Authorization: Bearer ${key} trailing`;
+    await readProviderReply('openai', providerResponse(400, body), secrets);
+    const logged = String(error.mock.calls[0]?.[2]);
+    expect(logged).toBe('bad request note=[redacted] Authorization: [redacted] trailing');
+    expect(logged).not.toContain(note);
+    expect(logged).not.toContain(key);
+    error.mockClear();
+    logThrownProviderError('gemini', new Error(`failed for ${note} with ${key}`), secrets);
+    const message = String(error.mock.calls[0]?.[1]);
+    expect(message).toBe('failed for [redacted] with [redacted]');
+    expect(message).not.toContain(note);
+    expect(message).not.toContain(key);
+  });
+
+  it('lets a failed body read throw so the handler logs the message once', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const res = { ok: false, status: 500, text: () => Promise.reject(new Error('socket closed')) };
+    await expect(readProviderReply('claude', res)).rejects.toThrow('socket closed');
+    expect(error).not.toHaveBeenCalled();
   });
 });
 
