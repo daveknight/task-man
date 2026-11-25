@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
+import { captureSheetFrame } from '../src/components/board/capture-sheet-frame';
 import { dictationProbe, installDictation, speak } from './dictation-fake';
 import { findTask, openBoard, recordDrop, reseed, row, section, showTask, tagNames, titlesIn, TODAY } from './helpers';
 
@@ -10,6 +11,49 @@ test.beforeEach(async ({ page }) => {
 test('tapping a row opens the bottom sheet', async ({ page }) => {
   await row(page, 'Buy new watch band').getByText('Buy new watch band').tap();
   await expect(page.locator('[data-slot=drawer-content] [data-slot=task-editor]')).toBeVisible();
+});
+
+test('the capture sheet keeps the note below the status bar', async ({ page }) => {
+  // iOS leaves the layout viewport full height, shrinks the visual viewport, and pans it.
+  // The sheet has to sit in that visible band, below the status bar and above the keyboard.
+  const panned = captureSheetFrame(852, 500, 180, 59);
+  expect(panned).not.toBeNull();
+  expect(panned!.top).toBeGreaterThanOrEqual(180 + 59);
+  expect(panned!.top + panned!.height).toBeLessThanOrEqual(180 + 500);
+  expect(panned!.height).toBeGreaterThan(300);
+  expect(captureSheetFrame(852, 852, 0, 59)).toBeNull();
+
+  const client = await page.context().newCDPSession(page);
+  await client.send('Emulation.setSafeAreaInsetsOverride', { insets: { top: 59, left: 0, bottom: 34, right: 0 } });
+  // Home Screen: the full iPhone height, with no browser chrome.
+  await page.setViewportSize({ width: 393, height: 852 });
+  await page.getByRole('button', { name: 'Capture' }).tap();
+  const dialog = page.getByRole('dialog', { name: 'Capture' });
+  const note = dialog.getByRole('textbox', { name: 'Note' });
+  const helper = dialog.getByText('Done sends this note to be read. Nothing is saved until you confirm.');
+  const done = dialog.getByRole('button', { name: 'Done' });
+  const box = async (target: Locator) => (await target.boundingBox())!;
+
+  // Keyboard closed: still the 85dvh sheet, and the note clears the status bar.
+  await expect.poll(async () => (await box(dialog)).y).toBeLessThan(180);
+  const resting = await box(dialog);
+  expect(resting.y).toBeGreaterThan(100);
+  expect((await box(note)).y).toBeGreaterThanOrEqual(59);
+
+  // Keyboard open. The safe area is taller than the drawer's old 6rem gap, which is what
+  // let the note slide under the status bar.
+  const safeTop = 100;
+  await client.send('Emulation.setSafeAreaInsetsOverride', { insets: { top: safeTop, left: 0, bottom: 34, right: 0 } });
+  await page.setViewportSize({ width: 393, height: 500 });
+  const height = page.viewportSize()!.height;
+  await expect.poll(async () => Math.round((await box(dialog)).y)).toBeGreaterThanOrEqual(safeTop - 1);
+  const noteBox = await box(note);
+  const helperBox = await box(helper);
+  const doneBox = await box(done);
+  expect(noteBox.y).toBeGreaterThanOrEqual(safeTop - 1);
+  expect(noteBox.y + noteBox.height).toBeLessThanOrEqual(helperBox.y + 1);
+  expect(helperBox.y + helperBox.height).toBeLessThanOrEqual(doneBox.y + 1);
+  expect(doneBox.y + doneBox.height).toBeLessThanOrEqual(height + 1);
 });
 
 test('Capture sits beside Add and saves a reviewed task', async ({ page }) => {
