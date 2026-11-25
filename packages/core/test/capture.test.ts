@@ -7,10 +7,18 @@ import {
   CAPTURE_RULES,
   CAPTURE_SCHEMA_ID,
   LOW_CONFIDENCE_MESSAGE,
+  NO_MATCH_MESSAGE,
+  UPDATE_OR_CREATE_ASK,
+  UPDATE_REPEAT_ASK,
+  WHICH_TASK_ASK,
+  appendCaptureNote,
   captureApplyOrder,
+  captureCardReady,
   captureCardSnapshot,
   captureFailure,
   capturePrompt,
+  chooseCaptureCreate,
+  chooseCaptureTask,
   isCreateExample,
   planCaptureTasks,
   readCaptureExamples,
@@ -18,12 +26,15 @@ import {
   reviewFromFailure,
   weekdayOf,
   type CaptureCard,
-  type CaptureDeferredExpect,
+  type CaptureExample,
+  type Task,
 } from '../src/index.ts';
 
 const TODAY = '2026-11-18';
 const examples = readCaptureExamples(JSON.parse(readFileSync(new URL('../../../seed/capture-examples.json', import.meta.url), 'utf8')));
 const functionSource = readFileSync(new URL('../../../supabase/functions/parse-capture/index.ts', import.meta.url), 'utf8');
+const webCaptureSource = readFileSync(new URL('../../../apps/web/src/data/capture.ts', import.meta.url), 'utf8');
+const cliCaptureSource = readFileSync(new URL('../../../apps/cli/src/capture.ts', import.meta.url), 'utf8');
 const providerErrorSource = readFileSync(new URL('../../../supabase/functions/parse-capture/provider-error.ts', import.meta.url), 'utf8');
 const functionSchema = JSON.parse(readFileSync(new URL('../../../supabase/functions/parse-capture/capture-schema.json', import.meta.url), 'utf8'));
 
@@ -31,9 +42,21 @@ function providerResponse(status: number, body: string) {
   return { ok: status >= 200 && status < 300, status, text: () => Promise.resolve(body) };
 }
 
-function review(reply: unknown, today: string = TODAY) {
-  return reviewCapture(reply, today);
+function review(reply: unknown, today: string = TODAY, tasks: readonly Task[] = []) {
+  return reviewCapture(reply, today, tasks);
 }
+
+function reviewExample(example: CaptureExample) {
+  return reviewCapture(example.reply, examples.today, example.tasks);
+}
+
+function created(card: CaptureCard) {
+  if (card.action.type !== 'create') throw new Error(`expected a create, got ${card.action.type}`);
+  return card.action;
+}
+
+const DAN: Task = { id: 'dan', title: 'Follow up with Dan', description: '', status: 'open', flagged: false, startDate: null, hideUntil: null, dueDate: null };
+const JEANS: Task = { id: 'jeans', title: 'Buy jeans', description: 'Dark wash', status: 'open', flagged: false, startDate: null, hideUntil: null, dueDate: null };
 
 const INPUTS = [
   'Add a task to pick up my dry cleaning on Friday',
@@ -61,34 +84,65 @@ describe('capture examples', () => {
       'ambiguous',
       'ambiguous',
     ]);
-    expect(examples.examples.filter((example) => example.implemented).map((example) => example.id)).toEqual(['dry-cleaning', 'garbage-weekly']);
+    expect(examples.examples.every((example) => example.implemented)).toBe(true);
   });
 
   it.each(examples.examples.filter(isCreateExample))('replays the create $id without calling a provider', (example) => {
-    const result = review(example.reply, examples.today);
+    const result = reviewExample(example);
     expect(result.confidence).toBe(example.expect.confidence);
     expect(result.summary).toBe((example.reply as { summary: string }).summary);
     expect(result.cards.map(captureCardSnapshot)).toEqual(example.expect.actions);
     expect(result.message).toBeUndefined();
+    expect(result.cards.every(captureCardReady)).toBe(true);
   });
 
-  it.each(examples.examples.filter((example) => !example.implemented))('replays $id and does not create a task', (example) => {
-    const result = review(example.reply, examples.today);
-    const expectLater = example.expect as CaptureDeferredExpect;
+  it('updates the one matching task and does not create another', () => {
+    const example = examples.examples.find((item) => item.id === 'follow-up-dan')!;
+    const result = reviewExample(example);
+    expect(result.confidence).toBe('high');
+    expect(result.cards).toHaveLength(1);
+    const card = result.cards[0]!;
+    expect(card.action).toMatchObject({ type: 'update', taskId: 'dan', title: 'Follow up with Dan', patch: { startDate: '2026-11-23' } });
+    expect(captureCardReady(card)).toBe(true);
+    const planned = planCaptureTasks(result.cards, { tasks: example.tasks, tags: [], positions: new Map() }, examples.today, () => 'new-id');
+    expect(planned).toHaveLength(1);
+    expect(planned[0]).toMatchObject({ kind: 'update', task: { id: 'dan', title: 'Follow up with Dan', startDate: '2026-11-23' } });
+    expect(planned[0]!.task.id).not.toBe('new-id');
+  });
+
+  it('appends a note without replacing the description', () => {
+    const example = examples.examples.find((item) => item.id === 'jeans-note')!;
+    const result = reviewExample(example);
+    const card = result.cards[0]!;
+    expect(card.action).toMatchObject({ type: 'append_note', taskId: 'jeans', text: 'check out 501 33/33 size' });
+    const planned = planCaptureTasks(result.cards, { tasks: example.tasks, tags: [], positions: new Map() }, examples.today, () => 'new-id');
+    expect(planned).toHaveLength(1);
+    expect(planned[0]!.kind).toBe('append_note');
+    expect(planned[0]!.task.description).toBe('Dark wash\ncheck out 501 33/33 size');
+    expect(planned[0]!.task.description?.startsWith('Dark wash')).toBe(true);
+    expect(planned[0]!.task.id).toBe('jeans');
+  });
+
+  it.each(examples.examples.filter((example) => example.kind === 'no_match'))('says nothing was found for $id and does not create a task', (example) => {
+    const result = reviewExample(example);
+    expect(example.expect).toMatchObject({ outcome: 'no_match', creates: false, message: NO_MATCH_MESSAGE });
     expect(result.cards).toEqual([]);
-    expect(expectLater.creates).toBe(false);
-    expect(expectLater.outcome).toBe(example.kind);
-    if (example.kind === 'update') expect(expectLater).toMatchObject({ match: 'follow up with Dan', startDate: '2026-11-23' });
-    if (example.kind === 'append_note') expect(expectLater).toMatchObject({ match: 'buying jeans', text: 'check out 501 33/33 size', replacesDescription: false });
-    if (example.kind === 'no_match') {
-      expect(expectLater.message).toBe('No task was found.');
-      expect(result.summary).toBe('No task was found.');
-    }
-    if (example.kind === 'ambiguous') {
-      expect(expectLater.guesses).toBe(false);
-      expect(result.summary).toBe(expectLater.ask);
-      expect(result.cards).toEqual([]);
-    }
+    expect(result.message).toBe(NO_MATCH_MESSAGE);
+    expect(result.confidence).toBe('high');
+    expect(planCaptureTasks(result.cards, { tasks: example.tasks, tags: [], positions: new Map() }, examples.today, () => 'new-id')).toEqual([]);
+  });
+
+  it.each(examples.examples.filter((example) => example.kind === 'ambiguous'))('asks and does not guess for $id', (example) => {
+    const result = reviewExample(example);
+    expect(result.cards).toHaveLength(1);
+    const card = result.cards[0]!;
+    expect(card.ask).toBe(example.expect.ask);
+    expect(card.candidates.map((candidate) => candidate.id)).toEqual(example.expect.candidates);
+    expect(captureCardReady(card)).toBe(false);
+    expect(example.expect.guesses).toBe(false);
+    expect(example.expect.creates).toBe(false);
+    if (card.action.type !== 'create') expect(card.action.taskId).toBeNull();
+    expect(planCaptureTasks(result.cards, { tasks: example.tasks, tags: [], positions: new Map() }, examples.today, () => 'new-id')).toEqual([]);
   });
 });
 
@@ -103,28 +157,153 @@ describe('reviewCapture', () => {
     expect(result.message).toBe(LOW_CONFIDENCE_MESSAGE);
   });
 
-  it('does not turn an update into a create', () => {
+  it('does not turn an update into a create when nothing matches', () => {
     const result = review({
       summary: 'Change when the follow-up with Dan starts.',
       confidence: 'high',
       actions: [{ type: 'update', match: 'follow up with Dan', startDate: '2026-11-23' }],
     });
-    expect(result.confidence).toBe('low');
+    expect(result.confidence).toBe('high');
     expect(result.cards).toEqual([]);
-    expect(result.message).toContain('existing task');
+    expect(result.message).toBe(NO_MATCH_MESSAGE);
+    expect(result.cards.some((card) => card.action.type === 'create')).toBe(false);
   });
 
-  it('keeps a create and leaves an update out', () => {
+  it('keeps a create and says when the note matched nothing', () => {
     const result = review({
       summary: 'Two requests.',
       confidence: 'high',
       actions: [
         { type: 'create', title: 'Pick up dry cleaning', dueDate: '2026-11-20' },
-        { type: 'append_note', match: 'jeans', text: '501' },
+        { type: 'append_note', match: 'buying jeans', text: '501' },
       ],
     });
-    expect(result.cards.map((card) => card.action.title)).toEqual(['Pick up dry cleaning']);
-    expect(result.notes.join(' ')).toContain('existing task');
+    expect(result.cards.map((card) => card.action.type)).toEqual(['create']);
+    expect(result.notes.join(' ')).toContain('No task was found');
+    expect(result.notes.join(' ')).toContain('buying jeans');
+  });
+
+  it('leaves subtasks off an update', () => {
+    const result = review(
+      {
+        summary: 'Add a step and move the start.',
+        confidence: 'high',
+        actions: [{ type: 'update', match: 'follow up with Dan', startDate: '2026-11-23', subtasks: ['Call him'] }],
+      },
+      TODAY,
+      [{ ...DAN, subtasks: [{ id: 'step', title: 'Existing step', done: false, sortKey: 'a' }] }],
+    );
+    const card = result.cards[0]!;
+    expect(card.action.type).toBe('update');
+    expect(card.marks.some((mark) => mark.field === 'subtasks')).toBe(true);
+    const planned = planCaptureTasks(result.cards, { tasks: [{ ...DAN, subtasks: [{ id: 'step', title: 'Existing step', done: false, sortKey: 'a' }] }], tags: [], positions: new Map() }, TODAY, () => 'new');
+    expect(planned[0]!.task.subtasks).toEqual([{ id: 'step', title: 'Existing step', done: false, sortKey: 'a' }]);
+  });
+
+  it('ignores a completed task and a trashed task with the same title', () => {
+    const result = review(
+      {
+        summary: 'Start Monday.',
+        confidence: 'high',
+        actions: [{ type: 'update', match: 'follow up with Dan', startDate: '2026-11-23' }],
+      },
+      TODAY,
+      [
+        { ...DAN, id: 'done', completedAt: '2026-11-01T00:00:00.000Z', completedOn: '2026-11-01' },
+        { ...DAN, id: 'gone', deletedAt: '2026-11-01T00:00:00.000Z', deletedOn: '2026-11-01' },
+      ],
+    );
+    expect(result.message).toBe(NO_MATCH_MESSAGE);
+    expect(result.cards).toEqual([]);
+  });
+
+  it('asks which task when several titles fit, and saves only the one Dave picks', () => {
+    const tasks: Task[] = [DAN, { ...DAN, id: 'dan-deck', title: 'Follow up with Dan about the deck' }];
+    const result = review(
+      {
+        summary: 'Start Monday.',
+        confidence: 'high',
+        actions: [{ type: 'update', match: 'follow up with Dan', startDate: '2026-11-23' }],
+      },
+      TODAY,
+      tasks,
+    );
+    const card = result.cards[0]!;
+    expect(card.ask).toBe(WHICH_TASK_ASK);
+    expect(card.candidates.map((candidate) => candidate.id)).toEqual(['dan', 'dan-deck']);
+    expect(planCaptureTasks(result.cards, { tasks, tags: [], positions: new Map() }, TODAY, () => 'new')).toEqual([]);
+    const chosen = chooseCaptureTask(card, 'dan-deck', tasks);
+    expect(chosen.action).toMatchObject({ type: 'update', taskId: 'dan-deck', title: 'Follow up with Dan about the deck' });
+    expect(captureCardReady(chosen)).toBe(true);
+    const planned = planCaptureTasks([chosen], { tasks, tags: [], positions: new Map() }, TODAY, () => 'new');
+    expect(planned.map((item) => item.task.id)).toEqual(['dan-deck']);
+    expect(planned[0]!.task.startDate).toBe('2026-11-23');
+    expect(tasks.find((task) => task.id === 'dan')!.startDate).toBeNull();
+  });
+
+  it('asks before updating a close task, and can still create another', () => {
+    const garbage: Task = {
+      id: 'garbage',
+      title: 'Take out garbage',
+      description: 'Bins at the curb',
+      status: 'open',
+      dueDate: '2026-11-19',
+      repeat: { mode: 'schedule', freq: 'weekly', interval: 1, startOffsetDays: 1 },
+    };
+    const result = review(
+      {
+        summary: 'Every Wednesday.',
+        confidence: 'high',
+        actions: [{ type: 'create', title: 'Take out the garbage', repeat: { mode: 'schedule', freq: 'weekly', interval: 1, byWeekday: ['wed'] } }],
+      },
+      TODAY,
+      [garbage],
+    );
+    const card = result.cards[0]!;
+    expect(card.ask).toBe(UPDATE_REPEAT_ASK);
+    expect(card.action.type).toBe('create');
+    expect(planCaptureTasks([card], { tasks: [garbage], tags: [], positions: new Map() }, TODAY, () => 'new')).toEqual([]);
+    const updated = chooseCaptureTask(card, 'garbage', [garbage]);
+    expect(updated.action).toMatchObject({ type: 'update', taskId: 'garbage' });
+    if (updated.action.type !== 'update') throw new Error('expected an update');
+    expect(updated.action.patch.repeat).toMatchObject({ byWeekday: ['wed'] });
+    expect(updated.action.patch.dueDate).toBeUndefined();
+    expect(updated.marks.some((mark) => mark.field === 'subtasks')).toBe(false);
+    const created = chooseCaptureCreate(card);
+    expect(created.action.type).toBe('create');
+    expect(captureCardReady(created)).toBe(true);
+    expect(created.candidates).toEqual([]);
+  });
+
+  it('asks whether to update a close task that has no repeat', () => {
+    const result = review(
+      {
+        summary: 'Dry cleaning Friday.',
+        confidence: 'high',
+        actions: [{ type: 'create', title: 'Pick up dry cleaning', dueDate: '2026-11-20' }],
+      },
+      TODAY,
+      [{ id: 'cleaning', title: 'Pick up dry cleaning', description: '', status: 'open' }],
+    );
+    expect(result.cards[0]!.ask).toBe(UPDATE_OR_CREATE_ASK);
+    expect(captureCardReady(result.cards[0]!)).toBe(false);
+  });
+
+  it('appends onto an empty description and keeps the old text when there is some', () => {
+    expect(appendCaptureNote(undefined, 'check out 501 33/33 size')).toBe('check out 501 33/33 size');
+    expect(appendCaptureNote('Dark wash', 'check out 501 33/33 size')).toBe('Dark wash\ncheck out 501 33/33 size');
+    const planned = planCaptureTasks(
+      review(
+        { summary: 'Size.', confidence: 'high', actions: [{ type: 'append_note', match: 'buying jeans', text: 'check out 501 33/33 size' }] },
+        TODAY,
+        [JEANS],
+      ).cards,
+      { tasks: [JEANS], tags: [], positions: new Map() },
+      TODAY,
+      () => 'new',
+    );
+    expect(planned[0]!.task.description).toBe('Dark wash\ncheck out 501 33/33 size');
+    expect(planned[0]!.patch).toEqual({ description: 'Dark wash\ncheck out 501 33/33 size' });
   });
 
   it('drops a bad date and marks the card', () => {
@@ -134,8 +313,8 @@ describe('reviewCapture', () => {
       actions: [{ type: 'create', title: 'Pick up dry cleaning', dueDate: '2026-02-31', startDate: '2026-11-18' }],
     });
     const card = result.cards[0]!;
-    expect(card.action.dueDate).toBeNull();
-    expect(card.action.startDate).toBe('2026-11-18');
+    expect(created(card).dueDate).toBeNull();
+    expect(created(card).startDate).toBe('2026-11-18');
     expect(card.marks.map((mark) => mark.field)).toContain('dueDate');
   });
 
@@ -153,8 +332,8 @@ describe('reviewCapture', () => {
       ],
     });
     const card = result.cards[0]!;
-    expect(card.action.repeat).toBeNull();
-    expect(card.action.dueDate).toBe('2026-11-18');
+    expect(created(card).repeat).toBeNull();
+    expect(created(card).dueDate).toBe('2026-11-18');
     expect(card.marks.some((mark) => mark.field === 'repeat')).toBe(true);
   });
 
@@ -165,8 +344,8 @@ describe('reviewCapture', () => {
       actions: [{ type: 'create', title: 'File the form', startDate: '2026-11-21', dueDate: '2026-11-20' }],
     });
     const card = result.cards[0]!;
-    expect(card.action.startDate).toBe('2026-11-20');
-    expect(card.action.dueDate).toBe('2026-11-20');
+    expect(created(card).startDate).toBe('2026-11-20');
+    expect(created(card).dueDate).toBe('2026-11-20');
     expect(card.marks.some((mark) => mark.field === 'startDate' && mark.message.includes('2026-11-20'))).toBe(true);
   });
 
@@ -176,14 +355,14 @@ describe('reviewCapture', () => {
       confidence: 'high',
       actions: [{ type: 'create', title: 'Hear back', status: 'waiting', startDate: '2026-11-20', hideUntil: '2026-11-21' }],
     });
-    expect(waiting.cards[0]!.action.startDate).toBeNull();
-    expect(waiting.cards[0]!.action.hideUntil).toBe('2026-11-21');
+    expect(created(waiting.cards[0]!).startDate).toBeNull();
+    expect(created(waiting.cards[0]!).hideUntil).toBe('2026-11-21');
     const open = review({
       summary: 'Open.',
       confidence: 'high',
       actions: [{ type: 'create', title: 'Call', status: 'open', hideUntil: '2026-11-21' }],
     });
-    expect(open.cards[0]!.action.hideUntil).toBeNull();
+    expect(created(open.cards[0]!).hideUntil).toBeNull();
     expect(open.cards[0]!.marks.some((mark) => mark.field === 'hideUntil')).toBe(true);
   });
 
@@ -193,8 +372,8 @@ describe('reviewCapture', () => {
       confidence: 'high',
       actions: [{ type: 'create', title: 'Take out the garbage', repeat: { mode: 'schedule', freq: 'weekly', interval: 1, byWeekday: ['wed'] } }],
     });
-    expect(result.cards[0]!.action.dueDate).toBe(TODAY);
-    expect(result.cards[0]!.action.repeat?.byWeekday).toEqual(['wed']);
+    expect(created(result.cards[0]!).dueDate).toBe(TODAY);
+    expect(created(result.cards[0]!).repeat?.byWeekday).toEqual(['wed']);
     expect(result.cards[0]!.marks.some((mark) => mark.field === 'dueDate')).toBe(true);
   });
 
@@ -239,13 +418,21 @@ describe('reviewCapture', () => {
 });
 
 describe('capture prompt and schema', () => {
-  it('tells the model the day, the rules, and the existing tags', () => {
+  it('tells the model the day, the rules, the tag names, and the note only', () => {
     const prompt = capturePrompt('Pick up the cleaning', { today: TODAY, timeZone: 'America/Los_Angeles', tags: ['errands', 'home'] });
-    expect(prompt).toContain('Wednesday, 2026-11-18');
-    expect(prompt).toContain('America/Los_Angeles');
-    expect(prompt).toContain(CAPTURE_RULES);
-    expect(prompt).toContain('errands, home');
-    expect(prompt.endsWith('Pick up the cleaning')).toBe(true);
+    expect(prompt).toBe(
+      ['Today is Wednesday, 2026-11-18. The time zone is America/Los_Angeles.', CAPTURE_RULES, 'Existing tags: errands, home.', '', 'Pick up the cleaning'].join('\n'),
+    );
+  });
+
+  it('keeps task titles, descriptions, and ids off the request', () => {
+    expect(functionSource).toContain('function promptFor(text: string, today: string, timeZone: string, tags: string[])');
+    expect(functionSource).not.toContain('body.tasks');
+    expect(functionSource).not.toContain('body.board');
+    expect(webCaptureSource).toMatch(/functions\.invoke\('parse-capture', \{\s*body: \{ text: trimmed, today, timeZone:/);
+    expect(webCaptureSource).not.toMatch(/body:\s*\{[^}]*\btasks\b/);
+    expect(cliCaptureSource).toContain('text: string; today: ISODate; timeZone: string; tags: string[]');
+    expect(cliCaptureSource).not.toMatch(/body:\s*\{[^}]*\btasks\b/);
   });
 
   it('keeps the Edge Function on the same rules, cap and schema, with keys only in its environment', () => {

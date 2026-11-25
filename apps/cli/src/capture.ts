@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import {
+  captureCardReady,
   captureCardSnapshot,
   captureFailure,
   planCaptureTasks,
@@ -13,18 +14,18 @@ import {
   type ISODate,
   type Task,
 } from '@app/core';
-import { insertTask, loadSnapshot, writeTagChange, type Scope } from '@app/data';
+import { insertTask, loadSnapshot, writeChange, writeTagChange, type Scope } from '@app/data';
 import { createClient } from '@supabase/supabase-js';
 import { connection, DEV_USER } from './config.ts';
 import { shortDate } from './format.ts';
 
 export const CAPTURE_EXAMPLES_FILE = new URL('../../../seed/capture-examples.json', import.meta.url);
 
-export function loadExample(id: string): { input: string; reply: unknown } {
+export function loadExample(id: string): { input: string; reply: unknown; tasks: Task[] } {
   const file = readCaptureExamples(JSON.parse(readFileSync(CAPTURE_EXAMPLES_FILE, 'utf8')));
   const found = file.examples.find((example) => example.id === id);
   if (!found) throw new Error(`No capture example "${id}". Examples: ${file.examples.map((example) => example.id).join(', ')}.`);
-  return { input: found.input, reply: found.reply };
+  return { input: found.input, reply: found.reply, tasks: found.tasks };
 }
 
 export function loadReply(path: string): unknown {
@@ -37,7 +38,7 @@ export function loadReply(path: string): unknown {
 }
 
 /** Recorded reply, or a reply file. Does not talk to a provider or the database. */
-export function recordedReply(options: { example?: string; reply?: string; text: string }): { input: string; reply: unknown } {
+export function recordedReply(options: { example?: string; reply?: string; text: string }): { input: string; reply: unknown; tasks: Task[] } {
   if (options.example && options.reply) throw new Error('Pass either --example or --reply, not both.');
   if (options.example) {
     if (options.text) throw new Error('capture --example reads the saved utterance. Leave the text off.');
@@ -45,12 +46,12 @@ export function recordedReply(options: { example?: string; reply?: string; text:
   }
   if (!options.text) throw new Error('capture needs the note, or --example <id>. Run with --help.');
   if (!options.reply) throw new Error('capture needs --reply, --example, or a running local function.');
-  return { input: options.text, reply: loadReply(options.reply) };
+  return { input: options.text, reply: loadReply(options.reply), tasks: [] };
 }
 
-export function reviewRecorded(reply: unknown, today: ISODate): CaptureReview {
+export function reviewRecorded(reply: unknown, today: ISODate, tasks: readonly Task[] = []): CaptureReview {
   const failure = captureFailure(reply);
-  return failure ? reviewFromFailure(failure.code, failure.model) : reviewCapture(reply, today);
+  return failure ? reviewFromFailure(failure.code, failure.model) : reviewCapture(reply, today, tasks);
 }
 
 /** Writes the confirmed cards. Planning runs first, so an invalid card saves nothing. */
@@ -59,8 +60,13 @@ export async function applyCapture(scope: Scope, today: ISODate, cards: readonly
   const planned = planCaptureTasks(cards, snapshot, today, () => crypto.randomUUID());
   const saved: Task[] = [];
   for (const item of planned) {
-    for (const create of item.tagCreates) await writeTagChange(scope, create);
-    saved.push(await insertTask(scope, item.task, item.positions));
+    if (item.kind === 'create') {
+      for (const create of item.tagCreates) await writeTagChange(scope, create);
+      saved.push(await insertTask(scope, item.task, item.positions));
+      continue;
+    }
+    await writeChange(scope, item.task.id, { patch: item.patch, positions: item.positions, clearPosition: item.clearPosition });
+    saved.push(item.task);
   }
   return saved;
 }
@@ -93,29 +99,56 @@ export async function fetchCaptureReply(body: { text: string; today: ISODate; ti
   return result.data;
 }
 
+function formatCard(card: CaptureCard, today: ISODate): string[] {
+  const action = card.action;
+  if (!captureCardReady(card) && card.ask) {
+    const lines = [card.ask];
+    for (const candidate of card.candidates) lines.push(`  ${action.type === 'create' ? `Update ${candidate.title}` : candidate.title}`);
+    if (action.type === 'create') lines.push('  Create another');
+    return lines;
+  }
+  if (action.type === 'append_note') return [`${action.title}`, `  Add note: ${action.text}`];
+  if (action.type === 'update') {
+    const bits: string[] = [];
+    const patch = action.patch;
+    if (patch.status === 'in_progress') bits.push('In progress');
+    if (patch.status === 'waiting') bits.push('Waiting');
+    if (patch.flagged) bits.push('flagged');
+    if (patch.startDate) bits.push(`start ${shortDate(patch.startDate, today)}`);
+    if (patch.hideUntil) bits.push(`hide until ${shortDate(patch.hideUntil, today)}`);
+    if (patch.dueDate) bits.push(`due ${shortDate(patch.dueDate, today)}`);
+    if (patch.repeat) bits.push(repeatLabel(patch.repeat, patch.dueDate ?? null));
+    const line = bits.length ? `${action.title}  — ${bits.join(' · ')}` : action.title;
+    return [line, ...card.marks.map((mark) => `  ${mark.message}`)];
+  }
+  const bits: string[] = [];
+  if (action.status === 'in_progress') bits.push('In progress');
+  if (action.status === 'waiting') bits.push('Waiting');
+  if (action.flagged) bits.push('flagged');
+  if (action.startDate) bits.push(`start ${shortDate(action.startDate, today)}`);
+  if (action.hideUntil) bits.push(`hide until ${shortDate(action.hideUntil, today)}`);
+  if (action.dueDate) bits.push(`due ${shortDate(action.dueDate, today)}`);
+  if (action.repeat) bits.push(repeatLabel(action.repeat, action.dueDate));
+  if (action.tags.length) bits.push(`tags ${action.tags.join(', ')}`);
+  if (action.subtasks.length) bits.push(action.subtasks.length === 1 ? '1 subtask' : `${action.subtasks.length} subtasks`);
+  const line = bits.length ? `${action.title}  — ${bits.join(' · ')}` : action.title;
+  return [line, ...card.marks.map((mark) => `  ${mark.message}`)];
+}
+
 export function formatCapture(review: CaptureReview, today: ISODate, applied: number | null): string {
   const lines: string[] = [];
   if (review.summary) lines.push(review.summary);
   if (review.message) lines.push(review.message);
   for (const note of review.notes) lines.push(note);
-  for (const card of review.cards) {
-    const action = card.action;
-    const bits: string[] = [];
-    if (action.status === 'in_progress') bits.push('In progress');
-    if (action.status === 'waiting') bits.push('Waiting');
-    if (action.flagged) bits.push('flagged');
-    if (action.startDate) bits.push(`start ${shortDate(action.startDate, today)}`);
-    if (action.hideUntil) bits.push(`hide until ${shortDate(action.hideUntil, today)}`);
-    if (action.dueDate) bits.push(`due ${shortDate(action.dueDate, today)}`);
-    if (action.repeat) bits.push(repeatLabel(action.repeat, action.dueDate));
-    if (action.tags.length) bits.push(`tags ${action.tags.join(', ')}`);
-    if (action.subtasks.length) bits.push(action.subtasks.length === 1 ? '1 subtask' : `${action.subtasks.length} subtasks`);
-    lines.push('', bits.length ? `${action.title}  — ${bits.join(' · ')}` : action.title);
-    for (const mark of card.marks) lines.push(`  ${mark.message}`);
-  }
+  for (const card of review.cards) lines.push('', ...formatCard(card, today));
   lines.push('');
-  if (applied == null) lines.push(review.cards.length ? 'Nothing was saved. Pass --apply to add these tasks.' : 'Nothing was saved.');
-  else lines.push(applied === 0 ? 'Nothing was saved.' : `Added ${applied} task${applied === 1 ? '' : 's'}.`);
+  const ready = review.cards.filter(captureCardReady);
+  if (applied == null) lines.push(ready.length ? 'Nothing was saved. Pass --apply to save.' : 'Nothing was saved.');
+  else if (applied === 0) lines.push('Nothing was saved.');
+  else {
+    const creates = review.cards.filter((card) => card.action.type === 'create').length;
+    lines.push(creates === applied ? `Added ${applied} task${applied === 1 ? '' : 's'}.` : `Saved ${applied}.`);
+  }
   return lines.join('\n');
 }
 

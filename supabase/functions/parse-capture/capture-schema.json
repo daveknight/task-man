@@ -10,10 +10,12 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["type", "title"],
+        "required": ["type"],
         "properties": {
-          "type": { "type": "string", "enum": ["create"] },
+          "type": { "type": "string", "enum": ["create", "update", "append_note"] },
           "title": { "type": "string" },
+          "match": { "type": "string" },
+          "text": { "type": "string" },
           "description": { "type": "string" },
           "startDate": { "type": "string" },
           "hideUntil": { "type": "string" },

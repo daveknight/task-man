@@ -5,8 +5,8 @@
   "notes": [
     "Today is Wednesday 2026-11-18 in America/Los_Angeles. This Friday is 2026-11-20. Next Monday is 2026-11-23. A weekly Wednesday due today is 2026-11-18.",
     "Rows follow docs/phase-2b-examples.md: Create, Update, Append note, No match, and Ambiguous.",
-    "Slice 1 implements only kind create. The other rows are fixtures. CI replays their recorded replies and must not save a task. Nothing here calls a provider.",
-    "The seed already has a completed Pick up dry cleaning and a weekly Take out garbage. These examples do not match against them."
+    "The recorded reply is what the model returns. It never includes task ids or the board. The tasks array is the device's list for local matching, and CI replays the reply against it. Nothing here calls a provider.",
+    "A completed Pick up dry cleaning does not count as a match. Take out garbage is included only on the row where a close task already exists."
   ],
   "examples": [
     {
@@ -14,6 +14,7 @@
       "kind": "create",
       "implemented": true,
       "input": "Add a task to pick up my dry cleaning on Friday",
+      "tasks": [{ "id": "done-cleaning", "title": "Pick up dry cleaning", "completed": true }],
       "reply": {
         "summary": "Add a task to pick up dry cleaning, due this Friday.",
         "confidence": "high",
@@ -44,6 +45,7 @@
       "kind": "create",
       "implemented": true,
       "input": "Add a task for every Wednesday to take out the garbage, and no similar task exists",
+      "tasks": [],
       "reply": {
         "summary": "Take out the garbage every Wednesday.",
         "confidence": "high",
@@ -78,8 +80,12 @@
     {
       "id": "follow-up-dan",
       "kind": "update",
-      "implemented": false,
+      "implemented": true,
       "input": "Update the task to follow up with Dan to start next Monday, and one task title matches",
+      "tasks": [
+        { "id": "email-dan", "title": "Email Dan the photos" },
+        { "id": "dan", "title": "Follow up with Dan" }
+      ],
       "reply": {
         "summary": "Start the follow up with Dan next Monday.",
         "confidence": "high",
@@ -88,6 +94,7 @@
       "expect": {
         "outcome": "update",
         "match": "follow up with Dan",
+        "taskId": "dan",
         "startDate": "2026-11-23",
         "creates": false
       }
@@ -95,8 +102,9 @@
     {
       "id": "jeans-note",
       "kind": "append_note",
-      "implemented": false,
+      "implemented": true,
       "input": "Add a note for buying jeans to check out 501 33/33 size, and one jeans task matches",
+      "tasks": [{ "id": "jeans", "title": "Buy jeans", "description": "Dark wash" }],
       "reply": {
         "summary": "Add the size to the jeans task.",
         "confidence": "high",
@@ -105,6 +113,7 @@
       "expect": {
         "outcome": "append_note",
         "match": "buying jeans",
+        "taskId": "jeans",
         "text": "check out 501 33/33 size",
         "replacesDescription": false,
         "creates": false
@@ -113,12 +122,13 @@
     {
       "id": "follow-up-dan-none",
       "kind": "no_match",
-      "implemented": false,
+      "implemented": true,
       "input": "Update the task to follow up with Dan to start next Monday, and no task matches",
+      "tasks": [{ "id": "email-dan", "title": "Email Dan the photos" }],
       "reply": {
-        "summary": "No task was found.",
-        "confidence": "low",
-        "actions": []
+        "summary": "Start the follow up with Dan next Monday.",
+        "confidence": "high",
+        "actions": [{ "type": "update", "match": "follow up with Dan", "startDate": "2026-11-23" }]
       },
       "expect": {
         "outcome": "no_match",
@@ -130,12 +140,13 @@
     {
       "id": "jeans-note-none",
       "kind": "no_match",
-      "implemented": false,
+      "implemented": true,
       "input": "Add a note for buying jeans to check out 501 33/33 size, and no task matches",
+      "tasks": [{ "id": "socks", "title": "Buy socks" }],
       "reply": {
-        "summary": "No task was found.",
-        "confidence": "low",
-        "actions": []
+        "summary": "Add the size to the jeans task.",
+        "confidence": "high",
+        "actions": [{ "type": "append_note", "match": "buying jeans", "text": "check out 501 33/33 size" }]
       },
       "expect": {
         "outcome": "no_match",
@@ -147,17 +158,22 @@
     {
       "id": "follow-up-dan-many",
       "kind": "ambiguous",
-      "implemented": false,
+      "implemented": true,
       "input": "Update the task to follow up with Dan to start next Monday, and several tasks match",
+      "tasks": [
+        { "id": "dan", "title": "Follow up with Dan" },
+        { "id": "dan-deck", "title": "Follow up with Dan about the deck" }
+      ],
       "reply": {
-        "summary": "Which task?",
-        "confidence": "low",
-        "actions": []
+        "summary": "Start the follow up with Dan next Monday.",
+        "confidence": "high",
+        "actions": [{ "type": "update", "match": "follow up with Dan", "startDate": "2026-11-23" }]
       },
       "expect": {
         "outcome": "ambiguous",
         "match": "follow up with Dan",
         "ask": "Which task?",
+        "candidates": ["dan", "dan-deck"],
         "guesses": false,
         "creates": false
       }
@@ -165,17 +181,25 @@
     {
       "id": "garbage-close",
       "kind": "ambiguous",
-      "implemented": false,
+      "implemented": true,
       "input": "Add a task for every Wednesday to take out the garbage, and a close garbage task already exists",
+      "tasks": [{ "id": "garbage", "title": "Take out garbage", "description": "Bins at the curb", "dueDate": "2026-11-19" }],
       "reply": {
-        "summary": "Update its repeat, or create another?",
-        "confidence": "low",
-        "actions": []
+        "summary": "Take out the garbage every Wednesday.",
+        "confidence": "high",
+        "actions": [
+          {
+            "type": "create",
+            "title": "Take out the garbage",
+            "repeat": { "mode": "schedule", "freq": "weekly", "interval": 1, "byWeekday": ["wed"] }
+          }
+        ]
       },
       "expect": {
         "outcome": "ambiguous",
         "match": "take out the garbage",
         "ask": "Update its repeat, or create another?",
+        "candidates": ["garbage"],
         "guesses": false,
         "creates": false
       }

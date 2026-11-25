@@ -1,31 +1,40 @@
 import schema from './capture-schema.json' with { type: 'json' };
 import { isValidDate, weekdayOf } from './dates.ts';
-import { planNewTask, type PositionWrite } from './mutations.ts';
-import { startForDue, validateRepeat } from './repeat.ts';
+import { planChange, planNewTask, type PositionWrite, type TaskPatch } from './mutations.ts';
+import { sameRepeat, startForDue, validateRepeat } from './repeat.ts';
 import { applySubtaskChange, planAddSubtask } from './subtasks.ts';
 import { checkTagName, planTaskTags } from './tags.ts';
+import { changeStatus, setDueDate, waitUntil } from './transitions.ts';
 import { STATUSES, type ISODate, type RepeatRule, type Status, type Subtask, type Tag, type Task, type Weekday } from './types.ts';
 import { validateTask } from './validate.ts';
 
 /** Identifies the reply schema. The Edge Function copies this id and `capture-schema.json`. */
-export const CAPTURE_SCHEMA_ID = 'capture-schema-1';
+export const CAPTURE_SCHEMA_ID = 'capture-schema-2';
 
 /** The longest note Capture will send. The Edge Function uses the same cap. */
 export const CAPTURE_MAX_CHARS = 4000;
 
-/** How many proposed creates one review will keep. */
+/** How many proposed actions one review will keep. */
 export const CAPTURE_MAX_ACTIONS = 20;
 
 /**
  * The rules the model is given, word for word. The Edge Function inlines this same string.
- * Slice 1 can only create. Update and append-note come back as low confidence.
+ * The model is not shown the board. Matching happens on the device after the reply comes back.
  */
 export const CAPTURE_RULES =
-  'You can only create new tasks. If the note asks to update, complete, delete, or add a note on a task that already exists, set confidence to low and actions to an empty list. Do not invent a new task for that. If you are not sure what to add, set confidence to low and actions to an empty list. Never guess a task. The summary is one short sentence reading what they asked for, not a transcript. Dates are YYYY-MM-DD. A start date is the day an Open task becomes ready, and only an Open task has one. Hide until is a Waiting task\'s own date, and only a Waiting task has one. The due date is the deadline. Waiting on someone means status waiting. The start date has to be on or before the due date. Hide until may be after the due date. A repeat needs a due date. Use an existing tag name when one fits.';
+  'You can create a task, update an existing task, or add a note to an existing task. You are not shown the task list. You never receive task titles, descriptions, or ids. For an update or a note, set match to a short title hint such as follow up with Dan. Never include an id. Do not decide whether a task exists. Do not set confidence to low only because the list is hidden. If you are not sure what to do, set confidence to low and actions to an empty list. Never guess a task. Do not create a task when the note asks to update one or to add a note. If the note only asks to complete, delete, or flag a task, or to change its subtasks, set confidence to low and actions to an empty list. The summary is one short sentence reading what they asked for, not a transcript. Dates are YYYY-MM-DD. A start date is the day an Open task becomes ready, and only an Open task has one. Hide until is the date on a Waiting task, and only a Waiting task has one. The due date is the deadline. Waiting on someone means status waiting. The start date has to be on or before the due date. Hide until may be after the due date. A repeat needs a due date. Use an existing tag name when one fits. An update lists only the fields that change. Note text is added to the description and does not replace it.';
 
 export const LOW_CONFIDENCE_MESSAGE = "I couldn't tell what to add. Nothing was saved.";
 
-const EXISTING_TASK_MESSAGE = 'That changes an existing task. Capture can only add new ones. Nothing was saved.';
+export const NO_MATCH_MESSAGE = 'No task was found.';
+
+export const WHICH_TASK_ASK = 'Which task?';
+
+export const UPDATE_REPEAT_ASK = 'Update its repeat, or create another?';
+
+export const UPDATE_OR_CREATE_ASK = 'Update it, or create another?';
+
+export const WHICH_OR_CREATE_ASK = 'Which task, or create another?';
 
 const WEEKDAY_NAME: Record<Weekday, string> = {
   mon: 'Monday',
@@ -80,20 +89,59 @@ export interface CaptureCreate {
   repeat: RepeatRule | null;
 }
 
+/** Fields an update will change. A missing field stays as it is. */
+export interface CapturePatch {
+  startDate?: ISODate | null;
+  hideUntil?: ISODate | null;
+  dueDate?: ISODate | null;
+  status?: Status;
+  flagged?: boolean;
+  repeat?: RepeatRule | null;
+}
+
+/** An update to one existing task. `taskId` is set once a single task is chosen. */
+export interface CaptureUpdate {
+  type: 'update';
+  match: string;
+  taskId: string | null;
+  title: string;
+  patch: CapturePatch;
+}
+
+/** Text added to an existing task's description. It does not replace that description. */
+export interface CaptureAppendNote {
+  type: 'append_note';
+  match: string;
+  taskId: string | null;
+  title: string;
+  text: string;
+}
+
+export type CaptureAction = CaptureCreate | CaptureUpdate | CaptureAppendNote;
+
+export interface CaptureCandidate {
+  id: string;
+  title: string;
+}
+
 export interface CaptureCard {
   /** Stable for this review, so a dropped card stays dropped. */
   id: string;
-  action: CaptureCreate;
+  action: CaptureAction;
   marks: CaptureMark[];
+  /** Tasks that fit the hint. Empty once one is chosen, or when the match was unique. */
+  candidates: CaptureCandidate[];
+  /** Shown when Dave has to pick before anything can be saved. */
+  ask?: string;
 }
 
 export interface CaptureReview {
   /** A short reading of the request. Empty when the reply had none. */
   summary: string;
   confidence: CaptureConfidence;
-  /** Shown when nothing will be added, or when a kept field was assumed. */
+  /** Shown when nothing will be saved, or when a kept field was assumed. */
   message?: string;
-  /** Review-wide remarks, such as a change to an existing task that was left out. */
+  /** Review-wide remarks, such as a hint that matched nothing. */
   notes: string[];
   cards: CaptureCard[];
 }
@@ -189,24 +237,170 @@ function parseDate(value: unknown): { date: ISODate | null; bad: boolean } {
   return isValidDate(trimmed) ? { date: trimmed, bad: false } : { date: null, bad: true };
 }
 
-interface BuiltCard {
-  card?: CaptureCard;
-  /** An action that isn't a create, such as an update. */
-  existing?: boolean;
+const STOP_WORDS = new Set([
+  'a', 'an', 'the', 'to', 'for', 'of', 'on', 'in', 'into', 'and', 'or', 'my', 'with', 'from', 'at', 'by', 'is', 'it', 'this', 'that', 'be', 'are', 'was', 'am',
+]);
+
+function stemToken(token: string): string {
+  if (token.length > 5 && token.endsWith('ing')) {
+    const stem = token.slice(0, -3);
+    if (stem.length >= 3) return stem;
+  }
+  if (token.length > 4 && token.endsWith('es') && !token.endsWith('ss')) {
+    const stem = token.slice(0, -2);
+    if (stem.length >= 3) return stem;
+  }
+  if (token.length > 3 && token.endsWith('s') && !token.endsWith('ss')) return token.slice(0, -1);
+  return token;
 }
 
-function buildCard(value: unknown, index: number, today: ISODate | undefined): BuiltCard {
-  if (!isRecord(value)) return {};
-  if (value.type !== 'create') return value.type == null ? {} : { existing: true };
-  if (typeof value.title !== 'string' || value.title.trim() === '') return {};
+function hintTokens(text: string): string[] {
+  const words = text
+    .toLowerCase()
+    .replace(/['’]s\b/g, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean);
+  const tokens: string[] = [];
+  for (const word of words) {
+    if (STOP_WORDS.has(word)) continue;
+    const stem = stemToken(word);
+    if (!stem || STOP_WORDS.has(stem) || tokens.includes(stem)) continue;
+    tokens.push(stem);
+  }
+  return tokens;
+}
+
+function openTask(task: Task): boolean {
+  return !task.deletedAt && !task.completedAt;
+}
+
+/**
+ * Tasks on this device whose title or description fits the hint.
+ * Completed and trashed tasks are left out, the same way search leaves them out.
+ * Every hint word has to be present, so a single shared word is not a match.
+ */
+export function matchCaptureTasks(hint: string, tasks: readonly Task[]): Task[] {
+  const tokens = hintTokens(hint);
+  if (tokens.length === 0) return [];
+  const hits = tasks.filter((task) => {
+    if (!openTask(task)) return false;
+    const hay = hintTokens(`${task.title} ${task.description ?? ''}`);
+    return tokens.every((token) => hay.includes(token));
+  });
+  return hits.sort((a, b) => {
+    const aTitle = tokens.every((token) => hintTokens(a.title).includes(token));
+    const bTitle = tokens.every((token) => hintTokens(b.title).includes(token));
+    if (aTitle !== bTitle) return aTitle ? -1 : 1;
+    return 0;
+  });
+}
+
+function candidatesOf(tasks: readonly Task[]): CaptureCandidate[] {
+  return tasks.map((task) => ({ id: task.id, title: task.title }));
+}
+
+const DATE_LABEL: Record<'startDate' | 'hideUntil' | 'dueDate', string> = {
+  startDate: 'Start date',
+  hideUntil: 'Hide until',
+  dueDate: 'Due date',
+};
+
+function readPatchDate(value: unknown, field: 'startDate' | 'hideUntil' | 'dueDate', marks: CaptureMark[]): ISODate | undefined {
+  if (value == null || value === '') return undefined;
+  const parsed = parseDate(value);
+  if (parsed.bad || !parsed.date) {
+    marks.push({ field, message: `${DATE_LABEL[field]} dropped: not a valid date` });
+    return undefined;
+  }
+  return parsed.date;
+}
+
+/** The fields the model sent. Subtasks, tags, and a replacement description are not applied. */
+function readPatch(value: Record<string, unknown>): { patch: CapturePatch; marks: CaptureMark[] } {
+  const marks: CaptureMark[] = [];
+  const patch: CapturePatch = {};
+  const startDate = readPatchDate(value.startDate, 'startDate', marks);
+  const hideUntil = readPatchDate(value.hideUntil, 'hideUntil', marks);
+  const dueDate = readPatchDate(value.dueDate, 'dueDate', marks);
+  if (startDate) patch.startDate = startDate;
+  if (hideUntil) patch.hideUntil = hideUntil;
+  if (dueDate) patch.dueDate = dueDate;
+  if (value.status != null && value.status !== '') {
+    if (typeof value.status === 'string' && (STATUSES as readonly string[]).includes(value.status)) patch.status = value.status as Status;
+    else marks.push({ field: 'status', message: 'Status dropped' });
+  }
+  if (value.flagged != null && value.flagged !== '') {
+    if (typeof value.flagged === 'boolean') patch.flagged = value.flagged;
+    else marks.push({ field: 'flagged', message: 'Flag dropped' });
+  }
+  if (value.repeat != null && value.repeat !== '') {
+    const cleaned = cleanRepeat(value.repeat);
+    if (cleaned.message) marks.push({ field: 'repeat', message: cleaned.message });
+    else if (cleaned.rule) patch.repeat = cleaned.rule;
+  }
+  if (Array.isArray(value.subtasks) && value.subtasks.some((title) => typeof title === 'string' && title.trim() !== '')) {
+    marks.push({ field: 'subtasks', message: 'Subtasks left out' });
+  }
+  if (Array.isArray(value.tags) && value.tags.length > 0) marks.push({ field: 'tags', message: 'Tags left out' });
+  if (typeof value.description === 'string' && value.description.trim() !== '') marks.push({ field: 'description', message: 'Description left unchanged' });
+  return { patch, marks };
+}
+
+function applyCapturePatch(task: Task, patch: CapturePatch): { task: Task; marks: CaptureMark[] } {
+  const marks: CaptureMark[] = [];
+  let next: Task = { ...task };
+  if (patch.status && patch.status !== next.status) next = changeStatus(next, patch.status);
+  if (patch.hideUntil !== undefined) {
+    if (next.status !== 'waiting') marks.push({ field: 'hideUntil', message: 'Hide until dropped: only Waiting tasks have one' });
+    else next = waitUntil(next, patch.hideUntil);
+  }
+  if (patch.dueDate !== undefined) {
+    const changed = setDueDate(next, patch.dueDate);
+    next = changed.task;
+    if (changed.startMoved) marks.push({ field: 'startDate', message: `Start date moved to ${changed.startMoved.to}` });
+  }
+  if (patch.startDate !== undefined) {
+    if (next.status !== 'open') marks.push({ field: 'startDate', message: 'Start date dropped: only Ready and Upcoming tasks have one' });
+    else if (patch.startDate && next.dueDate && patch.startDate > next.dueDate) {
+      marks.push({ field: 'startDate', message: `Start date moved to ${next.dueDate}` });
+      next = { ...next, startDate: next.dueDate };
+    } else next = { ...next, startDate: patch.startDate };
+  }
+  if (patch.flagged !== undefined) next = { ...next, flagged: patch.flagged };
+  if (patch.repeat !== undefined) {
+    if (patch.repeat && !next.dueDate) marks.push({ field: 'repeat', message: 'Repeat dropped: a repeat needs a due date' });
+    else next = { ...next, repeat: patch.repeat };
+  }
+  const issues = validateTask(next);
+  if (issues.length > 0) return { task, marks: [...marks, ...issues.map((issue) => ({ field: issue.field, message: issue.message }))] };
+  return { task: next, marks };
+}
+
+function changedPatch(before: Task, after: Task): CapturePatch {
+  const patch: CapturePatch = {};
+  if ((before.startDate ?? null) !== (after.startDate ?? null)) patch.startDate = after.startDate ?? null;
+  if ((before.hideUntil ?? null) !== (after.hideUntil ?? null)) patch.hideUntil = after.hideUntil ?? null;
+  if ((before.dueDate ?? null) !== (after.dueDate ?? null)) patch.dueDate = after.dueDate ?? null;
+  if (before.status !== after.status) patch.status = after.status;
+  if ((before.flagged ?? false) !== (after.flagged ?? false)) patch.flagged = after.flagged ?? false;
+  if (!sameRepeat(before.repeat ?? null, after.repeat ?? null)) patch.repeat = after.repeat ?? null;
+  return patch;
+}
+
+function settlePatch(task: Task, patch: CapturePatch, marks: CaptureMark[]): { patch: CapturePatch; marks: CaptureMark[] } {
+  const preview = applyCapturePatch(task, patch);
+  return { patch: changedPatch(task, preview.task), marks: [...marks, ...preview.marks] };
+}
+
+function buildCreate(value: Record<string, unknown>, index: number, today: ISODate | undefined): CaptureCard | undefined {
+  if (typeof value.title !== 'string' || value.title.trim() === '') return undefined;
   const marks: CaptureMark[] = [];
 
   let status: Status = 'open';
   if (value.status != null && value.status !== '') {
     if (typeof value.status === 'string' && (STATUSES as readonly string[]).includes(value.status)) status = value.status as Status;
-    else {
-      marks.push({ field: 'status', message: 'Status dropped' });
-    }
+    else marks.push({ field: 'status', message: 'Status dropped' });
   }
 
   const due = parseDate(value.dueDate);
@@ -319,17 +513,75 @@ function buildCard(value: unknown, index: number, today: ISODate | undefined): B
     dueDate: action.dueDate,
     repeat: action.repeat,
   });
-  if (issues.length > 0) return {};
-  return { card: { id: `c${index}`, action, marks } };
+  if (issues.length > 0) return undefined;
+  return { id: `c${index}`, action, marks, candidates: [] };
+}
+
+function withCloseMatch(card: CaptureCard, tasks: readonly Task[]): CaptureCard {
+  if (card.action.type !== 'create') return card;
+  const found = matchCaptureTasks(card.action.title, tasks);
+  if (found.length === 0) return card;
+  const ask = found.length > 1 ? WHICH_OR_CREATE_ASK : card.action.repeat ? UPDATE_REPEAT_ASK : UPDATE_OR_CREATE_ASK;
+  return { ...card, ask, candidates: candidatesOf(found) };
+}
+
+interface BuiltAction {
+  card?: CaptureCard;
+  unmatched?: string;
+  skipped?: boolean;
+}
+
+function buildUpdate(value: Record<string, unknown>, index: number, tasks: readonly Task[]): BuiltAction {
+  if (typeof value.match !== 'string' || value.match.trim() === '') return { skipped: true };
+  const hint = value.match.trim();
+  const read = readPatch(value);
+  const found = matchCaptureTasks(hint, tasks);
+  if (found.length === 0) return { unmatched: hint };
+  if (found.length === 1) {
+    const task = found[0]!;
+    const settled = settlePatch(task, read.patch, read.marks);
+    const action: CaptureUpdate = { type: 'update', match: hint, taskId: task.id, title: task.title, patch: settled.patch };
+    return { card: { id: `c${index}`, action, marks: settled.marks, candidates: [] } };
+  }
+  const action: CaptureUpdate = { type: 'update', match: hint, taskId: null, title: hint, patch: read.patch };
+  return { card: { id: `c${index}`, action, marks: read.marks, candidates: candidatesOf(found), ask: WHICH_TASK_ASK } };
+}
+
+function buildAppend(value: Record<string, unknown>, index: number, tasks: readonly Task[]): BuiltAction {
+  if (typeof value.match !== 'string' || value.match.trim() === '') return { skipped: true };
+  if (typeof value.text !== 'string' || value.text.trim() === '') return { skipped: true };
+  const hint = value.match.trim();
+  const text = value.text.trim();
+  const found = matchCaptureTasks(hint, tasks);
+  if (found.length === 0) return { unmatched: hint };
+  if (found.length === 1) {
+    const task = found[0]!;
+    const action: CaptureAppendNote = { type: 'append_note', match: hint, taskId: task.id, title: task.title, text };
+    return { card: { id: `c${index}`, action, marks: [], candidates: [] } };
+  }
+  const action: CaptureAppendNote = { type: 'append_note', match: hint, taskId: null, title: hint, text };
+  return { card: { id: `c${index}`, action, marks: [], candidates: candidatesOf(found), ask: WHICH_TASK_ASK } };
+}
+
+function buildAction(value: unknown, index: number, today: ISODate | undefined, tasks: readonly Task[]): BuiltAction {
+  if (!isRecord(value) || typeof value.type !== 'string') return {};
+  if (value.type === 'create') {
+    const card = buildCreate(value, index, today);
+    return card ? { card: withCloseMatch(card, tasks) } : { skipped: true };
+  }
+  if (value.type === 'update') return buildUpdate(value, index, tasks);
+  if (value.type === 'append_note') return buildAppend(value, index, tasks);
+  return { skipped: true };
 }
 
 /**
- * Turns a model reply into cards. Low confidence, a reply that isn't the schema, or a reply
- * that only names changes to existing tasks yields no cards. Invalid dates and repeats are
- * dropped and marked; a start date after the due date moves to the due date and is marked.
+ * Turns a model reply into cards. Matching uses `tasks` on this device.
+ * The model never sees those tasks. Zero matches on an update or a note say so and do not create a task.
+ * Several matches stay unresolved until one is chosen. A create whose title is close to an existing task
+ * asks whether to update that task or create another. Invalid dates and repeats are dropped and marked.
  * Nothing here is saved.
  */
-export function reviewCapture(reply: unknown, today?: ISODate): CaptureReview {
+export function reviewCapture(reply: unknown, today?: ISODate, tasks: readonly Task[] = []): CaptureReview {
   if (!isRecord(reply)) return low('');
   const summary = typeof reply.summary === 'string' ? reply.summary.trim() : '';
   if (reply.confidence !== 'high') return low(summary);
@@ -340,17 +592,99 @@ export function reviewCapture(reply: unknown, today?: ISODate): CaptureReview {
 
   const notes: string[] = [];
   const cards: CaptureCard[] = [];
-  let existing = 0;
+  const unmatched: string[] = [];
+  let skipped = 0;
   const limited = reply.actions.slice(0, CAPTURE_MAX_ACTIONS);
-  if (reply.actions.length > CAPTURE_MAX_ACTIONS) notes.push(`Only the first ${CAPTURE_MAX_ACTIONS} tasks are shown.`);
+  if (reply.actions.length > CAPTURE_MAX_ACTIONS) notes.push(`Only the first ${CAPTURE_MAX_ACTIONS} actions are shown.`);
   for (let i = 0; i < limited.length; i++) {
-    const built = buildCard(limited[i], i, today);
-    if (built.existing) existing += 1;
-    else if (built.card) cards.push(built.card);
+    const built = buildAction(limited[i], i, today, tasks);
+    if (built.card) cards.push(built.card);
+    else if (built.unmatched) unmatched.push(built.unmatched);
+    else if (built.skipped) skipped += 1;
   }
-  if (cards.length === 0) return low(summary, existing > 0 ? EXISTING_TASK_MESSAGE : LOW_CONFIDENCE_MESSAGE);
-  if (existing > 0) notes.push('Left out a change to an existing task. Capture only adds new ones.');
+  if (cards.length === 0) {
+    if (unmatched.length > 0 && skipped === 0) return { summary, confidence: 'high', message: NO_MATCH_MESSAGE, notes, cards: [] };
+    return low(summary);
+  }
+  for (const hint of unmatched) notes.push(`No task was found for “${hint}”.`);
+  if (skipped > 0) notes.push('Left out an action this capture cannot do yet.');
   return { summary, confidence: 'high', notes, cards };
+}
+
+/** A card can be saved once it names one task, or a new task that is not waiting on a choice. */
+export function captureCardReady(card: CaptureCard): boolean {
+  if (card.candidates.length > 0) return false;
+  if (card.action.type === 'create') return true;
+  return card.action.taskId != null;
+}
+
+function patchFromCreate(action: CaptureCreate): CapturePatch {
+  const patch: CapturePatch = {};
+  if (action.repeat) patch.repeat = action.repeat;
+  if (action.dueDate) patch.dueDate = action.dueDate;
+  if (action.startDate) patch.startDate = action.startDate;
+  if (action.hideUntil) patch.hideUntil = action.hideUntil;
+  if (action.status !== 'open') patch.status = action.status;
+  if (action.flagged) patch.flagged = true;
+  return patch;
+}
+
+function dueWasAssumed(card: CaptureCard): boolean {
+  return card.marks.some((mark) => mark.field === 'dueDate' && mark.message.startsWith('Due date set to'));
+}
+
+/** The fields a close create should write onto the existing task. An assumed due date stays off when that task already has one. */
+function patchForExisting(action: CaptureCreate, task: Task, assumedDue: boolean): CapturePatch {
+  const patch: CapturePatch = {};
+  if (action.repeat) patch.repeat = action.repeat;
+  if (action.dueDate && (!assumedDue || !task.dueDate)) patch.dueDate = action.dueDate;
+  if (action.startDate) patch.startDate = action.startDate;
+  if (action.hideUntil) patch.hideUntil = action.hideUntil;
+  if (action.status !== 'open') patch.status = action.status;
+  if (action.flagged) patch.flagged = true;
+  return patch;
+}
+
+/**
+ * Binds a card to the task Dave picked. A close create becomes an update of that task.
+ * Saving still waits for the confirm step.
+ */
+export function chooseCaptureTask(card: CaptureCard, taskId: string, tasks: readonly Task[] = []): CaptureCard {
+  const candidate = card.candidates.find((item) => item.id === taskId);
+  if (!candidate) return card;
+  const task = tasks.find((item) => item.id === taskId);
+  if (card.action.type === 'create') {
+    const assumedDue = dueWasAssumed(card);
+    const requested = task ? patchForExisting(card.action, task, assumedDue) : patchFromCreate(card.action);
+    const settled = task ? settlePatch(task, requested, []) : { patch: requested, marks: [] as CaptureMark[] };
+    const marks = [...settled.marks];
+    if (card.action.subtasks.length > 0) marks.push({ field: 'subtasks', message: 'Subtasks left out' });
+    if (card.action.tags.length > 0) marks.push({ field: 'tags', message: 'Tags left out' });
+    if (card.action.description.trim() !== '') marks.push({ field: 'description', message: 'Description left unchanged' });
+    const action: CaptureUpdate = { type: 'update', match: card.action.title, taskId, title: candidate.title, patch: settled.patch };
+    return { id: card.id, action, marks, candidates: [] };
+  }
+  if (!task || card.action.type !== 'update') {
+    return { ...card, ask: undefined, candidates: [], action: { ...card.action, taskId, title: candidate.title } };
+  }
+  const settled = settlePatch(task, card.action.patch, card.marks);
+  const action: CaptureUpdate = { ...card.action, taskId, title: candidate.title, patch: settled.patch };
+  return { id: card.id, action, marks: settled.marks, candidates: [] };
+}
+
+/** Keeps the proposed task as a new one, beside the close match Dave decided not to update. */
+export function chooseCaptureCreate(card: CaptureCard): CaptureCard {
+  if (card.action.type !== 'create') return card;
+  return { id: card.id, action: card.action, marks: card.marks, candidates: [] };
+}
+
+/** Adds `text` after the current description. An empty description becomes the note. */
+export function appendCaptureNote(description: string | undefined, text: string): string {
+  const note = text.trim();
+  const current = (description ?? '').replace(/\s+$/g, '');
+  if (!note) return current;
+  if (!current) return note;
+  return `${current}\n${note}`;
 }
 
 /** New tasks land at the top of their section, so the first card is saved last and ends up above the others. */
@@ -359,14 +693,19 @@ export function captureApplyOrder<T>(cards: readonly T[]): T[] {
 }
 
 export interface PlannedCapture {
+  kind: 'create' | 'update' | 'append_note';
   task: Task;
+  before?: Task;
+  patch: TaskPatch;
+  clearPosition: boolean;
   tagCreates: { kind: 'create'; tag: Tag }[];
   positions: PositionWrite[];
 }
 
 /**
- * The tasks a confirmed review will write, in save order, including tags and subtasks.
- * Planning validates every task first. The caller writes only after this returns.
+ * The writes a confirmed review will make, in save order.
+ * A card that still needs a choice is left out. Planning validates every task first.
+ * The caller writes only after this returns.
  */
 export function planCaptureTasks(
   cards: readonly CaptureCard[],
@@ -379,29 +718,53 @@ export function planCaptureTasks(
   const positions = new Map(state.positions);
   const planned: PlannedCapture[] = [];
   for (const card of captureApplyOrder(cards)) {
-    const tagPlan = planTaskTags(tags, [], card.action.tags, newId);
-    tags = [...tags, ...tagPlan.creates.map((create) => create.tag)];
-    let subtasks: Subtask[] = [];
-    for (const title of card.action.subtasks) {
-      subtasks = applySubtaskChange(subtasks, planAddSubtask(subtasks, { id: newId(), title }));
+    if (!captureCardReady(card)) continue;
+    const action = card.action;
+    if (action.type === 'create') {
+      const tagPlan = planTaskTags(tags, [], action.tags, newId);
+      tags = [...tags, ...tagPlan.creates.map((create) => create.tag)];
+      let subtasks: Subtask[] = [];
+      for (const title of action.subtasks) {
+        subtasks = applySubtaskChange(subtasks, planAddSubtask(subtasks, { id: newId(), title }));
+      }
+      const task: Task = {
+        id: newId(),
+        title: action.title,
+        description: action.description,
+        status: action.status,
+        flagged: action.flagged,
+        startDate: action.startDate,
+        hideUntil: action.hideUntil,
+        dueDate: action.dueDate,
+        repeat: action.repeat,
+        tags: tagPlan.tags,
+        subtasks,
+      };
+      const writes = planNewTask(tasks, positions, task, today);
+      for (const write of writes) positions.set(write.taskId, write.sortKey);
+      tasks = [...tasks, task];
+      planned.push({ kind: 'create', task, patch: {}, clearPosition: false, tagCreates: tagPlan.creates, positions: writes });
+      continue;
     }
-    const task: Task = {
-      id: newId(),
-      title: card.action.title,
-      description: card.action.description,
-      status: card.action.status,
-      flagged: card.action.flagged,
-      startDate: card.action.startDate,
-      hideUntil: card.action.hideUntil,
-      dueDate: card.action.dueDate,
-      repeat: card.action.repeat,
-      tags: tagPlan.tags,
-      subtasks,
-    };
-    const writes = planNewTask(tasks, positions, task, today);
-    for (const write of writes) positions.set(write.taskId, write.sortKey);
-    tasks = [...tasks, task];
-    planned.push({ task, tagCreates: tagPlan.creates, positions: writes });
+    const before = tasks.find((task) => task.id === action.taskId);
+    if (!before || !openTask(before)) continue;
+    const after =
+      action.type === 'append_note'
+        ? { ...before, description: appendCaptureNote(before.description, action.text) }
+        : applyCapturePatch(before, action.patch).task;
+    const change = planChange(tasks, positions, before, after, today);
+    if (change.clearPosition) positions.delete(after.id);
+    for (const write of change.positions) positions.set(write.taskId, write.sortKey);
+    tasks = tasks.map((task) => (task.id === after.id ? after : task));
+    planned.push({
+      kind: action.type,
+      task: after,
+      before,
+      patch: change.patch,
+      clearPosition: change.clearPosition,
+      tagCreates: [],
+      positions: change.positions,
+    });
   }
   return planned;
 }
@@ -425,38 +788,63 @@ export const CAPTURE_EXAMPLE_KINDS = ['create', 'update', 'append_note', 'no_mat
 
 export type CaptureExampleKind = (typeof CAPTURE_EXAMPLE_KINDS)[number];
 
-/** What slice 1 reviews: proposed creates. */
+/** What a create review proposes. */
 export interface CaptureCreateExpect {
   confidence: CaptureConfidence;
   message?: string;
   actions: CaptureExampleExpectAction[];
 }
 
-/**
- * What a later slice does with a row this slice does not perform.
- * `creates: false` is the whole promise: replaying it must not save a task.
- */
-export interface CaptureDeferredExpect {
-  outcome: Exclude<CaptureExampleKind, 'create'>;
+export interface CaptureUpdateExpect {
+  outcome: 'update';
   creates: false;
-  match?: string;
-  startDate?: ISODate;
-  text?: string;
-  replacesDescription?: false;
-  message?: string;
-  ask?: string;
-  guesses?: false;
+  match: string;
+  taskId: string;
+  startDate: ISODate;
 }
 
-export interface CaptureExample {
-  id: string;
-  kind: CaptureExampleKind;
-  input: string;
-  /** False: fixture for a later slice. CI still replays the reply and does not call a provider. */
-  implemented: boolean;
-  reply: unknown;
-  expect: CaptureCreateExpect | CaptureDeferredExpect;
+export interface CaptureAppendExpect {
+  outcome: 'append_note';
+  creates: false;
+  match: string;
+  taskId: string;
+  text: string;
+  replacesDescription: false;
 }
+
+export interface CaptureNoMatchExpect {
+  outcome: 'no_match';
+  creates: false;
+  match?: string;
+  message: string;
+}
+
+export interface CaptureAmbiguousExpect {
+  outcome: 'ambiguous';
+  creates: false;
+  match?: string;
+  ask: string;
+  guesses: false;
+  candidates: string[];
+}
+
+export type CaptureExampleExpect = CaptureCreateExpect | CaptureUpdateExpect | CaptureAppendExpect | CaptureNoMatchExpect | CaptureAmbiguousExpect;
+
+interface CaptureExampleBase {
+  id: string;
+  input: string;
+  implemented: true;
+  /** The board this row is matched against. It is not part of the model reply. */
+  tasks: Task[];
+  reply: unknown;
+}
+
+export type CaptureExample =
+  | (CaptureExampleBase & { kind: 'create'; expect: CaptureCreateExpect })
+  | (CaptureExampleBase & { kind: 'update'; expect: CaptureUpdateExpect })
+  | (CaptureExampleBase & { kind: 'append_note'; expect: CaptureAppendExpect })
+  | (CaptureExampleBase & { kind: 'no_match'; expect: CaptureNoMatchExpect })
+  | (CaptureExampleBase & { kind: 'ambiguous'; expect: CaptureAmbiguousExpect });
 
 export interface CaptureExampleFile {
   version: number;
@@ -464,8 +852,8 @@ export interface CaptureExampleFile {
   examples: CaptureExample[];
 }
 
-export function isCreateExample(example: CaptureExample): example is CaptureExample & { kind: 'create'; implemented: true; expect: CaptureCreateExpect } {
-  return example.kind === 'create' && example.implemented === true && 'actions' in example.expect;
+export function isCreateExample(example: CaptureExample): example is CaptureExample & { kind: 'create'; expect: CaptureCreateExpect } {
+  return example.kind === 'create' && 'actions' in example.expect;
 }
 
 function captureExampleKind(value: unknown, id: string): CaptureExampleKind {
@@ -500,38 +888,103 @@ function readCreateExpect(item: Record<string, unknown>): CaptureCreateExpect {
   };
 }
 
-function readDeferredExpect(item: Record<string, unknown>, kind: Exclude<CaptureExampleKind, 'create'>): CaptureDeferredExpect {
+function readExampleTasks(value: unknown, id: string): Task[] {
+  if (value == null) return [];
+  if (!Array.isArray(value)) throw new Error(`Capture example ${id} tasks must be an array.`);
+  return value.map((item, index) => {
+    if (!isRecord(item) || typeof item.id !== 'string' || typeof item.title !== 'string') {
+      throw new Error(`Capture example ${id} task ${index} needs an id and a title.`);
+    }
+    const status = item.status == null ? 'open' : item.status;
+    if (typeof status !== 'string' || !(STATUSES as readonly string[]).includes(status)) {
+      throw new Error(`Capture example ${id} task ${item.id} needs a known status.`);
+    }
+    const completed = item.completed === true;
+    const deleted = item.deleted === true;
+    return {
+      id: item.id,
+      title: item.title,
+      description: typeof item.description === 'string' ? item.description : '',
+      status: status as Status,
+      flagged: item.flagged === true,
+      startDate: typeof item.startDate === 'string' ? item.startDate : null,
+      hideUntil: typeof item.hideUntil === 'string' ? item.hideUntil : null,
+      dueDate: typeof item.dueDate === 'string' ? item.dueDate : null,
+      repeat: (item.repeat as RepeatRule | null | undefined) ?? null,
+      completedAt: completed ? '2026-11-01T00:00:00.000Z' : null,
+      completedOn: completed ? '2026-11-01' : null,
+      deletedAt: deleted ? '2026-11-01T00:00:00.000Z' : null,
+      deletedOn: deleted ? '2026-11-01' : null,
+    };
+  });
+}
+
+function readUpdateExpect(item: Record<string, unknown>): CaptureUpdateExpect {
   const id = String(item.id);
   const expect = item.expect;
-  if (!isRecord(expect) || expect.outcome !== kind || expect.creates !== false) {
-    throw new Error(`Capture example ${id} must expect outcome ${kind} and creates false.`);
+  if (!isRecord(expect) || expect.outcome !== 'update' || expect.creates !== false) {
+    throw new Error(`Capture example ${id} must expect an update and creates false.`);
   }
-  const actions = replyActions(item.reply, id);
-  if (actions.some((action) => action.type === 'create')) throw new Error(`Capture example ${id} is not a create, so its reply must not include one.`);
-  if (kind === 'update') {
-    const action = actions[0];
-    if (!action || action.type !== 'update' || action.match !== expect.match || action.startDate !== expect.startDate || !isValidDate(expect.startDate)) {
-      throw new Error(`Capture example ${id} reply must update ${JSON.stringify(expect.match)} with the expected start date.`);
-    }
-    return { outcome: 'update', creates: false, match: String(expect.match), startDate: String(expect.startDate) };
+  if (typeof expect.match !== 'string' || typeof expect.taskId !== 'string' || !isValidDate(expect.startDate)) {
+    throw new Error(`Capture example ${id} needs a match, a task id, and a start date.`);
   }
-  if (kind === 'append_note') {
-    const action = actions[0];
-    if (!action || action.type !== 'append_note' || action.match !== expect.match || action.text !== expect.text || expect.replacesDescription !== false) {
-      throw new Error(`Capture example ${id} reply must append the expected note and must not replace the description.`);
-    }
-    return { outcome: 'append_note', creates: false, match: String(expect.match), text: String(expect.text), replacesDescription: false };
+  const action = replyActions(item.reply, id)[0];
+  if (!action || action.type !== 'update' || action.match !== expect.match || action.startDate !== expect.startDate) {
+    throw new Error(`Capture example ${id} reply must update ${JSON.stringify(expect.match)} with the expected start date.`);
   }
-  if (kind === 'no_match') {
-    if (!isRecord(item.reply) || item.reply.confidence !== 'low' || item.reply.summary !== expect.message || actions.length !== 0 || typeof expect.message !== 'string') {
-      throw new Error(`Capture example ${id} must say no task was found and include no actions.`);
-    }
-    return { outcome: 'no_match', creates: false, ...(typeof expect.match === 'string' ? { match: expect.match } : {}), message: expect.message };
+  return { outcome: 'update', creates: false, match: expect.match, taskId: expect.taskId, startDate: String(expect.startDate) };
+}
+
+function readAppendExpect(item: Record<string, unknown>): CaptureAppendExpect {
+  const id = String(item.id);
+  const expect = item.expect;
+  if (!isRecord(expect) || expect.outcome !== 'append_note' || expect.creates !== false || expect.replacesDescription !== false) {
+    throw new Error(`Capture example ${id} must expect an appended note and must not replace the description.`);
   }
-  if (!isRecord(item.reply) || item.reply.confidence !== 'low' || item.reply.summary !== expect.ask || actions.length !== 0 || typeof expect.ask !== 'string' || expect.guesses !== false) {
-    throw new Error(`Capture example ${id} must ask and must not guess or include actions.`);
+  if (typeof expect.match !== 'string' || typeof expect.taskId !== 'string' || typeof expect.text !== 'string') {
+    throw new Error(`Capture example ${id} needs a match, a task id, and note text.`);
   }
-  return { outcome: 'ambiguous', creates: false, ...(typeof expect.match === 'string' ? { match: expect.match } : {}), ask: expect.ask, guesses: false };
+  const action = replyActions(item.reply, id)[0];
+  if (!action || action.type !== 'append_note' || action.match !== expect.match || action.text !== expect.text) {
+    throw new Error(`Capture example ${id} reply must append the expected note.`);
+  }
+  return { outcome: 'append_note', creates: false, match: expect.match, taskId: expect.taskId, text: expect.text, replacesDescription: false };
+}
+
+function readNoMatchExpect(item: Record<string, unknown>): CaptureNoMatchExpect {
+  const id = String(item.id);
+  const expect = item.expect;
+  if (!isRecord(expect) || expect.outcome !== 'no_match' || expect.creates !== false || expect.message !== NO_MATCH_MESSAGE) {
+    throw new Error(`Capture example ${id} must say no task was found and must not create one.`);
+  }
+  const reply = item.reply;
+  if (!isRecord(reply) || reply.confidence !== 'high' || !Array.isArray(reply.actions) || reply.actions.length === 0) {
+    throw new Error(`Capture example ${id} reply proposes the action. The device decides that nothing matches.`);
+  }
+  return { outcome: 'no_match', creates: false, ...(typeof expect.match === 'string' ? { match: expect.match } : {}), message: NO_MATCH_MESSAGE };
+}
+
+function readAmbiguousExpect(item: Record<string, unknown>): CaptureAmbiguousExpect {
+  const id = String(item.id);
+  const expect = item.expect;
+  if (!isRecord(expect) || expect.outcome !== 'ambiguous' || expect.creates !== false || expect.guesses !== false || typeof expect.ask !== 'string') {
+    throw new Error(`Capture example ${id} must ask and must not guess or create a task.`);
+  }
+  if (!Array.isArray(expect.candidates) || expect.candidates.some((candidate) => typeof candidate !== 'string')) {
+    throw new Error(`Capture example ${id} needs the candidate task ids.`);
+  }
+  const reply = item.reply;
+  if (!isRecord(reply) || reply.confidence !== 'high' || !Array.isArray(reply.actions) || reply.actions.length === 0) {
+    throw new Error(`Capture example ${id} reply proposes the action. The device asks which task.`);
+  }
+  return {
+    outcome: 'ambiguous',
+    creates: false,
+    ...(typeof expect.match === 'string' ? { match: expect.match } : {}),
+    ask: expect.ask,
+    guesses: false,
+    candidates: expect.candidates as string[],
+  };
 }
 
 /** Checks the example file enough that a replay can't silently skip a row. */
@@ -547,24 +1000,24 @@ export function readCaptureExamples(data: unknown): CaptureExampleFile {
     if (seen.has(item.id)) throw new Error(`Capture example id "${item.id}" is repeated.`);
     seen.add(item.id);
     const kind = captureExampleKind(item.kind, item.id);
-    if (kind === 'create') {
-      if (item.implemented !== true) throw new Error(`Capture example ${item.id} is a create, so it is implemented in this slice.`);
-      return { id: item.id, kind, input: item.input, implemented: true, reply: item.reply, expect: readCreateExpect(item) };
-    }
-    if (item.implemented !== false) throw new Error(`Capture example ${item.id} is a later slice. It is replayed, not implemented.`);
-    return {
-      id: item.id,
-      kind,
-      input: item.input,
-      implemented: false,
-      reply: item.reply,
-      expect: readDeferredExpect(item, kind),
-    };
+    if (item.implemented !== true) throw new Error(`Capture example ${item.id} is implemented in this slice.`);
+    const tasks = readExampleTasks(item.tasks, item.id);
+    const shared = { id: item.id, input: item.input, implemented: true as const, tasks, reply: item.reply };
+    if (kind === 'create') return { ...shared, kind, expect: readCreateExpect(item) };
+    if (kind === 'update') return { ...shared, kind, expect: readUpdateExpect(item) };
+    if (kind === 'append_note') return { ...shared, kind, expect: readAppendExpect(item) };
+    if (kind === 'no_match') return { ...shared, kind, expect: readNoMatchExpect(item) };
+    return { ...shared, kind, expect: readAmbiguousExpect(item) };
   });
   return { version: typeof data.version === 'number' ? data.version : 0, today: data.today, examples };
 }
 
 /** The fields a test or the CLI compares, in a stable shape. */
-export function captureCardSnapshot(card: CaptureCard): CaptureExampleExpectAction {
-  return { ...card.action, marks: card.marks };
+export function captureCardSnapshot(card: CaptureCard): { marks: CaptureMark[] } & Record<string, unknown> {
+  return {
+    ...card.action,
+    marks: card.marks,
+    ...(card.candidates.length > 0 ? { candidates: card.candidates.map((candidate) => ({ id: candidate.id, title: candidate.title })) } : {}),
+    ...(card.ask ? { ask: card.ask } : {}),
+  };
 }

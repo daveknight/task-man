@@ -191,6 +191,7 @@ export function App() {
         onOpenChange={setCapturing}
         today={today}
         tags={data?.tags.map((tag) => tag.name) ?? []}
+        tasks={data?.tasks ?? []}
         onApply={(cards) => saveCapture(cards, writes, today)}
       />
       {!twoPane && <TaskSheet task={selected} today={today} open={sheetOpen && !!selected} onOpenChange={setSheetOpen} />}
