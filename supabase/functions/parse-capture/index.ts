@@ -6,7 +6,7 @@ import schema from './capture-schema.json' with { type: 'json' };
 const SCHEMA_ID = 'capture-schema-1';
 const MAX_CHARS = 4000;
 const MAX_TAGS = 100;
-const RATE_PER_MINUTE = 6;
+const RATE_PER_MINUTE = 15;
 
 const RULES =
   "You can only create new tasks. If the note asks to update, complete, delete, or add a note on a task that already exists, set confidence to low and actions to an empty list. Do not invent a new task for that. If you are not sure what to add, set confidence to low and actions to an empty list. Never guess a task. The summary is one short sentence reading what they asked for, not a transcript. Dates are YYYY-MM-DD. A start date is the day an Open task becomes ready, and only an Open task has one. Hide until is a Waiting task's own date, and only a Waiting task has one. The due date is the deadline. Waiting on someone means status waiting. The start date has to be on or before the due date. Hide until may be after the due date. A repeat needs a due date. Use an existing tag name when one fits.";

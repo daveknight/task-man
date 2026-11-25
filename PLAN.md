@@ -167,7 +167,7 @@ Speak or type a rambling note, and the app turns it into one or more proposed ta
 - API keys never reach the browser or the phone. A **Supabase Edge Function** (`parse-capture`) holds them as secrets and makes the call. Edge Functions are on the free plan (500,000 calls a month).
 - **Key safety:**
   - Keys are set with `supabase secrets set` and only ever exist as environment variables inside the function. They're never in git, the database, or any `VITE_` variable (those are bundled into the public web app).
-  - The function requires a signed-in user (JWT check on, the default), caps input size, and limits itself to a few calls a minute, so a stranger can't spend your quota.
+  - The function requires a signed-in user (JWT check on, the default), caps input size, and limits itself to 15 calls a minute, so a stranger can't spend your quota.
   - It never logs keys or request headers.
   - Use a dedicated key per provider for this app only, with a monthly spend cap set on the provider's side.
   - Turn on two-factor sign-in for the Supabase and GitHub accounts, since dashboard access is what could expose the secrets.
