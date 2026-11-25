@@ -1,5 +1,5 @@
 import { captureApplyOrder, captureCardReady, chooseCaptureCreate, chooseCaptureTask, repeatLabel, type CaptureCard, type CaptureReview, type ISODate, type Task } from '@app/core';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Icon } from '@/components/icon';
 import { Button } from '@/components/ui/button';
 import { Drawer, DrawerContent, DrawerTitle } from '@/components/ui/drawer';
@@ -10,6 +10,7 @@ import { paneDate } from '@/lib/day-label';
 import { useCaptureDictation } from '@/lib/use-dictation';
 import { useMediaQuery } from '@/lib/use-media-query';
 import { cn } from '@/lib/utils';
+import { captureSheetFrame } from './capture-sheet-frame';
 import { WIDE_QUERY } from './surface';
 
 type Phase = 'edit' | 'thinking' | 'review';
@@ -174,7 +175,7 @@ function CaptureBody({
               value={text}
               maxLength={CAPTURE_MAX_CHARS}
               placeholder="What needs doing?"
-              className="min-h-40 text-body"
+              className="min-h-40 scroll-mt-[env(safe-area-inset-top)] text-body"
               onChange={(event) => note.edit(event.target.value)}
             />
             <div className="flex items-center gap-3">
@@ -298,6 +299,55 @@ function CaptureBody({
   );
 }
 
+/** 85dvh from the bottom, but never taller than the viewport below the status bar. */
+const PHONE_CAPTURE_STYLE: CSSProperties = {
+  height: 'min(85dvh, calc(100dvh - env(safe-area-inset-top)))',
+  maxHeight: 'calc(100dvh - env(safe-area-inset-top))',
+  // Height follows the viewport; the drawer's height transition would lag behind the keyboard.
+  transitionProperty: 'transform, opacity, filter',
+};
+
+function usePhoneCaptureStyle(active: boolean): CSSProperties {
+  const [frame, setFrame] = useState<{ top: number; height: number } | null>(null);
+  useLayoutEffect(() => {
+    if (!active) return;
+    const viewport = window.visualViewport;
+    const probe = document.createElement('div');
+    probe.setAttribute('aria-hidden', 'true');
+    probe.style.cssText = 'position:fixed;top:0;left:0;width:0;height:100lvh;padding-top:env(safe-area-inset-top);visibility:hidden;pointer-events:none';
+    document.body.appendChild(probe);
+    let last = '';
+    const update = () => {
+      const layout = probe.offsetHeight || window.innerHeight;
+      const safeTop = Number.parseFloat(getComputedStyle(probe).paddingTop) || 0;
+      const next = captureSheetFrame(layout, viewport?.height ?? window.innerHeight, viewport?.offsetTop ?? 0, safeTop);
+      const key = next ? `${next.top}:${next.height}` : '';
+      if (key === last) return;
+      last = key;
+      setFrame(next);
+    };
+    update();
+    viewport?.addEventListener('resize', update);
+    viewport?.addEventListener('scroll', update);
+    window.addEventListener('resize', update);
+    return () => {
+      viewport?.removeEventListener('resize', update);
+      viewport?.removeEventListener('scroll', update);
+      window.removeEventListener('resize', update);
+      probe.remove();
+    };
+  }, [active]);
+
+  if (!active || !frame) return PHONE_CAPTURE_STYLE;
+  return {
+    top: `${frame.top}px`,
+    bottom: 'auto',
+    height: `${frame.height}px`,
+    maxHeight: `${frame.height}px`,
+    transitionProperty: 'transform, opacity, filter',
+  };
+}
+
 /** The capture sheet: write a note, review proposed tasks, and save nothing until Add. */
 export function CaptureSheet({
   open,
@@ -315,6 +365,7 @@ export function CaptureSheet({
   onApply: (cards: CaptureCard[]) => Promise<number>;
 }) {
   const wide = useMediaQuery(WIDE_QUERY);
+  const phoneSheetStyle = usePhoneCaptureStyle(!wide && open);
   const close = () => onOpenChange(false);
   const body = open ? <CaptureBody key="open" today={today} tags={tags} tasks={tasks} onClose={close} onApply={onApply} /> : null;
   if (wide) {
@@ -329,7 +380,7 @@ export function CaptureSheet({
   }
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="h-[85dvh] bg-background">
+      <DrawerContent className="bg-background" style={phoneSheetStyle}>
         <DrawerTitle className="sr-only">Capture</DrawerTitle>
         {body}
       </DrawerContent>

@@ -56,18 +56,20 @@ test.describe('completing', () => {
   test('with Completed open, the row waits out the hold, then grows into the top of Completed', async ({ page }) => {
     await showCompleted(page);
     const inCompleted = section(page, 'completed').locator('[data-slot=task-row]', { hasText: TITLE });
-    await checkbox(page, TITLE).click();
 
-    // The hold is 500ms. Two separate expects can land after it on a busy runner, once the row is already in Completed.
-    await page.waitForFunction(
-      (title) => {
+    // The hold is 500ms. A frame poll started after the click can miss it on a busy runner, once the
+    // row is already in Completed. Watch the DOM from before the click so the hold is recorded when it commits.
+    await page.evaluate((title) => {
+      const mark = () => {
         const held = [...document.querySelectorAll('[data-ghost]')].find((el) => el.textContent?.includes(title));
         const arrived = [...document.querySelectorAll('[data-section=completed] [data-slot=task-row]')].some((el) => el.textContent?.includes(title));
-        return held?.getAttribute('data-ghost') === 'done' && !arrived;
-      },
-      TITLE,
-      { polling: 'raf' },
-    );
+        if (held?.getAttribute('data-ghost') === 'done' && !arrived) (window as Window & { __holdSeen?: boolean }).__holdSeen = true;
+      };
+      (window as Window & { __holdSeen?: boolean }).__holdSeen = false;
+      new MutationObserver(mark).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['data-ghost'] });
+    }, TITLE);
+    await checkbox(page, TITLE).click();
+    await expect.poll(() => page.evaluate(() => (window as Window & { __holdSeen?: boolean }).__holdSeen)).toBe(true);
 
     await expect(inCompleted).toHaveCount(1);
     await expect(ghost(page, TITLE)).toHaveCount(0);
