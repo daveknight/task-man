@@ -2,6 +2,7 @@
 // Turns a capture note into JSON. The key stays in this function's environment.
 // No key, no call: the app shows that capture isn't set up and saves nothing.
 import schema from './capture-schema.json' with { type: 'json' };
+import { logThrownProviderError, readProviderReply } from './provider-error.ts';
 
 const SCHEMA_ID = 'capture-schema-1';
 const MAX_CHARS = 4000;
@@ -71,21 +72,7 @@ function providerName(value: unknown): keyof typeof PROVIDERS {
   return value === 'claude' || value === 'openai' || value === 'gemini' ? value : 'gemini';
 }
 
-async function readModel(res: Response): Promise<unknown> {
-  if (!res.ok) return null;
-  const body = await res.json();
-  if (body?.candidates) {
-    const text = (body.candidates[0]?.content?.parts ?? []).map((part: { text?: string }) => part.text ?? '').join('');
-    return JSON.parse(text);
-  }
-  const tool = (body?.content ?? []).find((part: { type?: string }) => part.type === 'tool_use');
-  if (tool?.input) return tool.input;
-  const content = body?.choices?.[0]?.message?.content;
-  if (typeof content === 'string') return JSON.parse(content);
-  return null;
-}
-
-async function callProvider(name: keyof typeof PROVIDERS, key: string, prompt: string): Promise<unknown> {
+async function callProvider(name: keyof typeof PROVIDERS, key: string, prompt: string, secrets: readonly string[]): Promise<unknown> {
   const model = PROVIDERS[name].model;
   if (name === 'gemini') {
     const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
@@ -97,7 +84,7 @@ async function callProvider(name: keyof typeof PROVIDERS, key: string, prompt: s
         generationConfig: { temperature: 0, responseMimeType: 'application/json', responseJsonSchema: schema },
       }),
     });
-    return readModel(res);
+    return readProviderReply(name, res, secrets);
   }
   if (name === 'claude') {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -113,7 +100,7 @@ async function callProvider(name: keyof typeof PROVIDERS, key: string, prompt: s
         messages: [{ role: 'user', content: prompt }],
       }),
     });
-    return readModel(res);
+    return readProviderReply(name, res, secrets);
   }
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -126,7 +113,7 @@ async function callProvider(name: keyof typeof PROVIDERS, key: string, prompt: s
       response_format: { type: 'json_schema', json_schema: { name: 'capture', strict: false, schema } },
     }),
   });
-  return readModel(res);
+  return readProviderReply(name, res, secrets);
 }
 
 Deno.serve(async (req) => {
@@ -159,11 +146,13 @@ Deno.serve(async (req) => {
   const key = Deno.env.get(PROVIDERS[name].env);
   if (!key) return json({ error: 'not_configured', schema: SCHEMA_ID }, 501);
 
+  const secrets = [key, `Bearer ${key}`, text];
   try {
-    const reply = await callProvider(name, key, promptFor(text, body.today, timeZone, tags));
+    const reply = await callProvider(name, key, promptFor(text, body.today, timeZone, tags), secrets);
     if (!reply || typeof reply !== 'object') return json({ error: 'provider_error' }, 502);
     return json(reply);
-  } catch {
+  } catch (error) {
+    logThrownProviderError(name, error, secrets);
     return json({ error: 'provider_error' }, 502);
   }
 });
