@@ -10,7 +10,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: supabase/setup-cli@v1
+      # setup-cli v1 defaults to CLI 2.20.3, which rejects --remote.
+      # --remote=<ref> shipped in CLI 3. 3.4.0 is the current stable release.
+      # setup-cli v2.1.2 is the current 2.x release of the action.
+      - uses: supabase/setup-cli@v2.1.2
+        with:
+          version: 3.4.0
       - run: supabase functions deploy parse-capture --remote=aihwgaginnmrrcasmhwt
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
