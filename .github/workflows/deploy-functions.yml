@@ -11,6 +11,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: supabase/setup-cli@v1
-      - run: supabase functions deploy parse-capture --project-ref aihwgaginnmrrcasmhwt
+      - run: supabase functions deploy parse-capture --remote=aihwgaginnmrrcasmhwt
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
