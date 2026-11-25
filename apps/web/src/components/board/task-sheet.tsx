@@ -128,10 +128,7 @@ function StatusMenu({ status, disabled, onChange }: { status: Status; disabled?:
           }}
         >
           {(Object.keys(STATUS) as Status[]).map((s) => (
-            <DropdownMenuRadioItem key={s} value={s}>
-              <Icon name={STATUS[s].icon} />
-              {STATUS[s].label}
-            </DropdownMenuRadioItem>
+            <DropdownMenuRadioItem key={s} value={s}>{STATUS[s].label}</DropdownMenuRadioItem>
           ))}
         </DropdownMenuRadioGroup>
       </DropdownMenuContent>
