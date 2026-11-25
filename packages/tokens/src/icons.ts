@@ -22,6 +22,7 @@ export const icons = {
   tags: { phosphor: 'Tag', sfSymbol: 'tag' },
   trash: { phosphor: 'Trash', sfSymbol: 'trash' },
   capture: { phosphor: 'Sparkle', sfSymbol: 'sparkles' },
+  dictate: { phosphor: 'Microphone', sfSymbol: 'mic', sfSymbolActive: 'mic.fill' },
   complete: { phosphor: 'Check', sfSymbol: 'checkmark' },
   followUp: { phosphor: 'BellRinging', sfSymbol: 'bell.badge' },
   pickDate: { phosphor: 'CalendarDots', sfSymbol: 'calendar.badge.plus' },

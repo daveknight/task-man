@@ -7,6 +7,7 @@ import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
 import { CAPTURE_MAX_CHARS, parseCapture } from '@/data/capture';
 import { paneDate } from '@/lib/day-label';
+import { useCaptureDictation } from '@/lib/use-dictation';
 import { useMediaQuery } from '@/lib/use-media-query';
 import { cn } from '@/lib/utils';
 import { WIDE_QUERY } from './surface';
@@ -50,6 +51,18 @@ function cardChips(card: CaptureCard, today: ISODate): string[] {
   return chips;
 }
 
+function LevelMeter({ level }: { level: number }) {
+  const value = Math.round(Math.min(1, Math.max(0, level)) * 100);
+  return (
+    <div data-slot="capture-level" role="meter" aria-label="Microphone level" aria-valuemin={0} aria-valuemax={100} aria-valuenow={value} className="flex h-8 items-end gap-0.5 pointer-coarse:h-control">
+      {Array.from({ length: 5 }, (_, index) => {
+        const lit = level >= (index + 1) / 5;
+        return <span key={index} className={cn('w-1 rounded-full', lit ? 'bg-destructive' : 'bg-muted')} style={{ height: `${40 + index * 15}%` }} />;
+      })}
+    </div>
+  );
+}
+
 function cardHeading(card: CaptureCard): string {
   if (!captureCardReady(card) && card.ask) return card.ask;
   return card.action.title;
@@ -85,7 +98,8 @@ function CaptureBody({
   onApply: (cards: CaptureCard[]) => Promise<number>;
 }) {
   const [phase, setPhase] = useState<Phase>('edit');
-  const [text, setText] = useState('');
+  const note = useCaptureDictation(phase === 'edit');
+  const text = note.text;
   const [review, setReview] = useState<CaptureReview | null>(null);
   const [dropped, setDropped] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
@@ -161,8 +175,20 @@ function CaptureBody({
               maxLength={CAPTURE_MAX_CHARS}
               placeholder="What needs doing?"
               className="min-h-40 text-body"
-              onChange={(event) => setText(event.target.value)}
+              onChange={(event) => note.edit(event.target.value)}
             />
+            <div className="flex items-center gap-3">
+              <Button type="button" variant="outline" aria-pressed={note.listening} className="pointer-coarse:h-control aria-pressed:bg-muted" onClick={note.press}>
+                <Icon name="dictate" active={note.listening} data-icon="inline-start" className={note.listening ? 'text-destructive' : undefined} />
+                {note.listening ? 'Stop dictation' : 'Dictate'}
+              </Button>
+              {note.showMeter && <LevelMeter level={note.level} />}
+            </div>
+            {note.message && (
+              <p role="status" data-slot="capture-dictation" className="text-footnote text-muted-foreground">
+                {note.message}
+              </p>
+            )}
             <p className="text-footnote text-muted-foreground">Done sends this note to be read. Nothing is saved until you confirm.</p>
           </>
         )}
@@ -248,7 +274,7 @@ function CaptureBody({
           </>
         )}
       </div>
-      <div className="flex items-center gap-2 border-t border-border px-4 py-3">
+      <div data-slot="capture-footer" className="flex items-center gap-2 border-t border-border px-4 py-3">
         {phase === 'review' && (
           <Button variant="outline" className="pointer-coarse:h-control" onClick={recapture}>
             Recapture
