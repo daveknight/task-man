@@ -76,7 +76,7 @@ Tasks (<task> is an id, an id prefix of 4+ characters, or a title prefix):
                                             --completed: include completed, --flagged: only flagged,
                                             --tag (repeat it): only tasks that have every one of these tags
   capture "note" [--provider gemini|claude|openai] [--apply]
-                                            propose new tasks as JSON and save nothing
+                                            propose tasks to add or change, and save nothing
   capture --example <id> [--apply]          replay a recorded reply from seed/capture-examples.json
   capture "note" --reply <file> [--apply]   replay a saved model reply instead of calling a provider
   tags                                      every tag with how many tasks still to do have it
@@ -92,7 +92,8 @@ Within one edit they are resolved against the list as it was before: renames and
 then new subtasks at the bottom, and moves last (so --move-subtask x=1 puts x at the top of the final list).
 'show', 'board --json' and every change report include the task's subtasks and subtaskCount ({ done, total }).
 
-capture prints the proposed tasks and saves nothing. --apply writes the ones that passed the check.
+capture prints the proposed changes and saves nothing. --apply writes the ones that passed the check.
+An update or a note is matched to tasks on this device. Several matches are listed and not saved.
 --example and --reply replay a recorded reply and never call a provider. With no key set, a live
 capture reports that it isn't set up and still saves nothing. The provider key stays in the Edge Function.
 
@@ -189,7 +190,7 @@ async function main(argv: string[]): Promise<void> {
   const day = today(values.today);
   if (command === 'capture' && (values.example || values.reply) && !values.apply) {
     const recorded = recordedReply({ example: values.example, reply: values.reply, text: args.join(' ').trim() });
-    const review = reviewRecorded(recorded.reply, day);
+    const review = reviewRecorded(recorded.reply, day, recorded.tasks);
     print(captureJson(recorded.input, day, review, null), formatCapture(review, day, null));
     return;
   }
@@ -343,16 +344,17 @@ async function main(argv: string[]): Promise<void> {
       const recorded = values.example || values.reply ? recordedReply({ example: values.example, reply: values.reply, text }) : null;
       if (!recorded && !text) throw new Error('capture needs the note, or --example <id>. Run with --help.');
       if (!recorded && text.length > CAPTURE_MAX_CHARS) throw new Error("That's too long to capture. Shorten it and try again.");
+      const snapshot = await loadSnapshot(ctx.scope);
       const reply = recorded
         ? recorded.reply
         : await fetchCaptureReply({
             text,
             today: day,
             timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-            tags: (await loadSnapshot(ctx.scope)).tags.map((tag) => tag.name),
+            tags: snapshot.tags.map((tag) => tag.name),
             ...(values.provider ? { provider: values.provider } : {}),
           });
-      const review = reviewRecorded(reply, day);
+      const review = reviewRecorded(reply, day, snapshot.tasks);
       const saved = values.apply ? await applyCapture(ctx.scope, day, review.cards) : null;
       const input = recorded?.input ?? text;
       print(

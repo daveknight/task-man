@@ -1,16 +1,17 @@
-// capture-schema-1
+// capture-schema-2
 // Turns a capture note into JSON. The key stays in this function's environment.
 // No key, no call: the app shows that capture isn't set up and saves nothing.
+// The note, today's date, the time zone, and tag names are the only board facts sent on.
 import schema from './capture-schema.json' with { type: 'json' };
 import { logThrownProviderError, ModelUnavailable, readProviderReply, resolveGeminiModel } from './provider-error.ts';
 
-const SCHEMA_ID = 'capture-schema-1';
+const SCHEMA_ID = 'capture-schema-2';
 const MAX_CHARS = 4000;
 const MAX_TAGS = 100;
 const RATE_PER_MINUTE = 15;
 
 const RULES =
-  "You can only create new tasks. If the note asks to update, complete, delete, or add a note on a task that already exists, set confidence to low and actions to an empty list. Do not invent a new task for that. If you are not sure what to add, set confidence to low and actions to an empty list. Never guess a task. The summary is one short sentence reading what they asked for, not a transcript. Dates are YYYY-MM-DD. A start date is the day an Open task becomes ready, and only an Open task has one. Hide until is a Waiting task's own date, and only a Waiting task has one. The due date is the deadline. Waiting on someone means status waiting. The start date has to be on or before the due date. Hide until may be after the due date. A repeat needs a due date. Use an existing tag name when one fits.";
+  'You can create a task, update an existing task, or add a note to an existing task. You are not shown the task list. You never receive task titles, descriptions, or ids. For an update or a note, set match to a short title hint such as follow up with Dan. Never include an id. Do not decide whether a task exists. Do not set confidence to low only because the list is hidden. If you are not sure what to do, set confidence to low and actions to an empty list. Never guess a task. Do not create a task when the note asks to update one or to add a note. If the note only asks to complete, delete, or flag a task, or to change its subtasks, set confidence to low and actions to an empty list. The summary is one short sentence reading what they asked for, not a transcript. Dates are YYYY-MM-DD. A start date is the day an Open task becomes ready, and only an Open task has one. Hide until is the date on a Waiting task, and only a Waiting task has one. The due date is the deadline. Waiting on someone means status waiting. The start date has to be on or before the due date. Hide until may be after the due date. A repeat needs a due date. Use an existing tag name when one fits. An update lists only the fields that change. Note text is added to the description and does not replace it.';
 
 const PROVIDERS = {
   gemini: { env: 'GEMINI_API_KEY', model: 'gemini-3.8-flash' },
@@ -99,7 +100,7 @@ async function callProvider(name: keyof typeof PROVIDERS, key: string, model: st
         model,
         max_tokens: 2048,
         temperature: 0,
-        tools: [{ name: 'capture', description: 'Proposed new tasks', input_schema: schema }],
+        tools: [{ name: 'capture', description: 'Proposed creates, updates, and notes', input_schema: schema }],
         tool_choice: { type: 'tool', name: 'capture' },
         messages: [{ role: 'user', content: prompt }],
       }),

@@ -1,4 +1,4 @@
-import { captureApplyOrder, repeatLabel, type CaptureCard, type CaptureReview, type ISODate } from '@app/core';
+import { captureApplyOrder, captureCardReady, chooseCaptureCreate, chooseCaptureTask, repeatLabel, type CaptureCard, type CaptureReview, type ISODate, type Task } from '@app/core';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Icon } from '@/components/icon';
 import { Button } from '@/components/ui/button';
@@ -23,6 +23,19 @@ function Chip({ children }: { children: ReactNode }) {
 
 function cardChips(card: CaptureCard, today: ISODate): string[] {
   const action = card.action;
+  if (action.type === 'append_note') return [];
+  if (action.type === 'update') {
+    const patch = action.patch;
+    const chips: string[] = [];
+    if (patch.status === 'in_progress') chips.push('In progress');
+    if (patch.status === 'waiting') chips.push('Waiting');
+    if (patch.flagged) chips.push('Flagged');
+    if (patch.startDate) chips.push(`Start ${paneDate(patch.startDate, today)}`);
+    if (patch.hideUntil) chips.push(`Hide until ${paneDate(patch.hideUntil, today)}`);
+    if (patch.dueDate) chips.push(`Due ${paneDate(patch.dueDate, today)}`);
+    if (patch.repeat) chips.push(repeatLabel(patch.repeat, patch.dueDate ?? null));
+    return chips;
+  }
   const chips: string[] = [];
   if (action.status === 'in_progress') chips.push('In progress');
   if (action.status === 'waiting') chips.push('Waiting');
@@ -37,14 +50,37 @@ function cardChips(card: CaptureCard, today: ISODate): string[] {
   return chips;
 }
 
+function cardHeading(card: CaptureCard): string {
+  if (!captureCardReady(card) && card.ask) return card.ask;
+  return card.action.title;
+}
+
+function dropName(card: CaptureCard): string {
+  if (card.action.type === 'create') return card.action.title;
+  return card.action.match;
+}
+
+function confirmLabel(cards: readonly CaptureCard[]): string {
+  if (cards.length === 1) {
+    const action = cards[0]!.action;
+    if (action.type === 'update') return 'Update task';
+    if (action.type === 'append_note') return 'Add note';
+    return 'Add task';
+  }
+  if (cards.every((card) => card.action.type === 'create')) return `Add ${cards.length} tasks`;
+  return `Save ${cards.length}`;
+}
+
 function CaptureBody({
   today,
   tags,
+  tasks,
   onClose,
   onApply,
 }: {
   today: ISODate;
   tags: readonly string[];
+  tasks: readonly Task[];
   onClose: () => void;
   onApply: (cards: CaptureCard[]) => Promise<number>;
 }) {
@@ -63,13 +99,14 @@ function CaptureBody({
   }, []);
 
   const kept = (review?.cards ?? []).filter((card) => !dropped.has(card.id));
+  const ready = kept.filter(captureCardReady);
   const canSubmit = text.trim().length > 0 && text.length <= CAPTURE_MAX_CHARS && phase === 'edit';
 
   const done = async () => {
     const id = ++request.current;
     setPhase('thinking');
     setApplyError('');
-    const next = await parseCapture(text, today, tags);
+    const next = await parseCapture(text, today, tags, tasks);
     if (id !== request.current) return;
     setReview(next);
     setDropped(new Set());
@@ -84,22 +121,30 @@ function CaptureBody({
     setApplyError('');
   };
 
+  const pickTask = (cardId: string, taskId: string) => {
+    setReview((current) => current && { ...current, cards: current.cards.map((card) => (card.id === cardId ? chooseCaptureTask(card, taskId, tasks) : card)) });
+  };
+
+  const pickCreate = (cardId: string) => {
+    setReview((current) => current && { ...current, cards: current.cards.map((card) => (card.id === cardId ? chooseCaptureCreate(card) : card)) });
+  };
+
   const confirm = async () => {
-    if (kept.length === 0 || saving) return;
+    if (ready.length === 0 || ready.length !== kept.length || saving) return;
     setSaving(true);
     setApplyError('');
-    const saved = await onApply(kept);
+    const saved = await onApply(ready);
     setSaving(false);
-    if (saved >= kept.length) {
+    if (saved >= ready.length) {
       onClose();
       return;
     }
-    const doneIds = captureApplyOrder(kept).slice(0, saved).map((card) => card.id);
+    const doneIds = captureApplyOrder(ready).slice(0, saved).map((card) => card.id);
     setDropped((current) => new Set([...current, ...doneIds]));
     setApplyError(saved === 0 ? "Couldn't save. Nothing was added." : "Couldn't save the rest. The ones added are on the board.");
   };
 
-  const addLabel = kept.length === 1 ? 'Add task' : `Add ${kept.length} tasks`;
+  const addLabel = confirmLabel(ready);
 
   return (
     <div className="flex h-full min-h-0 flex-col" data-slot="capture-sheet">
@@ -118,7 +163,7 @@ function CaptureBody({
               className="min-h-40 text-body"
               onChange={(event) => setText(event.target.value)}
             />
-            <p className="text-footnote text-muted-foreground">Done sends this note to be read. Nothing is saved until you add it.</p>
+            <p className="text-footnote text-muted-foreground">Done sends this note to be read. Nothing is saved until you confirm.</p>
           </>
         )}
         {phase === 'thinking' && (
@@ -151,18 +196,43 @@ function CaptureBody({
               <article key={card.id} data-slot="capture-card" className="rounded-xl border border-border p-3">
                 <div className="flex items-start gap-2">
                   <h3 className="min-w-0 flex-1 text-body font-medium" data-slot="capture-card-title">
-                    {card.action.title}
+                    {cardHeading(card)}
                   </h3>
-                  <Button variant="ghost" size="sm" className="shrink-0" aria-label={`Drop ${card.action.title}`} onClick={() => setDropped((current) => new Set(current).add(card.id))}>
+                  <Button variant="ghost" size="sm" className="shrink-0" aria-label={`Drop ${dropName(card)}`} onClick={() => setDropped((current) => new Set(current).add(card.id))}>
                     Drop
                   </Button>
                 </div>
-                {card.action.description && <p className="mt-1 line-clamp-3 text-footnote text-muted-foreground">{card.action.description}</p>}
+                {card.action.type === 'create' && card.action.description && <p className="mt-1 line-clamp-3 text-footnote text-muted-foreground">{card.action.description}</p>}
+                {card.action.type === 'append_note' && <p className="mt-1 text-footnote text-muted-foreground">{card.action.text}</p>}
+                {captureCardReady(card) && card.action.type !== 'create' && (
+                  <p className="mt-1 text-footnote text-muted-foreground" data-slot="capture-kind">
+                    {card.action.type === 'update' ? 'Update' : 'Add note'}
+                  </p>
+                )}
                 <div className="mt-2 flex flex-wrap gap-1">
                   {cardChips(card, today).map((chip) => (
                     <Chip key={chip}>{chip}</Chip>
                   ))}
                 </div>
+                {!captureCardReady(card) && (
+                  <div className="mt-2 flex flex-col gap-2" data-slot="capture-picker">
+                    {card.candidates.map((candidate) => (
+                      <Button
+                        key={candidate.id}
+                        variant="outline"
+                        className="pointer-coarse:h-control justify-start"
+                        onClick={() => pickTask(card.id, candidate.id)}
+                      >
+                        {card.action.type === 'create' ? `Update ${candidate.title}` : candidate.title}
+                      </Button>
+                    ))}
+                    {card.action.type === 'create' && (
+                      <Button variant="outline" className="pointer-coarse:h-control justify-start" onClick={() => pickCreate(card.id)}>
+                        Create another
+                      </Button>
+                    )}
+                  </div>
+                )}
                 {card.marks.map((mark) => (
                   <p key={`${mark.field}-${mark.message}`} className="mt-1 text-footnote text-flag" data-slot="capture-mark">
                     {mark.message}
@@ -192,8 +262,8 @@ function CaptureBody({
             Done
           </Button>
         )}
-        {phase === 'review' && review?.confidence === 'high' && kept.length > 0 && (
-          <Button className="pointer-coarse:h-control ml-auto" disabled={kept.length === 0 || saving} onClick={() => void confirm()}>
+        {phase === 'review' && review?.confidence === 'high' && ready.length > 0 && ready.length === kept.length && (
+          <Button className="pointer-coarse:h-control ml-auto" disabled={saving} onClick={() => void confirm()}>
             {addLabel}
           </Button>
         )}
@@ -208,17 +278,19 @@ export function CaptureSheet({
   onOpenChange,
   today,
   tags,
+  tasks,
   onApply,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   today: ISODate;
   tags: readonly string[];
+  tasks: readonly Task[];
   onApply: (cards: CaptureCard[]) => Promise<number>;
 }) {
   const wide = useMediaQuery(WIDE_QUERY);
   const close = () => onOpenChange(false);
-  const body = open ? <CaptureBody key="open" today={today} tags={tags} onClose={close} onApply={onApply} /> : null;
+  const body = open ? <CaptureBody key="open" today={today} tags={tags} tasks={tasks} onClose={close} onApply={onApply} /> : null;
   if (wide) {
     return (
       <Sheet open={open} onOpenChange={onOpenChange}>
