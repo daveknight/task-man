@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
+import { dictationProbe, installDictation, speak } from './dictation-fake';
 import { findTask, openBoard, recordDrop, reseed, row, section, showTask, tagNames, titlesIn, TODAY } from './helpers';
 
 test.beforeEach(async ({ page }) => {
@@ -25,6 +26,27 @@ test('Capture sits beside Add and saves a reviewed task', async ({ page }) => {
   await expect(dialog.locator('[data-slot=capture-card-title]')).toHaveText('Pick up dry cleaning');
   await dialog.getByRole('button', { name: 'Add task' }).tap();
   await expect.poll(async () => (await titlesIn(page, 'ready'))[0]).toBe('Pick up dry cleaning');
+});
+
+test('phone Capture only opens the sheet, and Dictate writes the note', async ({ page }) => {
+  await installDictation(page, 'ok');
+  await page.goto(`/?today=${TODAY}&capture=replay`);
+  await expect(page.locator('[data-section=ready] [data-slot=task-row]').first()).toBeVisible();
+  expect((await dictationProbe(page)).starts).toBe(0);
+  await page.getByRole('button', { name: 'Capture' }).tap();
+  const dialog = page.getByRole('dialog', { name: 'Capture' });
+  expect((await dictationProbe(page)).starts).toBe(0);
+  const footer = dialog.locator('[data-slot=capture-footer]');
+  await expect(footer.getByRole('button', { name: 'Dictate', exact: true })).toHaveCount(0);
+  await expect(footer.getByRole('button', { name: 'Cancel' })).toBeVisible();
+  await expect(footer.getByRole('button', { name: 'Done' })).toBeVisible();
+  await dialog.getByRole('button', { name: 'Dictate', exact: true }).tap();
+  await speak(page, [{ final: true, text: 'buy milk' }]);
+  await expect(dialog.getByRole('textbox', { name: 'Note' })).toHaveValue('buy milk');
+  await expect(dialog.getByRole('textbox', { name: 'Note' })).toBeEnabled();
+  await dialog.getByRole('button', { name: 'Cancel' }).tap();
+  await expect(dialog).toHaveCount(0);
+  await expect.poll(async () => (await dictationProbe(page)).aborts).toBeGreaterThan(0);
 });
 
 test('the floating Add task button quick-adds from anywhere on the board', async ({ page }) => {
