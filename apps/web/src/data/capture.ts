@@ -1,15 +1,15 @@
-import { CAPTURE_MAX_CHARS, captureFailureCode, planCaptureTasks, reviewCapture, reviewFromFailure, type CaptureCard, type CaptureReview, type ISODate } from '@app/core';
+import { CAPTURE_MAX_CHARS, captureFailure, planCaptureTasks, reviewCapture, reviewFromFailure, type CaptureCard, type CaptureReview, type ISODate } from '@app/core';
 import { FunctionsHttpError } from '@supabase/supabase-js';
 import { supabase } from '@/supabase';
 import type { TaskWrites } from './board-data';
 
 export { CAPTURE_MAX_CHARS };
 
-async function invokeError(error: unknown): Promise<string | null> {
+async function invokeFailure(error: unknown): Promise<ReturnType<typeof captureFailure>> {
   if (!(error instanceof FunctionsHttpError)) return null;
   try {
     const body = typeof error.context?.json === 'function' ? await error.context.json() : error.context;
-    return captureFailureCode(body);
+    return captureFailure(body);
   } catch {
     return null;
   }
@@ -37,9 +37,12 @@ export async function parseCapture(text: string, today: ISODate, tags: readonly 
     const { data, error } = await supabase.functions.invoke('parse-capture', {
       body: { text: trimmed, today, timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone, tags, provider: 'gemini' },
     });
-    if (error) return reviewFromFailure((await invokeError(error)) ?? undefined);
-    const code = captureFailureCode(data);
-    return code ? reviewFromFailure(code) : reviewCapture(data, today);
+    if (error) {
+      const failure = await invokeFailure(error);
+      return failure ? reviewFromFailure(failure.code, failure.model) : reviewFromFailure();
+    }
+    const failure = captureFailure(data);
+    return failure ? reviewFromFailure(failure.code, failure.model) : reviewCapture(data, today);
   } catch {
     return reviewFromFailure();
   }

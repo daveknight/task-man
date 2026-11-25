@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import {
   captureCardSnapshot,
-  captureFailureCode,
+  captureFailure,
   planCaptureTasks,
   readCaptureExamples,
   repeatLabel,
@@ -49,8 +49,8 @@ export function recordedReply(options: { example?: string; reply?: string; text:
 }
 
 export function reviewRecorded(reply: unknown, today: ISODate): CaptureReview {
-  const code = captureFailureCode(reply);
-  return code ? reviewFromFailure(code) : reviewCapture(reply, today);
+  const failure = captureFailure(reply);
+  return failure ? reviewFromFailure(failure.code, failure.model) : reviewCapture(reply, today);
 }
 
 /** Writes the confirmed cards. Planning runs first, so an invalid card saves nothing. */
@@ -65,16 +65,16 @@ export async function applyCapture(scope: Scope, today: ISODate, cards: readonly
   return saved;
 }
 
-async function errorCode(error: unknown): Promise<string | null> {
+async function failureFrom(error: unknown): Promise<ReturnType<typeof captureFailure>> {
   const context = (error as { context?: unknown }).context;
   try {
     if (context && typeof (context as { json?: unknown }).json === 'function') {
-      return captureFailureCode(await (context as { json: () => Promise<unknown> }).json());
+      return captureFailure(await (context as { json: () => Promise<unknown> }).json());
     }
   } catch {
     return null;
   }
-  return captureFailureCode(context);
+  return captureFailure(context);
 }
 
 /** Asks the local Edge Function. The key stays there; this only sends the note and a signed-in user. */
@@ -86,8 +86,8 @@ export async function fetchCaptureReply(body: { text: string; today: ISODate; ti
   if (signedIn.error) throw new Error(`Couldn't sign in for capture: ${signedIn.error.message}`);
   const result = await client.functions.invoke('parse-capture', { body });
   if (result.error) {
-    const code = await errorCode(result.error);
-    if (code) return { error: code };
+    const failure = await failureFrom(result.error);
+    if (failure) return { error: failure.code, ...(failure.model ? { model: failure.model } : {}) };
     throw new Error(result.error.message);
   }
   return result.data;

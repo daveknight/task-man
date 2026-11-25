@@ -2,7 +2,7 @@
 // Turns a capture note into JSON. The key stays in this function's environment.
 // No key, no call: the app shows that capture isn't set up and saves nothing.
 import schema from './capture-schema.json' with { type: 'json' };
-import { logThrownProviderError, readProviderReply } from './provider-error.ts';
+import { logThrownProviderError, ModelUnavailable, readProviderReply, resolveGeminiModel } from './provider-error.ts';
 
 const SCHEMA_ID = 'capture-schema-1';
 const MAX_CHARS = 4000;
@@ -13,7 +13,7 @@ const RULES =
   "You can only create new tasks. If the note asks to update, complete, delete, or add a note on a task that already exists, set confidence to low and actions to an empty list. Do not invent a new task for that. If you are not sure what to add, set confidence to low and actions to an empty list. Never guess a task. The summary is one short sentence reading what they asked for, not a transcript. Dates are YYYY-MM-DD. A start date is the day an Open task becomes ready, and only an Open task has one. Hide until is a Waiting task's own date, and only a Waiting task has one. The due date is the deadline. Waiting on someone means status waiting. The start date has to be on or before the due date. Hide until may be after the due date. A repeat needs a due date. Use an existing tag name when one fits.";
 
 const PROVIDERS = {
-  gemini: { env: 'GEMINI_API_KEY', model: 'gemini-2.5-flash' },
+  gemini: { env: 'GEMINI_API_KEY', model: 'gemini-3.8-flash' },
   claude: { env: 'ANTHROPIC_API_KEY', model: 'claude-haiku-4-5' },
   openai: { env: 'OPENAI_API_KEY', model: 'gpt-4.1-mini' },
 } as const;
@@ -72,10 +72,14 @@ function providerName(value: unknown): keyof typeof PROVIDERS {
   return value === 'claude' || value === 'openai' || value === 'gemini' ? value : 'gemini';
 }
 
-async function callProvider(name: keyof typeof PROVIDERS, key: string, prompt: string, secrets: readonly string[]): Promise<unknown> {
-  const model = PROVIDERS[name].model;
+function modelFor(name: keyof typeof PROVIDERS): string {
+  if (name === 'gemini') return resolveGeminiModel(Deno.env.get('GEMINI_MODEL'));
+  return PROVIDERS[name].model;
+}
+
+async function callProvider(name: keyof typeof PROVIDERS, key: string, model: string, prompt: string, secrets: readonly string[]): Promise<unknown> {
   if (name === 'gemini') {
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
       signal: AbortSignal.timeout(20_000),
@@ -146,12 +150,15 @@ Deno.serve(async (req) => {
   const key = Deno.env.get(PROVIDERS[name].env);
   if (!key) return json({ error: 'not_configured', schema: SCHEMA_ID }, 501);
 
-  const secrets = [key, `Bearer ${key}`, text];
+  const model = modelFor(name);
+  // Logs drop the model along with the key and the note. The response names the model only when it is unavailable.
+  const secrets = [key, `Bearer ${key}`, text, model];
   try {
-    const reply = await callProvider(name, key, promptFor(text, body.today, timeZone, tags), secrets);
+    const reply = await callProvider(name, key, model, promptFor(text, body.today, timeZone, tags), secrets);
     if (!reply || typeof reply !== 'object') return json({ error: 'provider_error' }, 502);
     return json(reply);
   } catch (error) {
+    if (error instanceof ModelUnavailable) return json({ error: 'model_unavailable', model }, 502);
     logThrownProviderError(name, error, secrets);
     return json({ error: 'provider_error' }, 502);
   }

@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { logThrownProviderError, readProviderReply } from '../../../supabase/functions/parse-capture/provider-error.ts';
+import { logThrownProviderError, ModelUnavailable, readProviderReply, resolveGeminiModel } from '../../../supabase/functions/parse-capture/provider-error.ts';
 import {
   CAPTURE_MAX_CHARS,
   CAPTURE_RESPONSE_SCHEMA,
@@ -9,6 +9,7 @@ import {
   LOW_CONFIDENCE_MESSAGE,
   captureApplyOrder,
   captureCardSnapshot,
+  captureFailure,
   capturePrompt,
   isCreateExample,
   planCaptureTasks,
@@ -205,7 +206,35 @@ describe('reviewCapture', () => {
 
   it('names a failed call without inventing tasks', () => {
     expect(reviewFromFailure('not_configured')).toMatchObject({ confidence: 'low', cards: [], message: "Capture isn't set up yet. Nothing was saved." });
-    expect(reviewFromFailure('provider_error').cards).toEqual([]);
+    expect(reviewFromFailure('provider_error', 'gemini-3.8-flash')).toMatchObject({
+      confidence: 'low',
+      cards: [],
+      message: "Capture didn't get an answer. Nothing was saved.",
+    });
+    expect(reviewFromFailure('model_unavailable', 'gemini-3.8-flash')).toMatchObject({
+      confidence: 'low',
+      cards: [],
+      message: "Capture's model gemini-3.8-flash is unavailable. Nothing was saved.",
+    });
+    expect(reviewFromFailure('model_unavailable', 'override-model').message).toBe("Capture's model override-model is unavailable. Nothing was saved.");
+    expect(reviewFromFailure('model_unavailable').message).toBe("Capture's model is unavailable. Nothing was saved.");
+  });
+
+  it('shows the model the function called, not the upstream body', () => {
+    const upstream = {
+      error: 'model_unavailable',
+      model: 'override-model',
+      message: 'This model models/gemini-2.5-flash is no longer available. key sk-live-secret',
+    };
+    const failure = captureFailure(upstream);
+    expect(failure).toEqual({ code: 'model_unavailable', model: 'override-model' });
+    const review = reviewFromFailure(failure?.code, failure?.model);
+    expect(review.message).toBe("Capture's model override-model is unavailable. Nothing was saved.");
+    expect(review.message).not.toContain('sk-live');
+    expect(review.message).not.toContain('gemini-2.5-flash');
+    expect(review.cards).toEqual([]);
+    expect(captureFailure({ error: 'provider_error', model: 'gemini-3.8-flash' })).toEqual({ code: 'provider_error' });
+    expect(captureFailure({ summary: 'Hi', confidence: 'low', error: 'model_unavailable', model: 'override-model' })).toBeNull();
   });
 });
 
@@ -226,7 +255,17 @@ describe('capture prompt and schema', () => {
     expect(functionSource).not.toContain('VITE_');
     expect(functionSource).not.toContain('console.');
     expect(functionSource).not.toContain('?key=');
-    expect(functionSource).toContain('const secrets = [key, `Bearer ${key}`, text]');
+    expect(functionSource).toContain('const secrets = [key, `Bearer ${key}`, text, model]');
+    expect(functionSource).toContain("model: 'gemini-3.8-flash'");
+    expect(functionSource).toContain("model: 'claude-haiku-4-5'");
+    expect(functionSource).toContain("model: 'gpt-4.1-mini'");
+    expect(functionSource).not.toContain('gemini-2.5-flash');
+    expect(functionSource).toContain("resolveGeminiModel(Deno.env.get('GEMINI_MODEL'))");
+    expect(functionSource).toContain("return json({ error: 'model_unavailable', model }, 502);");
+    const unavailableAt = functionSource.indexOf('error instanceof ModelUnavailable');
+    const logAt = functionSource.indexOf('logThrownProviderError(name, error, secrets)');
+    expect(unavailableAt).toBeGreaterThan(-1);
+    expect(logAt).toBeGreaterThan(unavailableAt);
     expect(functionSource.match(/return readProviderReply\(name, res, secrets\);/g) ?? []).toHaveLength(3);
     expect(functionSource).toContain('logThrownProviderError(name, error, secrets)');
     expect(functionSource.match(/return json\(\{ error: 'provider_error' \}, 502\);/g)).toHaveLength(2);
@@ -332,6 +371,58 @@ describe('parse-capture provider errors', () => {
     const res = { ok: false, status: 500, text: () => Promise.reject(new Error('socket closed')) };
     await expect(readProviderReply('claude', res)).rejects.toThrow('socket closed');
     expect(error).not.toHaveBeenCalled();
+  });
+
+  it('uses gemini-3.8-flash unless GEMINI_MODEL is set, and does not log the override', () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    expect(resolveGeminiModel(undefined)).toBe('gemini-3.8-flash');
+    expect(resolveGeminiModel('')).toBe('gemini-3.8-flash');
+    expect(resolveGeminiModel('   ')).toBe('gemini-3.8-flash');
+    expect(resolveGeminiModel(' override-model ')).toBe('override-model');
+    expect(error).not.toHaveBeenCalled();
+    expect(log).not.toHaveBeenCalled();
+  });
+
+  it('logs a retired model once, without the key or the selected model, and keeps both out of the error', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const key = 'sk-live-secret-value';
+    const model = 'override-model';
+    const body = `This model models/gemini-2.5-flash is no longer available to new users. Please update your code to use models/gemini-3.8-flash key=${key} tried=${model}`;
+    let thrown: unknown;
+    try {
+      await readProviderReply('gemini', providerResponse(404, body), [key, `Bearer ${key}`, model]);
+    } catch (caught) {
+      thrown = caught;
+    }
+    expect(thrown).toBeInstanceOf(ModelUnavailable);
+    expect((thrown as Error).message).toBe('model_unavailable');
+    expect((thrown as Error).message).not.toContain(key);
+    expect((thrown as Error).message).not.toContain(body);
+    expect(error).toHaveBeenCalledTimes(1);
+    const logged = String(error.mock.calls[0]?.[2]);
+    expect(error.mock.calls[0]?.[0]).toBe('gemini');
+    expect(error.mock.calls[0]?.[1]).toBe(404);
+    expect(logged).not.toContain(key);
+    expect(logged).not.toContain(model);
+    expect(logged).toContain('no longer available');
+  });
+
+  it.each([
+    [404, 'models/gemini-3.8-flash is not found for API version v1beta'],
+    [400, 'This model is no longer available'],
+    [404, 'The model `gpt-4.1-mini` does not exist'],
+    [404, 'model: claude-haiku-4-5'],
+  ] as const)('treats %s %s as a missing model', async (status, body) => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    await expect(readProviderReply('gemini', providerResponse(status, body))).rejects.toBeInstanceOf(ModelUnavailable);
+  });
+
+  it('keeps an ordinary failure, including a 404 that names no model', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    expect(await readProviderReply('gemini', providerResponse(404, JSON.stringify({ error: { code: 404, message: 'Not Found' } })))).toBeNull();
+    expect(await readProviderReply('openai', providerResponse(500, 'The service is no longer available'))).toBeNull();
+    expect(await readProviderReply('claude', providerResponse(429, 'quota exceeded'))).toBeNull();
   });
 });
 
