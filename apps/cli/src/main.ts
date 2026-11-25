@@ -1,8 +1,10 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { parseArgs } from 'node:util';
-import { APP_NAME, localDate, resolveDate, type ISODate } from '@app/core';
+import { APP_NAME, CAPTURE_MAX_CHARS, localDate, resolveDate, type ISODate } from '@app/core';
+import { loadSnapshot } from '@app/data';
 import { exportAll, importAll, type Backup, type BackupV1 } from './backup.ts';
+import { applyCapture, captureJson, fetchCaptureReply, formatCapture, recordedReply, reviewRecorded } from './capture.ts';
 import { loadBoard, reset, seed } from './commands.ts';
 import { DEFAULT_SEED_FILE } from './config.ts';
 import { adminClient, devUserId } from './db.ts';
@@ -73,6 +75,10 @@ Tasks (<task> is an id, an id prefix of 4+ characters, or a title prefix):
                                             title, description and tag names; never Trash
                                             --completed: include completed, --flagged: only flagged,
                                             --tag (repeat it): only tasks that have every one of these tags
+  capture "note" [--provider gemini|claude|openai] [--apply]
+                                            propose new tasks as JSON and save nothing
+  capture --example <id> [--apply]          replay a recorded reply from seed/capture-examples.json
+  capture "note" --reply <file> [--apply]   replay a saved model reply instead of calling a provider
   tags                                      every tag with how many tasks still to do have it
   tags rename <tag> <new name>              rename a tag on every task at once
   tags delete <tag>                         delete a tag and remove it from every task (the tasks stay)
@@ -85,6 +91,10 @@ A <subtask> is its position as 'show' lists it (1 is the top), an id prefix of 4
 Within one edit they are resolved against the list as it was before: renames and ticks first, then removals,
 then new subtasks at the bottom, and moves last (so --move-subtask x=1 puts x at the top of the final list).
 'show', 'board --json' and every change report include the task's subtasks and subtaskCount ({ done, total }).
+
+capture prints the proposed tasks and saves nothing. --apply writes the ones that passed the check.
+--example and --reply replay a recorded reply and never call a provider. With no key set, a live
+capture reports that it isn't set up and still saves nothing. The provider key stays in the Edge Function.
 
 A repeat is one rule on the task. --repeat sets daily, weekly, monthly, yearly or weekdays (Mon–Fri); --repeat-mode
 picks schedule (by due date, the default), after_completion or dates. dates mode takes --dates. --monthly is 31,
@@ -154,6 +164,10 @@ async function main(argv: string[]): Promise<void> {
       monthly: { type: 'string' },
       dates: { type: 'string' },
       ends: { type: 'string' },
+      apply: { type: 'boolean', default: false },
+      reply: { type: 'string' },
+      example: { type: 'string' },
+      provider: { type: 'string' },
       subtask: { type: 'string', multiple: true },
       'add-subtask': { type: 'string', multiple: true },
       'done-subtask': { type: 'string', multiple: true },
@@ -173,6 +187,12 @@ async function main(argv: string[]): Promise<void> {
     process.stdout.write(json ? `${JSON.stringify(data, null, 2)}\n` : `${text}\n`);
   };
   const day = today(values.today);
+  if (command === 'capture' && (values.example || values.reply) && !values.apply) {
+    const recorded = recordedReply({ example: values.example, reply: values.reply, text: args.join(' ').trim() });
+    const review = reviewRecorded(recorded.reply, day);
+    print(captureJson(recorded.input, day, review, null), formatCapture(review, day, null));
+    return;
+  }
   const db = adminClient();
   const ctx: Context = { scope: { db, userId: await devUserId(db) }, today: day, now: new Date().toISOString() };
   const arg = (i: number, name: string) => {
@@ -313,6 +333,32 @@ async function main(argv: string[]): Promise<void> {
       if (action !== undefined) throw new Error(`Unknown tags command "${action}" (rename, delete). Run with --help.`);
       const listing = await listTags(ctx);
       print(listing, listing.length ? listing.map((t) => `${String(t.count).padStart(3)}  ${t.name}`).join('\n') : 'No tags.');
+      return;
+    }
+    case 'capture': {
+      if (values.provider && values.provider !== 'gemini' && values.provider !== 'claude' && values.provider !== 'openai') {
+        throw new Error('Provider must be gemini, claude or openai.');
+      }
+      const text = args.join(' ').trim();
+      const recorded = values.example || values.reply ? recordedReply({ example: values.example, reply: values.reply, text }) : null;
+      if (!recorded && !text) throw new Error('capture needs the note, or --example <id>. Run with --help.');
+      if (!recorded && text.length > CAPTURE_MAX_CHARS) throw new Error("That's too long to capture. Shorten it and try again.");
+      const reply = recorded
+        ? recorded.reply
+        : await fetchCaptureReply({
+            text,
+            today: day,
+            timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            tags: (await loadSnapshot(ctx.scope)).tags.map((tag) => tag.name),
+            ...(values.provider ? { provider: values.provider } : {}),
+          });
+      const review = reviewRecorded(reply, day);
+      const saved = values.apply ? await applyCapture(ctx.scope, day, review.cards) : null;
+      const input = recorded?.input ?? text;
+      print(
+        captureJson(input, day, review, saved ? saved.map((task) => ({ id: task.id, title: task.title })) : null),
+        formatCapture(review, day, saved ? saved.length : null),
+      );
       return;
     }
     case 'search': {

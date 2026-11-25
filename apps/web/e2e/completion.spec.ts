@@ -58,8 +58,16 @@ test.describe('completing', () => {
     const inCompleted = section(page, 'completed').locator('[data-slot=task-row]', { hasText: TITLE });
     await checkbox(page, TITLE).click();
 
-    await expect(ghost(page, TITLE)).toHaveCount(1);
-    await expect(inCompleted).toHaveCount(0);
+    // The hold is 500ms. Two separate expects can land after it on a busy runner, once the row is already in Completed.
+    await page.waitForFunction(
+      (title) => {
+        const held = [...document.querySelectorAll('[data-ghost]')].find((el) => el.textContent?.includes(title));
+        const arrived = [...document.querySelectorAll('[data-section=completed] [data-slot=task-row]')].some((el) => el.textContent?.includes(title));
+        return held?.getAttribute('data-ghost') === 'done' && !arrived;
+      },
+      TITLE,
+      { polling: 'raf' },
+    );
 
     await expect(inCompleted).toHaveCount(1);
     await expect(ghost(page, TITLE)).toHaveCount(0);
@@ -74,10 +82,18 @@ test.describe('completing', () => {
     await section(page, 'completed').getByRole('checkbox', { name: `Complete ${DONE_TITLE}` }).click();
 
     const held = ghost(page, DONE_TITLE);
-    await expect(held).toHaveCount(1);
-    await expect(held).toHaveAttribute('data-ghost', 'undone');
-    await expect(held.locator('[data-slot=task-title]')).not.toHaveCSS('text-decoration-line', 'line-through');
-    await expect(inReady).toHaveCount(0);
+    // Same window as the complete hold: sample it on animation frames so a busy runner doesn't miss it.
+    await page.waitForFunction(
+      (title) => {
+        const row = [...document.querySelectorAll('[data-ghost]')].find((el) => el.textContent?.includes(title));
+        const arrived = [...document.querySelectorAll('[data-section=ready] [data-slot=task-row]')].some((el) => el.textContent?.includes(title));
+        const titleEl = row?.querySelector('[data-slot=task-title]');
+        const decoration = titleEl ? getComputedStyle(titleEl).textDecorationLine : '';
+        return row?.getAttribute('data-ghost') === 'undone' && !decoration.includes('line-through') && !arrived;
+      },
+      DONE_TITLE,
+      { polling: 'raf' },
+    );
 
     await expect(held).toHaveCount(0);
     await expect(inReady).toHaveCount(1);

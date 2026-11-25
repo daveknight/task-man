@@ -1,0 +1,30 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["summary", "confidence", "actions"],
+  "properties": {
+    "summary": { "type": "string" },
+    "confidence": { "type": "string", "enum": ["high", "low"] },
+    "actions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["type", "title"],
+        "properties": {
+          "type": { "type": "string", "enum": ["create"] },
+          "title": { "type": "string" },
+          "description": { "type": "string" },
+          "startDate": { "type": "string" },
+          "hideUntil": { "type": "string" },
+          "dueDate": { "type": "string" },
+          "status": { "type": "string", "enum": ["open", "in_progress", "waiting"] },
+          "flagged": { "type": "boolean" },
+          "tags": { "type": "array", "items": { "type": "string" } },
+          "subtasks": { "type": "array", "items": { "type": "string" } },
+          "repeat": { "type": "object" }
+        }
+      }
+    }
+  }
+}
