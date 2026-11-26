@@ -1,5 +1,5 @@
 import { applyPlan, applySubtaskChange, applyTagChange, applyTaskTagChange, planChange, planNewTask, type ISODate, type OccurrencePlan, type PositionWrite, type SubtaskChange, type TagChange, type Task, type TaskTagChange, type UndoPlan } from '@app/core';
-import { deleteForever, insertTask, loadSnapshot, searchTasks, writeChange, writeOccurrence, writeSubtaskChange, writeTagChange, writeTaskTagChange, writeUndoOccurrence, type Scope, type SearchOptions, type Snapshot } from '@app/data';
+import { deleteForever, drainFileDeletions, insertTask, loadSnapshot, searchTasks, writeChange, writeOccurrence, writeSubtaskChange, writeTagChange, writeTaskTagChange, writeUndoOccurrence, type Scope, type SearchOptions, type Snapshot } from '@app/data';
 import { keepPreviousData, notifyManager, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
@@ -13,7 +13,7 @@ const SNAPSHOT_KEY = ['snapshot'] as const;
 notifyManager.setScheduler((callback) => callback());
 
 /** The signed-in user's scope; every query runs as that user, through row-level security. */
-async function scope(): Promise<Scope> {
+export async function taskScope(): Promise<Scope> {
   return { db: supabase, userId: (await currentSession()).userId };
 }
 
@@ -21,7 +21,13 @@ export function useSnapshot() {
   return useQuery({
     queryKey: SNAPSHOT_KEY,
     enabled: supabaseConfigured,
-    queryFn: async () => loadSnapshot(await scope()),
+    queryFn: async () => {
+      const current = await taskScope();
+      // Files removed with a task, including by the daily purge, are queued until the
+      // Storage API deletes them. A failure here must not hide the board.
+      if (navigator.onLine) await drainFileDeletions(current).catch(() => {});
+      return loadSnapshot(current);
+    },
   });
 }
 
@@ -31,7 +37,7 @@ export function useSearch(query: string, options: SearchOptions, enabled: boolea
     queryKey: ['search', query, options],
     enabled: supabaseConfigured && enabled,
     placeholderData: keepPreviousData,
-    queryFn: async () => searchTasks(await scope(), query, options),
+    queryFn: async () => searchTasks(await taskScope(), query, options),
   });
 }
 
@@ -63,7 +69,7 @@ export function useTaskWrites(today: ISODate) {
       client.setQueryData(SNAPSHOT_KEY, optimistic);
       await cancelled;
       try {
-        await write(await scope());
+        await write(await taskScope());
       } catch (error) {
         client.setQueryData(SNAPSHOT_KEY, previous);
         toast.error(`Couldn't save: ${error instanceof Error ? error.message : String(error)}`);

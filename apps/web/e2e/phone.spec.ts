@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { captureSheetFrame } from '../src/components/board/capture-sheet-frame';
+import { sheetFillsScreen } from '../src/components/board/task-sheet-frame';
 import { dictationProbe, installDictation, speak } from './dictation-fake';
 import { cliJson, findTask, openBoard, recordDrop, reseed, row, section, showTask, tagNames, titlesIn, TODAY } from './helpers';
 
@@ -11,6 +12,28 @@ test.beforeEach(async ({ page }) => {
 test('tapping a row opens the bottom sheet', async ({ page }) => {
   await row(page, 'Buy new watch band').getByText('Buy new watch band').tap();
   await expect(page.locator('[data-slot=drawer-content] [data-slot=task-editor]')).toBeVisible();
+});
+
+test('a task sheet taller than 75% of the screen fills it, and a shorter one stays a sheet', async ({ page }) => {
+  expect(sheetFillsScreen(751, 1000)).toBe(true);
+  expect(sheetFillsScreen(750, 1000)).toBe(false);
+
+  // The device viewport includes browser chrome. The home screen is the full phone.
+  await page.setViewportSize({ width: 393, height: 852 });
+  const popup = page.locator('[data-slot=drawer-popup]');
+
+  await row(page, 'Fix squeaky closet door').getByText('Fix squeaky closet door').tap();
+  await expect(popup).toHaveAttribute('data-fill', 'sheet');
+  await expect.poll(async () => (await popup.boundingBox())!.height).toBeLessThan(852 * 0.75);
+  await expect(popup.getByRole('button', { name: 'Close' })).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  await expect(popup).toHaveCount(0);
+
+  await row(page, 'Finance quarterly action items').getByText('Finance quarterly action items').tap();
+  await expect(popup).toHaveAttribute('data-fill', 'full');
+  await expect.poll(async () => (await popup.boundingBox())!.y).toBeLessThan(8);
+  await expect.poll(async () => (await popup.boundingBox())!.height).toBeGreaterThan(840);
+  await expect(popup.getByRole('button', { name: 'Close' })).toBeVisible();
 });
 
 test('the capture sheet keeps the note below the status bar', async ({ page }) => {
@@ -141,7 +164,7 @@ test('the swipe buttons run in the desktop order: Delete, state, date, then Due'
   expect(await names(await swipeLeft(page, 'Plumber quote for kitchen sink'))).toEqual(['Delete', 'Hide until', 'Move to In Progress', 'Due']);
 });
 
-test('offline, the swipe buttons are disabled', async ({ page, context }) => {
+test('offline, the swipe buttons and file buttons are disabled', async ({ page, context }) => {
   await context.setOffline(true);
   await expect(page.locator('[data-slot=offline-banner]')).toBeVisible();
   const tray = await swipeLeft(page, 'Return library books');
@@ -149,6 +172,11 @@ test('offline, the swipe buttons are disabled', async ({ page, context }) => {
   const count = await buttons.count();
   expect(count).toBeGreaterThan(2);
   for (let i = 0; i < count; i++) await expect(buttons.nth(i)).toBeDisabled();
+  await row(page, 'Buy new watch band').getByText('Buy new watch band').tap();
+  const files = page.locator('[data-slot=drawer-content] [data-slot=files]');
+  await expect(files.getByRole('button', { name: 'Camera' })).toBeDisabled();
+  await expect(files.getByRole('button', { name: 'Photo library' })).toBeDisabled();
+  await expect(files.getByRole('button', { name: 'File' })).toBeDisabled();
   await context.setOffline(false);
 });
 
@@ -364,4 +392,24 @@ test('phone search: the Tags filter narrows results, and result rows show no chi
   await expect(page.locator('[data-slot=command-item][data-task-id]').first()).toBeVisible();
   await expect(page.locator('[data-slot=command-item] [data-slot=tag-chip]:visible')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Remove tag finance' })).toBeVisible();
+});
+
+const TINY_PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+
+test('the task sheet offers the camera, the photo library and the file picker', async ({ page }) => {
+  await row(page, 'Buy new watch band').getByText('Buy new watch band').tap();
+  const files = page.locator('[data-slot=drawer-content] [data-slot=files]');
+  await expect(files.locator('[data-slot=file-add-touch]')).toBeVisible();
+  await expect(files.getByRole('button', { name: 'Camera' })).toBeVisible();
+  await expect(files.getByRole('button', { name: 'Photo library' })).toBeVisible();
+  await expect(files.getByRole('button', { name: 'File', exact: true })).toBeVisible();
+  await expect(files.locator('[data-slot=file-add-desktop]')).toBeHidden();
+
+  await files.locator('[data-slot=file-input-library]').setInputFiles({ name: 'dot.png', mimeType: 'image/png', buffer: TINY_PNG });
+  const fileRow = files.locator('[data-slot=file-row]');
+  await expect(fileRow.locator('[data-slot=file-thumb]')).toBeVisible();
+  await expect(row(page, 'Buy new watch band').locator('img')).toHaveCount(0);
+
+  await fileRow.getByRole('button', { name: 'Remove dot.png' }).tap();
+  await expect(files.locator('[data-slot=file-row]')).toHaveCount(0);
 });
