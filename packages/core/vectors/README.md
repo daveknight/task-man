@@ -6,6 +6,7 @@ Language-neutral JSON cases for the shared rules. The TypeScript `core` runs the
 |---|---|
 | `sections.json` | `sectionFor`, `waitingStateFor` |
 | `board-order.json` | `buildBoard` (grouping and order) |
+| `completed-log.json` | `buildCompletedLog` (what I finished, grouped by week and day) |
 | `dates.json` | `resolveDate`, `weekdayOf`, `nextWeekdayOnOrAfter` |
 | `sort-keys.json` | `keyBetween`, `isValidSortKey` |
 | `actions.json` | `actionsFor` (swipe, right-click and hover actions with their presets) |

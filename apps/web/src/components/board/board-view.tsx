@@ -30,7 +30,7 @@ import {
 import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import type { DraggableAttributes, DraggableSyntheticListeners } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
-import { useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useState, type HTMLAttributes, type ReactNode } from 'react';
 import { Icon } from '@/components/icon';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { usePersistedBoolean } from '@/lib/persisted';
@@ -56,9 +56,8 @@ export function RowList({
   className,
   fields,
   flush,
-}: {
-  children: ReactNode;
-  className?: string;
+  ...props
+}: HTMLAttributes<HTMLDivElement> & {
   /** Field rows (icon and label) instead of task rows, whose separators start further in. */
   fields?: boolean;
   /** Separators run the full width of the list, for plain fields with no icon. */
@@ -66,6 +65,7 @@ export function RowList({
 }) {
   return (
     <div
+      {...props}
       className={cn(
         'overflow-hidden rounded-xl bg-card',
         '*:relative [&>*+*]:before:absolute [&>*+*]:before:top-0 [&>*+*]:before:right-0 [&>*+*]:before:z-10 [&>*+*]:before:h-px [&>*+*]:before:bg-border',

@@ -10,6 +10,7 @@ import {
   type ActionGroup,
   type Preset,
   buildBoard,
+  buildCompletedLog,
   isValidSortKey,
   keyBetween,
   applySubtaskChange,
@@ -125,6 +126,50 @@ describe('board-order.json', () => {
       expect(section.count).toBe(section.tasks.length + (section.later?.length ?? 0));
     }
     expect(actual).toEqual(expected);
+  });
+});
+
+describe('completed-log.json', () => {
+  const { cases } = load<{
+    cases: {
+      name: string;
+      today: string;
+      tasks: (Partial<Task> & { id: string })[];
+      completions: { id: string; taskId: string; kind: 'done' | 'skip'; completedOn: string; completedAt: string; occurrenceDue: string }[];
+      expect: {
+        start: string;
+        end: string;
+        collapsedByDefault: boolean;
+        count: number;
+        days: { date: string; entries: { id: string; source: string; title: string; occurrenceDue: string | null }[] }[];
+      }[];
+    }[];
+  }>('completed-log.json');
+
+  it.each(cases)('$name', ({ today, tasks, completions, expect: expected }) => {
+    const log = buildCompletedLog(
+      tasks.map((t) => taskFrom(t, t.id)),
+      completions,
+      today,
+    );
+    expect(log.today).toBe(today);
+    expect(
+      log.weeks.map((week) => ({
+        start: week.start,
+        end: week.end,
+        collapsedByDefault: week.collapsedByDefault,
+        count: week.count,
+        days: week.days.map((day) => ({
+          date: day.date,
+          entries: day.entries.map((entry) => ({
+            id: entry.id,
+            source: entry.source,
+            title: entry.title,
+            occurrenceDue: entry.occurrenceDue,
+          })),
+        })),
+      })),
+    ).toEqual(expected);
   });
 });
 

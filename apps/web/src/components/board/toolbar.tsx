@@ -27,12 +27,14 @@ export interface BoardMenuProps {
   showCompleted?: boolean;
   onShowCompletedChange?: (show: boolean) => void;
   onTrash?: () => void;
+  /** Opens the completed log, the read-only "what I finished" screen. */
+  onCompletedLog?: () => void;
   /** The signed-in account, with its sign-out. Left out on the static design screens. */
   account?: { email: string; onSignOut: () => void };
 }
 
-/** The board menu: Show completed, Show deleted (the Trash screen), and the Appearance setting. */
-export function BoardMenu({ defaultOpen, showCompleted = false, onShowCompletedChange, onTrash, account }: BoardMenuProps) {
+/** The board menu: Show completed, the completed log, Show deleted (the Trash screen), and the Appearance setting. */
+export function BoardMenu({ defaultOpen, showCompleted = false, onShowCompletedChange, onTrash, onCompletedLog, account }: BoardMenuProps) {
   const { appearance, setAppearance } = useAppearance();
   return (
     <DropdownMenu defaultOpen={defaultOpen}>
@@ -44,6 +46,7 @@ export function BoardMenu({ defaultOpen, showCompleted = false, onShowCompletedC
           <DropdownMenuCheckboxItem checked={showCompleted} onCheckedChange={(checked) => onShowCompletedChange?.(checked)}>
             Show completed
           </DropdownMenuCheckboxItem>
+          <DropdownMenuItem onClick={onCompletedLog}>Completed log</DropdownMenuItem>
           <DropdownMenuItem onClick={onTrash}>Show deleted</DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />

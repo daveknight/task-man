@@ -1,7 +1,7 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { captureSheetFrame } from '../src/components/board/capture-sheet-frame';
 import { dictationProbe, installDictation, speak } from './dictation-fake';
-import { findTask, openBoard, recordDrop, reseed, row, section, showTask, tagNames, titlesIn, TODAY } from './helpers';
+import { cliJson, findTask, openBoard, recordDrop, reseed, row, section, showTask, tagNames, titlesIn, TODAY } from './helpers';
 
 test.beforeEach(async ({ page }) => {
   reseed();
@@ -321,6 +321,25 @@ test('phone repeat: the row icon, a presets sheet, and custom in a bottom sheet'
   await custom.getByRole('button', { name: 'Done' }).tap();
   await expect.poll(() => showTask(bare).task.repeat).toMatchObject({ freq: 'monthly', monthly: { day: -1 } });
   await expect(editor.locator('[data-slot=repeat-value]')).toHaveText('Monthly on the last day');
+});
+
+test('the completed log lists finishes, including a repeating one, and stays read-only', async ({ page }) => {
+  await row(page, 'Water the plants').getByRole('checkbox').tap();
+  await expect.poll(() => {
+    const found = cliJson<{ weeks: { days: { entries: { title: string; source: string }[] }[] }[] }>('log');
+    return found.weeks.some((week) => week.days.some((day) => day.entries.some((entry) => entry.title === 'Water the plants' && entry.source === 'occurrence')));
+  }).toBe(true);
+
+  await page.getByRole('button', { name: 'Menu', exact: true }).tap();
+  await page.getByRole('menuitem', { name: 'Completed log', exact: true }).tap();
+  await expect(page.getByRole('heading', { name: 'Completed log' })).toBeVisible();
+  const logRoot = page.locator('[data-slot=completed-log]');
+  await expect(logRoot.locator('[data-slot=log-row]', { hasText: 'Water the plants' })).toBeVisible();
+  await expect(logRoot.locator('[data-slot=log-row]', { hasText: 'Pick up dry cleaning' })).toBeVisible();
+  await expect(logRoot.getByRole('checkbox')).toHaveCount(0);
+  await expect(logRoot.getByRole('button', { name: /Reorder/ })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Back', exact: true }).tap();
+  await expect(page.locator('[data-section=ready]')).toBeVisible();
 });
 
 test('phone search: the Tags filter narrows results, and result rows show no chips', async ({ page }) => {

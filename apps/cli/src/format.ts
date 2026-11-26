@@ -1,4 +1,4 @@
-import { APP_NAME, repeatLabel, sortSubtasks, subtaskCount, weekdayOf, type Board, type ISODate, type RepeatRule, type Section, type Subtask, type Task } from '@app/core';
+import { addDays, APP_NAME, repeatLabel, sortSubtasks, startOfWeek, subtaskCount, weekdayOf, type Board, type CompletedLog, type ISODate, type RepeatRule, type Section, type Subtask, type Task } from '@app/core';
 import type { BoardTask } from './commands.ts';
 
 const SECTION_TITLES: Record<Section, string> = {
@@ -80,6 +80,37 @@ export function formatBoard(board: Board<BoardTask>): string {
 /** The same phrase the repeat field shows, for `show`. Pass the due date so "Weekly on Thu" can read it. */
 export function formatRepeat(rule: RepeatRule, due?: ISODate | null): string {
   return repeatLabel(rule, due);
+}
+
+/** This week and last week by name; any older week is its Monday–Sunday range. */
+function weekLabel(start: ISODate, end: ISODate, today: ISODate): string {
+  const current = startOfWeek(today);
+  if (start === current) return 'This week';
+  if (start === addDays(current, -7)) return 'Last week';
+  return `${shortDate(start, today)} – ${shortDate(end, today)}`;
+}
+
+/** The completed log, newest week and day first. Matches the screen's grouping. */
+export function formatCompletedLog(log: CompletedLog): string {
+  const { today } = log;
+  const out = [`Completed log · ${WEEKDAY_NAMES[weekdayOf(today)]} ${today}`, ''];
+  if (log.weeks.length === 0) {
+    out.push('Nothing finished yet.');
+    return out.join('\n');
+  }
+  for (const week of log.weeks) {
+    const collapsed = week.collapsedByDefault ? ' · collapsed by default' : '';
+    out.push(`${weekLabel(week.start, week.end, today)} (${week.count})${collapsed}`);
+    for (const day of week.days) {
+      out.push(`  ${WEEKDAY_NAMES[weekdayOf(day.date)]} ${day.date}`);
+      for (const entry of day.entries) {
+        const due = entry.occurrenceDue ? `  — due ${shortDate(entry.occurrenceDue, today)}` : '';
+        out.push(`    ${entry.id.slice(0, 8)}  ${entry.title}${due}`);
+      }
+    }
+    out.push('');
+  }
+  return out.join('\n');
 }
 
 export function formatHistory(rows: readonly { completedOn: string; kind: string; occurrenceDue: string }[]): string {

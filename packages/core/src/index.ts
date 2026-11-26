@@ -3,6 +3,7 @@ export * from './app.ts';
 export * from './mutations.ts';
 export * from './board.ts';
 export * from './capture.ts';
+export * from './completed-log.ts';
 export * from './dates.ts';
 export * from './list-format.ts';
 export * from './policy.ts';
