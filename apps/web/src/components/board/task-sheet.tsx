@@ -211,9 +211,9 @@ export function TaskEditor({ task, today, onClose, sheet = false }: { task: Task
   }
 
   return (
-    // Sections keep their height. A card with overflow hidden would otherwise shrink to nothing
-    // once the sheet is taller than the drawer, and the editor scrolls instead.
-    <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4 *:shrink-0" data-slot="task-editor" data-task-id={task.id}>
+    // The title is a textarea and the field card is overflow-hidden, so both may shrink to nothing.
+    // Keep every block at its height and let the sheet scroll once Skip and the subtasks fill a phone.
+    <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4 [&>*]:shrink-0" data-slot="task-editor" data-task-id={task.id}>
       <div className="flex items-center gap-2">
         <Checkbox
           aria-label="Complete"
@@ -348,7 +348,7 @@ export function TaskEditor({ task, today, onClose, sheet = false }: { task: Task
         className={cn(
           'resize-none rounded-xl border-0 bg-card text-body shadow-none ring-1 ring-border/60 md:text-body dark:bg-card',
           // The pane fills leftover room. A phone sheet sizes to the note, so a short task can stay under 75% of the screen.
-          sheet ? 'field-sizing-content min-h-16' : 'min-h-40 flex-1',
+          sheet ? 'field-sizing-content min-h-16' : 'min-h-40 grow',
         )}
       />
     </div>
