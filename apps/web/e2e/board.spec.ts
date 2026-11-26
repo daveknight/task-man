@@ -719,8 +719,8 @@ test('offline: read-only with a banner, and every row action is disabled', async
   await expect(editor.getByRole('button', { name: 'Flag' })).toBeDisabled();
   await expect(editor.getByRole('button', { name: 'More' })).toBeDisabled();
   await expect(editor.locator('[data-field=Due]')).toBeDisabled();
-  await expect(editor.getByRole('button', { name: 'Add photo' })).toBeDisabled();
   await expect(editor.getByRole('button', { name: 'Add file' })).toBeDisabled();
+  await expect(editor.getByRole('button', { name: 'Add photo' })).toHaveCount(0);
 
   await context.setOffline(false);
   await expect(page.locator('[data-slot=offline-banner]')).toHaveCount(0);

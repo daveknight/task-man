@@ -174,9 +174,9 @@ test('offline, the swipe buttons and file buttons are disabled', async ({ page, 
   for (let i = 0; i < count; i++) await expect(buttons.nth(i)).toBeDisabled();
   await row(page, 'Buy new watch band').getByText('Buy new watch band').tap();
   const files = page.locator('[data-slot=drawer-content] [data-slot=files]');
-  await expect(files.getByRole('button', { name: 'Camera' })).toBeDisabled();
-  await expect(files.getByRole('button', { name: 'Photo library' })).toBeDisabled();
-  await expect(files.getByRole('button', { name: 'File' })).toBeDisabled();
+  await expect(files.getByRole('button', { name: 'Add file' })).toBeDisabled();
+  await expect(files.getByRole('button', { name: 'Camera' })).toHaveCount(0);
+  await expect(files.getByRole('button', { name: 'Photo library' })).toHaveCount(0);
   await context.setOffline(false);
 });
 
@@ -396,16 +396,19 @@ test('phone search: the Tags filter narrows results, and result rows show no chi
 
 const TINY_PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
 
-test('the task sheet offers the camera, the photo library and the file picker', async ({ page }) => {
+test('the task sheet has one Add file button', async ({ page }) => {
   await row(page, 'Buy new watch band').getByText('Buy new watch band').tap();
   const files = page.locator('[data-slot=drawer-content] [data-slot=files]');
-  await expect(files.locator('[data-slot=file-add-touch]')).toBeVisible();
-  await expect(files.getByRole('button', { name: 'Camera' })).toBeVisible();
-  await expect(files.getByRole('button', { name: 'Photo library' })).toBeVisible();
-  await expect(files.getByRole('button', { name: 'File', exact: true })).toBeVisible();
-  await expect(files.locator('[data-slot=file-add-desktop]')).toBeHidden();
+  await expect(files.getByRole('button', { name: 'Add file' })).toHaveCount(1);
+  await expect(files.getByRole('button', { name: 'Camera' })).toHaveCount(0);
+  await expect(files.getByRole('button', { name: 'Photo library' })).toHaveCount(0);
+  await expect(files.getByRole('button', { name: 'Add photo' })).toHaveCount(0);
+  const input = files.locator('[data-slot=file-input]');
+  await expect(input).toHaveCount(1);
+  await expect(input).not.toHaveAttribute('accept');
+  await expect(input).not.toHaveAttribute('capture');
 
-  await files.locator('[data-slot=file-input-library]').setInputFiles({ name: 'dot.png', mimeType: 'image/png', buffer: TINY_PNG });
+  await input.setInputFiles({ name: 'dot.png', mimeType: 'image/png', buffer: TINY_PNG });
   const fileRow = files.locator('[data-slot=file-row]');
   await expect(fileRow.locator('[data-slot=file-thumb]')).toBeVisible();
   await expect(row(page, 'Buy new watch band').locator('img')).toHaveCount(0);

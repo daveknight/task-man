@@ -21,13 +21,12 @@ async function openTask(page: Page, title = TASK) {
 test('files are added on the task sheet and never marked on the row', async ({ page }) => {
   await openTask(page);
   const files = editor(page).locator('[data-slot=files]');
-  await expect(files.locator('[data-slot=file-add-desktop]')).toBeVisible();
-  await expect(files.getByRole('button', { name: 'Add photo' })).toBeVisible();
-  await expect(files.getByRole('button', { name: 'Add file' })).toBeVisible();
-  await expect(files.locator('[data-slot=file-add-touch]')).toBeHidden();
+  await expect(files.getByRole('button', { name: 'Add file' })).toHaveCount(1);
+  await expect(files.getByRole('button', { name: 'Add photo' })).toHaveCount(0);
+  await expect(files.locator('[data-slot=file-input]')).toHaveCount(1);
   await expect(files.getByText('Files')).toBeVisible();
 
-  await files.locator('[data-slot=file-input-file]').setInputFiles({ name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('remember the milk') });
+  await files.locator('[data-slot=file-input]').setInputFiles({ name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('remember the milk') });
   const fileRow = files.locator('[data-slot=file-row]');
   await expect(fileRow).toContainText('notes.txt');
   await expect(fileRow.locator('[data-slot=file-thumb]')).toHaveCount(0);
@@ -53,7 +52,7 @@ test('files are added on the task sheet and never marked on the row', async ({ p
 test('a photo is shown as a thumbnail and a wide one is downscaled', async ({ page }) => {
   await openTask(page);
   const files = editor(page).locator('[data-slot=files]');
-  await files.locator('[data-slot=file-input-photo]').setInputFiles({ name: 'dot.png', mimeType: 'image/png', buffer: TINY_PNG });
+  await files.locator('[data-slot=file-input]').setInputFiles({ name: 'dot.png', mimeType: 'image/png', buffer: TINY_PNG });
   const thumb = files.locator('[data-slot=file-thumb]');
   await expect(thumb).toBeVisible();
   await expect(files.locator('[data-slot=file-row]')).toContainText('dot.png');
@@ -73,7 +72,7 @@ test('a photo is shown as a thumbnail and a wide one is downscaled', async ({ pa
       return [...new Uint8Array(await blob.arrayBuffer())];
     }),
   );
-  await files.locator('[data-slot=file-input-photo]').setInputFiles({ name: 'wide.jpg', mimeType: 'image/jpeg', buffer: wide });
+  await files.locator('[data-slot=file-input]').setInputFiles({ name: 'wide.jpg', mimeType: 'image/jpeg', buffer: wide });
   const thumbs = files.locator('[data-slot=file-thumb]');
   await expect(thumbs).toHaveCount(2);
   await expect.poll(async () => thumbs.nth(1).evaluate((img: HTMLImageElement) => (img.complete ? img.naturalWidth : 0))).toBe(2048);
@@ -93,6 +92,7 @@ test('capture has no file picker, and trash keeps files read-only', async ({ pag
   await expect(files.getByText('Files')).toBeVisible();
   await expect(files.getByRole('button', { name: 'Add photo' })).toHaveCount(0);
   await expect(files.getByRole('button', { name: 'Add file' })).toHaveCount(0);
+  await expect(files.locator('input[type=file]')).toHaveCount(0);
 });
 
 test('the files card uses the theme behind it', async ({ page }) => {
