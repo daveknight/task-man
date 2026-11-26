@@ -199,7 +199,9 @@ export function TaskEditor({ task, today, onClose }: { task: Task; today: ISODat
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4" data-slot="task-editor" data-task-id={task.id}>
+    // The title is a textarea and the field card is overflow-hidden, so both may shrink to nothing.
+    // Keep every block at its height and let the sheet scroll once Skip and the subtasks fill a phone.
+    <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4 [&>*]:shrink-0" data-slot="task-editor" data-task-id={task.id}>
       <div className="flex items-center gap-2">
         <Checkbox
           aria-label="Complete"
@@ -329,7 +331,7 @@ export function TaskEditor({ task, today, onClose }: { task: Task; today: ISODat
         placeholder="Description"
         aria-label="Description"
         readOnly={!online}
-        className="min-h-40 flex-1 resize-none rounded-xl border-0 bg-card text-body shadow-none ring-1 ring-border/60 md:text-body dark:bg-card"
+        className="min-h-40 grow resize-none rounded-xl border-0 bg-card text-body shadow-none ring-1 ring-border/60 md:text-body dark:bg-card"
       />
     </div>
   );
