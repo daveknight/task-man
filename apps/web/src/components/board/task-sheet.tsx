@@ -44,10 +44,10 @@ function editorContentHeight(editor: HTMLElement): number {
   return kids.reduce((sum, kid) => sum + kid.offsetHeight, 0) + gaps + pad;
 }
 
-const STATUS: Record<Status, { label: string; icon: IconMeaning }> = {
-  open: { label: 'Open', icon: 'complete' },
-  in_progress: { label: 'In Progress', icon: 'inProgress' },
-  waiting: { label: 'Waiting', icon: 'waiting' },
+const STATUS_LABEL: Record<Status, string> = {
+  open: 'Open',
+  in_progress: 'In Progress',
+  waiting: 'Waiting',
 };
 
 function FieldRow({ icon, label, children, tone }: { icon: IconMeaning; label: string; children: ReactNode; tone?: string }) {
@@ -128,8 +128,7 @@ function StatusMenu({ status, disabled, onChange }: { status: Status; disabled?:
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger disabled={disabled} render={<Button variant="secondary" size="sm" data-slot="status-menu" />}>
-        <Icon name={STATUS[status].icon} data-icon="inline-start" />
-        {STATUS[status].label}
+        {STATUS_LABEL[status]}
         <Icon name="collapse" data-icon="inline-end" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-44">
@@ -140,8 +139,8 @@ function StatusMenu({ status, disabled, onChange }: { status: Status; disabled?:
             onChange?.(value as Status);
           }}
         >
-          {(Object.keys(STATUS) as Status[]).map((s) => (
-            <DropdownMenuRadioItem key={s} value={s}>{STATUS[s].label}</DropdownMenuRadioItem>
+          {(Object.keys(STATUS_LABEL) as Status[]).map((s) => (
+            <DropdownMenuRadioItem key={s} value={s}>{STATUS_LABEL[s]}</DropdownMenuRadioItem>
           ))}
         </DropdownMenuRadioGroup>
       </DropdownMenuContent>
