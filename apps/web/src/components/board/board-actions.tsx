@@ -6,6 +6,7 @@ import {
   markNotDone,
   planOccurrence,
   planUndoOccurrence,
+  taskHistory,
   planCreateTag,
   planDeleteTag,
   planRenameTag,
@@ -75,6 +76,10 @@ export interface BoardActions {
   deleteTag: (tag: Tag) => Promise<void>;
   remove: (task: Task) => void;
   removeForever: (task: Task) => void;
+  /** Advances a repeating task past this occurrence without finishing it. */
+  skip: (task: Task) => void;
+  /** Undoes the latest completion or skip, when the task hasn't been edited since. */
+  undoLatest: (task: Task) => void;
 }
 
 const BoardActionsContext = createContext<BoardActions | null>(null);
@@ -187,7 +192,8 @@ export function BoardActionsProvider({
   const occur = useCallback(
     (task: Task, kind: 'done' | 'skip') => {
       const snap = writes.current();
-      const historyCount = snap.completions.filter((c) => c.taskId === task.id).length;
+      const prior = snap.completions.filter((c) => c.taskId === task.id);
+      const historyCount = prior.length;
       let planned: OccurrencePlan;
       try {
         planned = planOccurrence({
@@ -198,6 +204,7 @@ export function BoardActionsProvider({
           now: new Date().toISOString(),
           historyCount,
           sortKey: snap.positions.get(task.id) ?? null,
+          prior,
         });
       } catch (error) {
         toast.error(error instanceof Error ? error.message : String(error));
@@ -309,6 +316,15 @@ export function BoardActionsProvider({
         );
       },
       removeForever: (task) => void leaveThen(task.id, () => writes.remove(task).catch(quiet)),
+      skip: (task) => occur(task, 'skip'),
+      undoLatest: (task) => {
+        const snap = writes.current();
+        const records = snap.completions.filter((row) => row.taskId === task.id);
+        const history = taskHistory(task, records, snap.positions.get(task.id) ?? null);
+        const index = history.findIndex((row) => row.undoable);
+        const record = index < 0 ? undefined : records.find((row) => row.id === history[index]!.id);
+        if (record) undoOccurrence(task.id, record, index);
+      },
     };
   }, [commit, flip, occur, onOpen, setStatus, today, undoOccurrence, writes]);
 

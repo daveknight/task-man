@@ -103,10 +103,11 @@ picks schedule (by due date, the default), after_completion or dates. dates mode
 last, or an nth weekday such as "2nd tue". --ends is never, a date (that day is included) or count:N (completions
 and skips). --start-offset N shows the task N days before each due date (0 means the due date; leaving it off
 means no start date). A repeat with no due date uses today, or the first listed date. done --on and skip --on
-record that calendar day. history lists one task's occurrences, oldest first, including skips. log lists
-everything finished, newest first, grouped by week and day: one-off completions and each recorded
-completion of a repeating task, with skips left out. undone restores the latest one until the task
-is edited. --repeat none clears the rule.
+record that calendar day. history lists one task's occurrences, oldest first, including skips.
+Each row is a completion or a skip, with what that occurrence left behind and whether it can
+still be undone. log lists everything finished, newest first, grouped by week and day: one-off
+completions and each recorded completion of a repeating task, with skips left out. undone restores
+the latest one until the task is edited. --repeat none clears the rule.
 
 Only Ready and Upcoming tasks have a start date, and only Waiting tasks have a hide-until date.
 --start on a Waiting or In Progress task fails; --hide-until on any other task fails. Status

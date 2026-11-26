@@ -22,6 +22,7 @@ import {
   planTaskTags,
   planOccurrence,
   planUndoOccurrence,
+  taskHistory,
   planUpcomingDrop,
   REORDERABLE,
   resolveDate,
@@ -474,6 +475,7 @@ async function occur(ctx: Context, snapshot: Snapshot, before: Task, kind: 'done
     now: ctx.now,
     historyCount: history.length,
     sortKey: snapshot.positions.get(before.id) ?? null,
+    prior: history,
   });
   assertValid(plan.task);
   await writeOccurrence(ctx.scope, before, plan);
@@ -500,9 +502,7 @@ export async function skipTask(ctx: Context, ref: string, on?: string): Promise<
 export async function historyTask(ctx: Context, ref: string) {
   const snapshot = await loadSnapshot(ctx.scope);
   const task = findTask(snapshot, ref);
-  return snapshot.completions
-    .filter((c) => c.taskId === task.id)
-    .map((c) => ({ id: c.id, occurrenceDue: c.occurrenceDue, kind: c.kind, completedOn: c.completedOn, completedAt: c.completedAt }));
+  return taskHistory(task, snapshot.completions, snapshot.positions.get(task.id) ?? null);
 }
 
 export async function undoneTask(ctx: Context, ref: string): Promise<Changed> {

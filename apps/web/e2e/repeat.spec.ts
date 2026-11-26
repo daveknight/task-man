@@ -3,7 +3,7 @@ import { cli, openBoard, reseed, row, showTask } from './helpers';
 
 /**
  * One repeating task per mode, through the board that already exists: the checkbox, the
- * Due picker's "Skip this occurrence", and Undo on the toast. The repeat picker is the next slice.
+ * Due picker's "Skip this occurrence", and Undo on the toast. The sheet's own Skip button and History are covered in history.spec.ts.
  */
 const MODES = [
   { title: 'Take out garbage', mode: 'schedule', nextDue: '2026-11-26', due: '2026-11-19' },

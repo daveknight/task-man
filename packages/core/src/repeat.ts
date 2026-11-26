@@ -361,9 +361,29 @@ export interface OccurrenceInput {
   /** Completions and skips already stored, not including this one. */
   historyCount: number;
   sortKey: string | null;
+  /**
+   * Rows already stored. When present, an occurrence whose due date is already in this list
+   * is refused, so the same occurrence can't be completed or skipped twice.
+   */
+  prior?: readonly OccurrenceRecord[];
 }
 
 export const OCCURRENCE_EDITED = "This task was edited since that occurrence, so it can't be undone";
+
+export const OCCURRENCE_ALREADY_SKIPPED = 'This occurrence was already skipped';
+
+export const OCCURRENCE_ALREADY_COMPLETED = 'This occurrence was already completed';
+
+/** The database's unique key rejected a second write of an occurrence the caller hadn't seen yet. */
+export const OCCURRENCE_ALREADY_RECORDED = 'This occurrence was already recorded';
+
+/** Refuses a second completion or skip of the same due date. The stored row says which it was. */
+export function assertOccurrenceOpen(records: readonly OccurrenceRecord[], taskId: string, due: ISODate | null | undefined): void {
+  if (!due) return;
+  const existing = records.find((record) => record.taskId === taskId && record.occurrenceDue === due);
+  if (!existing) return;
+  throw new Error(existing.kind === 'skip' ? OCCURRENCE_ALREADY_SKIPPED : OCCURRENCE_ALREADY_COMPLETED);
+}
 
 function snapshotOf(task: Task, sortKey: string | null): OccurrenceSnapshot {
   return {
@@ -399,6 +419,7 @@ export function planOccurrence(input: OccurrenceInput): OccurrencePlan {
   if (!task.dueDate || !isValidDate(task.dueDate)) throw new Error('A repeat needs a due date');
   if (!isValidDate(on)) throw new Error(`Not a valid date: ${JSON.stringify(on)}`);
   if (!whole(historyCount) || historyCount < 0) throw new Error('historyCount must be a whole number of at least 0');
+  if (input.prior) assertOccurrenceOpen(input.prior, task.id, task.dueDate);
 
   const next = nextDueDate(task.repeat, task.dueDate, on);
   const end = seriesEnds(task.repeat, next, historyCount);

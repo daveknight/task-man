@@ -342,6 +342,20 @@ test('the completed log lists finishes, including a repeating one, and stays rea
   await expect(page.locator('[data-section=ready]')).toBeVisible();
 });
 
+test('history opens from the task sheet and returns to the task', async ({ page }) => {
+  await row(page, 'Water the plants').getByText('Water the plants').tap();
+  const editor = page.locator('[data-slot=drawer-content] [data-slot=task-editor]');
+  await expect(editor.getByRole('button', { name: 'Skip this occurrence' })).toBeVisible();
+  await expect(editor.locator('[data-slot=task-history]')).toHaveCount(0);
+  await editor.getByRole('button', { name: 'More' }).tap();
+  await page.getByRole('menuitem', { name: 'History' }).tap();
+  await expect(editor.getByRole('heading', { name: 'History' })).toBeVisible();
+  await expect(editor.getByText('No history.')).toBeVisible();
+  await editor.getByRole('button', { name: 'Task' }).tap();
+  await expect(editor.getByRole('textbox', { name: 'Title' })).toHaveValue('Water the plants');
+  await expect(editor.locator('[data-slot=task-history]')).toHaveCount(0);
+});
+
 test('phone search: the Tags filter narrows results, and result rows show no chips', async ({ page }) => {
   await page.getByRole('button', { name: 'Search', exact: true }).tap();
   await page.getByRole('button', { name: 'Tags' }).tap();

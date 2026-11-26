@@ -24,6 +24,7 @@ import { useMediaQuery } from '@/lib/use-media-query';
 import { cn } from '@/lib/utils';
 import { useBoardActions } from './board-actions';
 import { FOLD_MOTION, RowList } from './board-view';
+import { TaskHistory } from './task-history';
 import { DatePicker } from './preset-panel';
 import { RepeatField } from './repeat-picker';
 import { SubtasksCard } from './subtasks-card';
@@ -169,6 +170,7 @@ export function TaskEditor({ task, today, onClose }: { task: Task; today: ISODat
   const typedInList = useLiveTitle(task.id);
   const { set: setDescription, ...description } = useDraft(task.description ?? '', (value) => actions?.edit(task, { description: value }));
 
+  const [showHistory, setShowHistory] = useState(false);
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
   const caret = useRef<number | null>(null);
   useLayoutEffect(() => {
@@ -187,6 +189,14 @@ export function TaskEditor({ task, today, onClose }: { task: Task; today: ISODat
     caret.current = edit.caret;
     setDescription(edit.value);
   };
+
+  if (showHistory) {
+    return (
+      <div className="flex min-h-0 flex-1 flex-col" data-slot="task-editor" data-task-id={task.id}>
+        <TaskHistory task={task} today={today} onBack={() => setShowHistory(false)} {...(onClose ? { onClose } : {})} />
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4" data-slot="task-editor" data-task-id={task.id}>
@@ -213,6 +223,10 @@ export function TaskEditor({ task, today, onClose }: { task: Task; today: ISODat
             <Icon name="more" weight="bold" className="size-5" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuItem onClick={() => setShowHistory(true)}>
+              <Icon name="history" />
+              History
+            </DropdownMenuItem>
             {rowActions.state
               .filter((g) => g.presets.length === 0 && (g.id === 'markNotDone' || g.id === 'restore'))
               .map((g) => (
@@ -260,23 +274,30 @@ export function TaskEditor({ task, today, onClose }: { task: Task; today: ISODat
         )}
       />
 
-      {waiting && open && (
-        <div className="flex flex-wrap gap-2" data-slot="waiting-actions">
-          {rowActions.state.map((g) =>
-            g.presets.length ? (
-              <PresetPopover key={g.id} task={task} group={g} align="start" trigger={<Button variant="outline" size="sm" disabled={!online} />}>
-                <Icon name={g.icon} data-icon="inline-start" />
-                {g.title}
-              </PresetPopover>
-            ) : (
-              <Button key={g.id} variant="outline" size="sm" disabled={!online} onClick={() => actions?.group(task, g)}>
-                <Icon name={g.icon} data-icon="inline-start" />
-                {g.title}
-              </Button>
-            ),
+      {(open && task.repeat) || (waiting && open) ? (
+        <div className="flex flex-wrap gap-2" data-slot={waiting && open ? 'waiting-actions' : 'sheet-actions'}>
+          {open && task.repeat && (
+            <Button variant="outline" size="sm" disabled={!online} onClick={() => actions?.skip(task)}>
+              <Icon name="skip" data-icon="inline-start" />
+              Skip this occurrence
+            </Button>
           )}
+          {waiting && open &&
+            rowActions.state.map((g) =>
+              g.presets.length ? (
+                <PresetPopover key={g.id} task={task} group={g} align="start" trigger={<Button variant="outline" size="sm" disabled={!online} />}>
+                  <Icon name={g.icon} data-icon="inline-start" />
+                  {g.title}
+                </PresetPopover>
+              ) : (
+                <Button key={g.id} variant="outline" size="sm" disabled={!online} onClick={() => actions?.group(task, g)}>
+                  <Icon name={g.icon} data-icon="inline-start" />
+                  {g.title}
+                </Button>
+              ),
+            )}
         </div>
-      )}
+      ) : null}
 
       <RowList fields className="ring-1 ring-border/60">
         {task.status === 'waiting' && (
