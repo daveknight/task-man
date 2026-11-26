@@ -32,6 +32,8 @@ Tick a box when a round has the state. Add new states under the right area as fe
 - [ ] Task sheet, two-pane: “Renew passport” open beside the board – desktop 1440
 - [ ] Task sheet, overlay: “Renew passport” over the board – overlay 900
 - [ ] Task sheet, bottom sheet: “Renew passport” – phone
+- [ ] Task sheet stays a bottom sheet when its content is within 75% of the screen – phone
+- [ ] Task sheet fills the screen when its content is taller than 75% – phone
 - [ ] Phone board shows no row quick actions – phone
 - [ ] Phone swipe left on a Ready row: Delete, Move to Waiting, Due; on a Waiting row: Delete, Hide until, Move to In Progress, Due – phone
 

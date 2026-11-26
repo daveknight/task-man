@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { captureSheetFrame } from '../src/components/board/capture-sheet-frame';
+import { sheetFillsScreen } from '../src/components/board/task-sheet-frame';
 import { dictationProbe, installDictation, speak } from './dictation-fake';
 import { cliJson, findTask, openBoard, recordDrop, reseed, row, section, showTask, tagNames, titlesIn, TODAY } from './helpers';
 
@@ -11,6 +12,28 @@ test.beforeEach(async ({ page }) => {
 test('tapping a row opens the bottom sheet', async ({ page }) => {
   await row(page, 'Buy new watch band').getByText('Buy new watch band').tap();
   await expect(page.locator('[data-slot=drawer-content] [data-slot=task-editor]')).toBeVisible();
+});
+
+test('a task sheet taller than 75% of the screen fills it, and a shorter one stays a sheet', async ({ page }) => {
+  expect(sheetFillsScreen(751, 1000)).toBe(true);
+  expect(sheetFillsScreen(750, 1000)).toBe(false);
+
+  // The device viewport includes browser chrome. The home screen is the full phone.
+  await page.setViewportSize({ width: 393, height: 852 });
+  const popup = page.locator('[data-slot=drawer-popup]');
+
+  await row(page, 'Fix squeaky closet door').getByText('Fix squeaky closet door').tap();
+  await expect(popup).toHaveAttribute('data-fill', 'sheet');
+  await expect.poll(async () => (await popup.boundingBox())!.height).toBeLessThan(852 * 0.75);
+  await expect(popup.getByRole('button', { name: 'Close' })).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  await expect(popup).toHaveCount(0);
+
+  await row(page, 'Finance quarterly action items').getByText('Finance quarterly action items').tap();
+  await expect(popup).toHaveAttribute('data-fill', 'full');
+  await expect.poll(async () => (await popup.boundingBox())!.y).toBeLessThan(8);
+  await expect.poll(async () => (await popup.boundingBox())!.height).toBeGreaterThan(840);
+  await expect(popup.getByRole('button', { name: 'Close' })).toBeVisible();
 });
 
 test('the capture sheet keeps the note below the status bar', async ({ page }) => {

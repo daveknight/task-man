@@ -16,7 +16,7 @@ Design guidelines for TaskMan, drawn from Dave's Figma review feedback and sign-
 
 6. **Text is optically centered** with icons, checkboxes, and row height. A pixel high is a bug.
 7. **Section titles line up with task titles.** A collapsed section is a full-width row you can click anywhere.
-8. **At 1024px and up the detail pane slides in beside the board** when a task is selected. It is an overlay from 768 to 1023px, and a bottom sheet on phones.
+8. **At 1024px and up the detail pane slides in beside the board** when a task is selected. It is an overlay from 768 to 1023px, and a bottom sheet on phones. On a phone, a task sheet whose content is taller than 75% of the screen opens as a full-screen modal instead of a sheet that stops short and scrolls.
 9. **With no task selected there is no detail pane.** It slides out to the right when you click off the list.
 
 ## Dates and status

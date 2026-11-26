@@ -1,6 +1,6 @@
 import { actionsFor, listEnter, listIndent, type ISODate, type Status, type Task } from '@app/core';
 import type { IconMeaning } from '@app/tokens';
-import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { Icon } from '@/components/icon';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -32,6 +32,17 @@ import { SubtasksCard } from './subtasks-card';
 import { TagsField } from './tag-picker';
 import { PresetPopover } from './task-row';
 import { WIDE_QUERY } from './surface';
+import { sheetFillsScreen } from './task-sheet-frame';
+
+/** The sheet's content height, ignoring a stretched scrolling box. */
+function editorContentHeight(editor: HTMLElement): number {
+  const style = getComputedStyle(editor);
+  const pad = (parseFloat(style.paddingTop) || 0) + (parseFloat(style.paddingBottom) || 0);
+  const gap = parseFloat(style.rowGap) || parseFloat(style.gap) || 0;
+  const kids = [...editor.children] as HTMLElement[];
+  const gaps = Math.max(0, kids.length - 1) * gap;
+  return kids.reduce((sum, kid) => sum + kid.offsetHeight, 0) + gaps + pad;
+}
 
 const STATUS: Record<Status, { label: string; icon: IconMeaning }> = {
   open: { label: 'Open', icon: 'complete' },
@@ -158,7 +169,7 @@ function useDraft(value: string, save: (value: string) => void) {
 }
 
 /** Everything in the sheet: header actions, title, the Waiting actions, dates and the description. */
-export function TaskEditor({ task, today, onClose }: { task: Task; today: ISODate; onClose?: () => void }) {
+export function TaskEditor({ task, today, onClose, sheet = false }: { task: Task; today: ISODate; onClose?: () => void; sheet?: boolean }) {
   const actions = useBoardActions();
   const online = useOnline();
   const rowActions = actionsFor(task, today, { recurring: task.repeat != null });
@@ -334,7 +345,11 @@ export function TaskEditor({ task, today, onClose }: { task: Task; today: ISODat
         placeholder="Description"
         aria-label="Description"
         readOnly={!online}
-        className="min-h-40 flex-1 resize-none rounded-xl border-0 bg-card text-body shadow-none ring-1 ring-border/60 md:text-body dark:bg-card"
+        className={cn(
+          'resize-none rounded-xl border-0 bg-card text-body shadow-none ring-1 ring-border/60 md:text-body dark:bg-card',
+          // The pane fills leftover room. A phone sheet sizes to the note, so a short task can stay under 75% of the screen.
+          sheet ? 'field-sizing-content min-h-16' : 'min-h-40 flex-1',
+        )}
       />
     </div>
   );
@@ -381,10 +396,49 @@ export function TaskPane({ task, today, onClose }: { task: Task | null; today: I
 
 /**
  * The task sheet when there's no room for the second pane: a side sheet over the board on
- * mid-width windows, and a bottom sheet on phones.
+ * mid-width windows, and a bottom sheet on phones. A phone sheet whose content is taller
+ * than 75% of the screen fills it instead.
  */
 export function TaskSheet({ task, today, open, onOpenChange }: { task: Task | null; today: ISODate; open: boolean; onOpenChange: (open: boolean) => void }) {
   const wide = useMediaQuery(WIDE_QUERY);
+  const [fill, setFill] = useState(false);
+  const stopWatch = useRef<(() => void) | null>(null);
+
+  // The drawer mounts its popup after open, so a layout effect on this component can miss it.
+  const watchPopup = useCallback((popup: HTMLDivElement | null) => {
+    stopWatch.current?.();
+    stopWatch.current = null;
+    if (!popup || wide || !open) return;
+    let editor: Element | null = null;
+    const measure = () => {
+      const nextEditor = popup.querySelector('[data-slot=task-editor]') as HTMLElement | null;
+      if (nextEditor && nextEditor !== editor) {
+        if (editor) resize.unobserve(editor);
+        editor = nextEditor;
+        resize.observe(editor);
+      }
+      const handle = popup.querySelector('[data-slot=drawer-swipe-handle]') as HTMLElement | null;
+      // The editor stretches once the sheet fills the screen, so its own box is not the content height.
+      const natural = (nextEditor ? editorContentHeight(nextEditor) : 0) + (handle?.offsetHeight ?? 0);
+      const viewport = window.visualViewport?.height ?? window.innerHeight;
+      const next = sheetFillsScreen(natural, viewport);
+      setFill((prev) => (prev === next ? prev : next));
+    };
+    const resize = new ResizeObserver(measure);
+    const mutations = new MutationObserver(measure);
+    mutations.observe(popup, { childList: true, subtree: true });
+    measure();
+    const onViewport = () => measure();
+    window.visualViewport?.addEventListener('resize', onViewport);
+    stopWatch.current = () => {
+      resize.disconnect();
+      mutations.disconnect();
+      window.visualViewport?.removeEventListener('resize', onViewport);
+    };
+  }, [wide, open, task?.id]);
+
+  useEffect(() => () => stopWatch.current?.(), []);
+
   if (!task) return null;
   if (wide) {
     return (
@@ -398,9 +452,13 @@ export function TaskSheet({ task, today, open, onOpenChange }: { task: Task | nu
   }
   return (
     <Drawer open={open} onOpenChange={onOpenChange} showSwipeHandle>
-      <DrawerContent className="bg-background">
+      <DrawerContent
+        ref={watchPopup}
+        data-fill={fill ? 'full' : 'sheet'}
+        className="bg-background data-[fill=full]:h-dvh data-[fill=full]:max-h-dvh data-[fill=full]:rounded-none data-[fill=full]:border-t-0 data-[fill=full]:pt-[env(safe-area-inset-top)]"
+      >
         <DrawerTitle className="sr-only">{task.title}</DrawerTitle>
-        <TaskEditor key={task.id} task={task} today={today} />
+        <TaskEditor key={task.id} task={task} today={today} sheet onClose={fill ? () => onOpenChange(false) : undefined} />
       </DrawerContent>
     </Drawer>
   );
