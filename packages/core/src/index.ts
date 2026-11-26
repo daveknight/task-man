@@ -5,6 +5,7 @@ export * from './board.ts';
 export * from './capture.ts';
 export * from './completed-log.ts';
 export * from './dates.ts';
+export * from './history.ts';
 export * from './list-format.ts';
 export * from './policy.ts';
 export * from './repeat.ts';

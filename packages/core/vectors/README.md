@@ -22,4 +22,5 @@ Conventions:
 - Dates are `YYYY-MM-DD` calendar days; timestamps are ISO 8601 UTC.
 - Task fields use the camelCase names from `src/types.ts`. Omitted fields are null; `status` defaults to `open`.
 - `expectError: true` means the call must fail.
+- `taskHistory` (one task's completions and skips) and the once-per-occurrence rule are covered by `packages/core/test/history.test.ts`. Those cases replay `planOccurrence`, so they are not a second copy of the snapshots.
 - Sort keys compare byte-wise (Swift: compare UTF-8 bytes, not `localizedCompare`).

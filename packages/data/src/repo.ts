@@ -1,4 +1,4 @@
-import { MAIN_VIEW_ID, assertValid, orderTaskTags, sortSubtasks, sortTags, taskPatch, type ChangePlan, type ISODate, type OccurrencePlan, type OccurrenceRecord, type PositionWrite, type Subtask, type SubtaskChange, type Tag, type TagChange, type TagLink, type Task, type TaskTagChange, type UndoPlan } from '@app/core';
+import { MAIN_VIEW_ID, OCCURRENCE_ALREADY_RECORDED, assertValid, orderTaskTags, sortSubtasks, sortTags, taskPatch, type ChangePlan, type ISODate, type OccurrencePlan, type OccurrenceRecord, type PositionWrite, type Subtask, type SubtaskChange, type Tag, type TagChange, type TagLink, type Task, type TaskTagChange, type UndoPlan } from '@app/core';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   COMPLETION_COLUMNS,
@@ -154,21 +154,18 @@ export async function writeOccurrence(scope: Scope, before: Task, plan: Occurren
   assertValid(plan.task);
   const { db, userId } = scope;
   const record = plan.record;
-  fail(
-    'record occurrence',
-    (
-      await db.from('task_completions').insert({
-        id: record.id,
-        user_id: userId,
-        task_id: record.taskId,
-        occurrence_due: record.occurrenceDue,
-        kind: record.kind,
-        completed_on: record.completedOn,
-        completed_at: record.completedAt,
-        snapshot: record.snapshot,
-      })
-    ).error,
-  );
+  const inserted = await db.from('task_completions').insert({
+    id: record.id,
+    user_id: userId,
+    task_id: record.taskId,
+    occurrence_due: record.occurrenceDue,
+    kind: record.kind,
+    completed_on: record.completedOn,
+    completed_at: record.completedAt,
+    snapshot: record.snapshot,
+  });
+  if (inserted.error?.code === '23505') throw new Error(OCCURRENCE_ALREADY_RECORDED);
+  fail('record occurrence', inserted.error);
   await writeChange(scope, before.id, { patch: taskPatch(before, plan.task), positions: [], clearPosition: plan.clearPosition });
   for (const id of plan.resetSubtaskIds) {
     await writeSubtaskChange(scope, before.id, { kind: 'edit', id, patch: { done: false } });

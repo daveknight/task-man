@@ -54,6 +54,7 @@ describe('schedule, after completion and dates', () => {
 
     const history = await historyTask(ctx, name('weekly'));
     expect(history.map((row) => [row.kind, row.occurrenceDue, row.completedOn])).toEqual([['done', '2026-11-18', TODAY]]);
+    expect(history[0]).toMatchObject({ action: 'completed', label: 'Done', undoable: true, effect: { outcome: 'advance', dueDate: '2026-11-25', completedOn: null } });
 
     await undoneTask(ctx, name('weekly'));
     const restored = await show('weekly');
@@ -89,6 +90,18 @@ describe('schedule, after completion and dates', () => {
     expect(ended.task.dueDate).toBe('2026-11-19');
     const history = await historyTask(ctx, name('skip'));
     expect(history.map((row) => row.kind)).toEqual(['skip', 'skip']);
+    expect(history.map((row) => row.effect.outcome)).toEqual(['advance', 'end']);
+  });
+
+  it('refuses to skip an occurrence that was already skipped', async () => {
+    await add('once', { due: '2026-11-18', repeat: { repeat: 'daily' } });
+    await skipTask(ctx, name('once'));
+    await editTask(ctx, name('once'), { due: '2026-11-18' });
+    await expect(skipTask(ctx, name('once'))).rejects.toThrow(/already skipped/);
+    const shown = await show('once');
+    expect(shown.task.dueDate).toBe('2026-11-18');
+    expect(shown.task.completedAt).toBeNull();
+    expect(await historyTask(ctx, name('once'))).toHaveLength(1);
   });
 
   it('ends a dates list when nothing is left, and an on-date is included', async () => {

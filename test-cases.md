@@ -125,7 +125,7 @@ Not captured in Figma yet; these are the states to add when Dave asks. The desig
 
 ## Repeats
 
-Not captured in Figma yet; these are the states to add when Dave asks. The picker designs are on Figma node 132-2. The field shows the cadence only (“Weekly on Wed”, “Every 2 weeks on Sun”); the menu writes the weekday out (“Weekly on Wednesday”). Choosing a repeat on a task with no due date sets the due date to today, or to the first listed date. “No due date” is hidden while a repeat is set. Clearing the repeat leaves the start and due dates. History and “Skip this occurrence” in the sheet are the next slice; Skip stays in the Due menu. The Ends choices “On a date” and “After a count” are filled in (a calendar, and a count stepper starting at 1) because the frames only show the closed menu.
+Not captured in Figma yet; these are the states to add when Dave asks. The picker designs are on Figma node 132-2. The field shows the cadence only (“Weekly on Wed”, “Every 2 weeks on Sun”); the menu writes the weekday out (“Weekly on Wednesday”). Choosing a repeat on a task with no due date sets the due date to today, or to the first listed date. “No due date” is hidden while a repeat is set. Clearing the repeat leaves the start and due dates. Skip this occurrence is a button on the sheet for a repeating task, and it stays in the Due menu. History is not on the sheet: the More menu opens it, newest first, with Undo on the latest row while the task is unedited. The Ends choices “On a date” and “After a count” are filled in (a calendar, and a count stepper starting at 1) because the frames only show the closed menu.
 
 - [ ] Task sheet Repeat row reads “None”, and the row has no repeat icon – desktop 1440, light and dark
 - [ ] Presets popover: Daily, Weekly on that weekday, Monthly on that date, Yearly, Every weekday, Custom…, No repeat, with the note “Repeats from the due date. Next: …” – desktop 1440, light and dark
@@ -149,6 +149,12 @@ Skip is the existing “Skip this occurrence” pick inside Due, shown when the 
 - [ ] A dates repeat (“Pay estimated quarterly taxes”, brought into Ready): complete, then undo – desktop 1440
 - [ ] The last occurrence: the row strikes through and folds away like any completed task – desktop 1440
 - [ ] Phone: complete a repeating row, toast with Undo – phone
+- [ ] Repeating task sheet: “Skip this occurrence” above the fields, and the sheet itself has no History list – desktop 1440, light and dark
+- [ ] More menu, History, before anything is recorded: “No history.” – desktop 1440
+- [ ] History after two skips: newest first, “Skipped” with each occurrence’s date, Undo on the latest – desktop 1440, light and dark
+- [ ] History after the task was edited: the latest row has no Undo – desktop 1440
+- [ ] A task that does not repeat: More menu still has History, and there is no Skip button – desktop 1440
+- [ ] Phone: History from the task sheet’s More menu, then back to the task – phone
 
 ## Dialogs, prompts and pickers
 
