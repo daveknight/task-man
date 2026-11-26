@@ -8,6 +8,7 @@ import { TWO_PANE_QUERY } from './components/board/surface.tsx';
 import { TaskPane, TaskSheet } from './components/board/task-sheet.tsx';
 import { CaptureSheet } from './components/board/capture-sheet.tsx';
 import { CompletedLogView } from './components/board/completed-log.tsx';
+import { SettingsDialog } from './components/board/settings-dialog.tsx';
 import { AddTaskFab, FAB_CLEARANCE, Toolbar } from './components/board/toolbar.tsx';
 import { Icon } from './components/icon.tsx';
 import { Toaster } from './components/ui/sonner.tsx';
@@ -73,6 +74,7 @@ export function App() {
     if (!online) setCapturing(false);
   }, [online]);
   const [searching, setSearching] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const appRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -153,6 +155,7 @@ export function App() {
                 onShowCompletedChange: setShowCompleted,
                 onCompletedLog: () => setView('log'),
                 onTrash: () => setView('trash'),
+                onSettings: () => setSettingsOpen(true),
                 account: auth.email ? { email: auth.email, onSignOut: () => void auth.signOut() } : undefined,
               }}
             />
@@ -212,6 +215,7 @@ export function App() {
       />
       {!twoPane && <TaskSheet task={selected} today={today} open={sheetOpen && !!selected} onOpenChange={setSheetOpen} />}
       <SearchDialog open={searching} onOpenChange={setSearching} today={today} onOpen={open} />
+      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
       <Toaster position="bottom-center" />
     </BoardActionsProvider>
   );

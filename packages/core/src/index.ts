@@ -1,4 +1,5 @@
 export * from './actions.ts';
+export * from './attachments.ts';
 export * from './app.ts';
 export * from './mutations.ts';
 export * from './board.ts';

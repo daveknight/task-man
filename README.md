@@ -10,7 +10,7 @@ Personal task manager for todos. "TaskMan" is a working name: it lives in `APP_N
 | `packages/tokens` | Design tokens (light and dark colors from Apple's system palette, type scale, spacing, row heights) and the Phosphor/SF Symbols icon map. `npm run generate -w @app/tokens` writes `generated/tokens.css` and the Tailwind theme `generated/tailwind.css` |
 | `packages/data` | Supabase reads and writes shared by the CLI and the web app (`loadSnapshot`, `writeChange`, `insertTask`, `searchTasks`, row mapping) |
 | `apps/cli` | Agent and seeding CLI: every Phase 1a action, through the same `core` rules and `@app/data` writes as the app. Local Supabase only |
-| `apps/web` | Vite + React with shadcn/ui on Base UI (components in `src/components/ui`, owned by us), Tailwind on the tokens, Phosphor icons. Login screen (email and password, password reset, sign out); signs in as the dev user in local dev; the board, task sheet, search, Trash and the completed log. Static Phase 1a design screens at `/design` in dev |
+| `apps/web` | Vite + React with shadcn/ui on Base UI (components in `src/components/ui`, owned by us), Tailwind on the tokens, Phosphor icons. Login screen (email and password, password reset, sign out); signs in as the dev user in local dev; the board, task sheet, search, Trash, the completed log, and files on a task (Supabase Storage). Static Phase 1a design screens at `/design` in dev |
 | `supabase/` | Local Supabase config, migrations, and `seed.sql` (the dev user) |
 | `seed/` | Fixture tasks with hand-written expectations, and AI-capture examples |
 
@@ -78,7 +78,7 @@ tags rename <tag> <new name> / tags delete <tag>
 | `npm run typecheck` | no | all packages |
 | `npm run check:hosted -- --base origin/main` | no | the hosted-safety guard: existing migrations unchanged, new ones newer and free of unflagged data changes, no `[remotes]` in `config.toml`, the seed's local-only guard |
 | `npm run db:reset && npm run db:lint` | yes | every migration applies from scratch; Supabase linter |
-| `npm run test:db` | yes | RLS on every table as real signed-in users, `user_id default auth.uid()`, trigger-set `updated_at`, start ≤ due, start only on Open and hide-until only on Waiting, completion uniqueness, tombstones, byte-wise sort keys; `search_tasks` (own tasks only, never Trash, literal `%` and `_`, tag filter that needs every tag) and the tag commands and `purge_trash` (30 days, not callable by users, scheduled daily) |
+| `npm run test:db` | yes | RLS on every table as real signed-in users, `user_id default auth.uid()`, trigger-set `updated_at`, start ≤ due, start only on Open and hide-until only on Waiting, completion uniqueness, tombstones, byte-wise sort keys; `search_tasks` (own tasks only, never Trash, literal `%` and `_`, tag filter that needs every tag) and the tag commands and `purge_trash` (30 days, not callable by users, scheduled daily); attachment files private to the owner, 50 MB and 1 GB caps, and removal through the Storage API |
 | `npm run check:seed -- 2026-11-18 2026-11-21` | yes | seeds through the real CLI and compares `board --json` with every `expect` in `seed/tasks.json` |
 | `npm run e2e -w @app/web` | yes | Playwright against the dev server at the pinned Wednesday: the board matches `board --json`, and the main actions (complete and undo, presets, subtasks, tags, repeating complete/skip/undo, Waiting picker, drag-and-drop, quick add, sheet edits, search, Trash, the completed log) in light, dark and on an iPhone-sized touch screen. Uses the installed Google Chrome |
 

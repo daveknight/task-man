@@ -156,11 +156,25 @@ Skip is the existing “Skip this occurrence” pick inside Due, shown when the 
 - [ ] A task that does not repeat: More menu still has History, and there is no Skip button – desktop 1440
 - [ ] Phone: History from the task sheet’s More menu, then back to the task – phone
 
+## Attachments
+
+From the web attachments phase (PLAN.md Phase 3), ahead of the native apps. Photos and other files are added only on the task sheet, through Supabase Storage. The board row has no paperclip and no count. Thumbnails stay in the sheet. A photo is downscaled before upload. Settings, from the board menu, shows storage used of 1 GB. A file can be removed. Offline and Trash leave the files read-only. Capture does not add files. Quick Look waits for the SwiftUI app.
+
+- [ ] Task sheet Files, empty: "Files" and Add photo, Add file – desktop 1440, light and dark
+- [ ] Task sheet with a photo thumbnail and a named file – desktop 1440, light and dark
+- [ ] Phone task sheet: Camera, Photo library, and File – phone
+- [ ] Board row of a task that has a file: no paperclip, no count, no thumbnail – desktop 1440 and phone
+- [ ] Settings: storage used of 1 GB, with the meter – desktop 1440, light and dark
+- [ ] Remove a file: the row is gone – desktop 1440
+- [ ] A task in Trash: Files shows what was attached, with no add or remove – desktop 1440
+- [ ] Offline: Add photo and Add file disabled – desktop 1440
+- [ ] Capture has no way to add a file – desktop 1440
+
 ## Dialogs, prompts and pickers
 
 All desktop 1440 unless noted.
 
-- [ ] Board ⋯ menu open: Show completed, Completed log, Show deleted (no icon), Appearance
+- [ ] Board ⋯ menu open: Show completed, Completed log, Show deleted (no icon), Settings, Appearance
 - [ ] Context menu: right-click a row, Due submenu open
 - [ ] Context menu: the right-clicked row stays highlighted while the menu is open, here on a Ready and a Waiting row (#39)
 - [ ] Context menu on the selected task: the row looks selected with the menu open and stays selected after it closes (#39)

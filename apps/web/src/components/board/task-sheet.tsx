@@ -27,6 +27,7 @@ import { FOLD_MOTION, RowList } from './board-view';
 import { TaskHistory } from './task-history';
 import { DatePicker } from './preset-panel';
 import { RepeatField } from './repeat-picker';
+import { FilesCard } from './files-card';
 import { SubtasksCard } from './subtasks-card';
 import { TagsField } from './tag-picker';
 import { PresetPopover } from './task-row';
@@ -199,7 +200,9 @@ export function TaskEditor({ task, today, onClose }: { task: Task; today: ISODat
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4" data-slot="task-editor" data-task-id={task.id}>
+    // Sections keep their height. A card with overflow hidden would otherwise shrink to nothing
+    // once the sheet is taller than the drawer, and the editor scrolls instead.
+    <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4 *:shrink-0" data-slot="task-editor" data-task-id={task.id}>
       <div className="flex items-center gap-2">
         <Checkbox
           aria-label="Complete"
@@ -321,6 +324,8 @@ export function TaskEditor({ task, today, onClose }: { task: Task; today: ISODat
       </RowList>
 
       <SubtasksCard task={task} />
+
+      <FilesCard task={task} />
 
       <Textarea
         {...description}

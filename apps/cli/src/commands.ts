@@ -13,7 +13,7 @@ import {
 } from '@app/core';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { check } from './db.ts';
-import { loadSnapshot } from '@app/data';
+import { drainFileDeletions, loadSnapshot } from '@app/data';
 import { planSeed, type SeedFile } from './seed-plan.ts';
 
 export interface ResetResult {
@@ -22,10 +22,12 @@ export interface ResetResult {
   tombstones: number;
 }
 
-/** Wipes every row the user owns. Positions, subtasks, tags links and completions cascade from tasks. */
+/** Wipes every row the user owns. Positions, subtasks, tags links, completions and files cascade from tasks. */
 export async function reset(db: SupabaseClient, userId: string): Promise<ResetResult> {
   const tasks = await db.from('tasks').delete({ count: 'exact' }).eq('user_id', userId);
   if (tasks.error) throw new Error(`delete tasks: ${tasks.error.message}`);
+  // Task deletes queue the files. Storage only drops the bytes through its API.
+  await drainFileDeletions({ db, userId });
   const tags = await db.from('tags').delete({ count: 'exact' }).eq('user_id', userId);
   if (tags.error) throw new Error(`delete tags: ${tags.error.message}`);
   // Last, because deleting tasks and tags writes tombstones.

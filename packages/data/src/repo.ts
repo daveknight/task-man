@@ -1,5 +1,6 @@
 import { MAIN_VIEW_ID, OCCURRENCE_ALREADY_RECORDED, assertValid, orderTaskTags, sortSubtasks, sortTags, taskPatch, type ChangePlan, type ISODate, type OccurrencePlan, type OccurrenceRecord, type PositionWrite, type Subtask, type SubtaskChange, type Tag, type TagChange, type TagLink, type Task, type TaskTagChange, type UndoPlan } from '@app/core';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { drainFileDeletions } from './attachments.ts';
 import {
   COMPLETION_COLUMNS,
   completionFromRow,
@@ -271,10 +272,12 @@ export async function writeSubtaskChange({ db, userId }: Scope, taskId: string, 
   }
 }
 
-/** Delete forever: removes the row; the database writes a tombstone. */
-export async function deleteForever({ db, userId }: Scope, taskId: string): Promise<void> {
+/** Delete forever: removes the row (and its files). The database writes a tombstone and queues the objects. */
+export async function deleteForever(scope: Scope, taskId: string): Promise<void> {
+  const { db, userId } = scope;
   const { error } = await db.from('tasks').delete().eq('user_id', userId).eq('id', taskId);
   fail('delete task', error);
+  await drainFileDeletions(scope);
 }
 
 export interface SearchOptions {
@@ -298,9 +301,15 @@ export async function searchTasks(scope: Scope, query: string, options: SearchOp
   return withTags(withSubtasks(tasks, subtasks), links, tags);
 }
 
-/** The same code path as the daily job, for one user. Needs the service key. */
-export async function purgeTrash({ db, userId }: Scope, today: ISODate): Promise<string[]> {
+/**
+ * The same tasks as the daily job, for one user, plus the files those tasks held.
+ * The daily job only queues the objects (Storage refuses a SQL delete); this also
+ * removes them. Needs the service key for `purge_trash`.
+ */
+export async function purgeTrash(scope: Scope, today: ISODate): Promise<string[]> {
+  const { db, userId } = scope;
   const { data, error } = await db.rpc('purge_trash', { today, only_user: userId });
   fail('purge trash', error);
+  await drainFileDeletions(scope);
   return (data ?? []) as string[];
 }

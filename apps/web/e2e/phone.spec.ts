@@ -141,7 +141,7 @@ test('the swipe buttons run in the desktop order: Delete, state, date, then Due'
   expect(await names(await swipeLeft(page, 'Plumber quote for kitchen sink'))).toEqual(['Delete', 'Hide until', 'Move to In Progress', 'Due']);
 });
 
-test('offline, the swipe buttons are disabled', async ({ page, context }) => {
+test('offline, the swipe buttons and file buttons are disabled', async ({ page, context }) => {
   await context.setOffline(true);
   await expect(page.locator('[data-slot=offline-banner]')).toBeVisible();
   const tray = await swipeLeft(page, 'Return library books');
@@ -149,6 +149,11 @@ test('offline, the swipe buttons are disabled', async ({ page, context }) => {
   const count = await buttons.count();
   expect(count).toBeGreaterThan(2);
   for (let i = 0; i < count; i++) await expect(buttons.nth(i)).toBeDisabled();
+  await row(page, 'Buy new watch band').getByText('Buy new watch band').tap();
+  const files = page.locator('[data-slot=drawer-content] [data-slot=files]');
+  await expect(files.getByRole('button', { name: 'Camera' })).toBeDisabled();
+  await expect(files.getByRole('button', { name: 'Photo library' })).toBeDisabled();
+  await expect(files.getByRole('button', { name: 'File' })).toBeDisabled();
   await context.setOffline(false);
 });
 
@@ -364,4 +369,24 @@ test('phone search: the Tags filter narrows results, and result rows show no chi
   await expect(page.locator('[data-slot=command-item][data-task-id]').first()).toBeVisible();
   await expect(page.locator('[data-slot=command-item] [data-slot=tag-chip]:visible')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Remove tag finance' })).toBeVisible();
+});
+
+const TINY_PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+
+test('the task sheet offers the camera, the photo library and the file picker', async ({ page }) => {
+  await row(page, 'Buy new watch band').getByText('Buy new watch band').tap();
+  const files = page.locator('[data-slot=drawer-content] [data-slot=files]');
+  await expect(files.locator('[data-slot=file-add-touch]')).toBeVisible();
+  await expect(files.getByRole('button', { name: 'Camera' })).toBeVisible();
+  await expect(files.getByRole('button', { name: 'Photo library' })).toBeVisible();
+  await expect(files.getByRole('button', { name: 'File', exact: true })).toBeVisible();
+  await expect(files.locator('[data-slot=file-add-desktop]')).toBeHidden();
+
+  await files.locator('[data-slot=file-input-library]').setInputFiles({ name: 'dot.png', mimeType: 'image/png', buffer: TINY_PNG });
+  const fileRow = files.locator('[data-slot=file-row]');
+  await expect(fileRow.locator('[data-slot=file-thumb]')).toBeVisible();
+  await expect(row(page, 'Buy new watch band').locator('img')).toHaveCount(0);
+
+  await fileRow.getByRole('button', { name: 'Remove dot.png' }).tap();
+  await expect(files.locator('[data-slot=file-row]')).toHaveCount(0);
 });
