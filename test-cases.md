@@ -154,7 +154,7 @@ Skip is the existing “Skip this occurrence” pick inside Due, shown when the 
 
 All desktop 1440 unless noted.
 
-- [ ] Board ⋯ menu open: Show completed, Show deleted (no icon), Appearance
+- [ ] Board ⋯ menu open: Show completed, Completed log, Show deleted (no icon), Appearance
 - [ ] Context menu: right-click a row, Due submenu open
 - [ ] Context menu: the right-clicked row stays highlighted while the menu is open, here on a Ready and a Waiting row (#39)
 - [ ] Context menu on the selected task: the row looks selected with the menu open and stays selected after it closes (#39)
@@ -165,6 +165,16 @@ All desktop 1440 unless noted.
 - [ ] Wait until picker: status changed to Waiting in the task sheet
 - [ ] Upcoming drop prompt: dragging a task due today into Upcoming
 - [ ] Task detail for an Open, a Waiting and an In Progress task: Start and Due, Hide until and Due, Due only – desktop 1440, light and dark
+
+## Completed log
+
+From Phase 2c. A read-only screen opened from Completed log in the board menu (Show completed still toggles the board section). Grouped by Monday-start week, then by day, newest first. The newest week starts open and older weeks start collapsed; each week remembers whether you left it open. One-off finishes and each recorded completion of a repeating task are listed. Skips are not. Rows have a check mark and a struck-through title, no checkbox, drag handle, menu or swipe. A repeating row shows the repeat icon and that occurrence's due date. Nothing here edits a task.
+
+- [ ] Completed log: This week open (Pick up dry cleaning on Tue Nov 17, Assemble bookshelf on Mon Nov 16), Last week and older weeks collapsed – desktop 1440, light and dark
+- [ ] An older week expanded: “Pay November credit card bill” with its due date struck through – desktop 1440
+- [ ] A repeating completion on Today (“Water the plants”): repeat icon and due date, title struck through, and the task still open on the board – desktop 1440, phone
+- [ ] Empty: “Nothing finished yet.” – desktop 1440
+- [ ] Phone: the log under the status bar, week header and rows full width, back returns to the board – phone
 
 ## Search
 

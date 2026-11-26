@@ -1,10 +1,12 @@
 import { readFileSync } from 'node:fs';
 import {
   buildBoard,
+  buildCompletedLog,
   MAIN_VIEW_ID,
   placementFor,
   subtaskCount,
   type Board,
+  type CompletedLog,
   type ISODate,
   type SubtaskCount,
   type Task,
@@ -102,4 +104,10 @@ export async function loadBoard(
     showCompleted: options.completed,
     showTrash: options.trash,
   });
+}
+
+/** The completed log, grouped the same way the app shows it. */
+export async function loadCompletedLog(db: SupabaseClient, userId: string, today: ISODate): Promise<CompletedLog> {
+  const snapshot = await loadSnapshot({ db, userId });
+  return buildCompletedLog(snapshot.tasks, snapshot.completions, today);
 }

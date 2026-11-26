@@ -1,0 +1,164 @@
+{
+  "function": "buildCompletedLog(tasks, completions, today)",
+  "description": "The read-only completed log: one-off finishes and recorded completions of repeating tasks, grouped into Monday-start weeks and then days, newest first. Skips are left out. A task in Trash is left out, and so is its history. A repeating task that has finished for good is listed from its completion row only. A finish with no completedOn is left out. The newest week starts open; older weeks start collapsed. Titles are the task's current title.",
+  "cases": [
+    {
+      "name": "one-off finishes group by week and day, newest first, and open or deleted tasks stay out",
+      "today": "2026-11-18",
+      "tasks": [
+        { "id": "dry", "title": "Pick up dry cleaning", "completedAt": "2026-11-17T15:00:00.000Z", "completedOn": "2026-11-17" },
+        { "id": "book", "title": "Assemble bookshelf", "completedAt": "2026-11-16T15:00:00.000Z", "completedOn": "2026-11-16" },
+        { "id": "bill", "title": "Pay the bill", "completedAt": "2026-11-14T15:00:00.000Z", "completedOn": "2026-11-14" },
+        { "id": "open", "title": "Still open" },
+        { "id": "gone", "title": "In the trash", "completedAt": "2026-11-17T12:00:00.000Z", "completedOn": "2026-11-17", "deletedAt": "2026-11-18T12:00:00.000Z" },
+        { "id": "noday", "title": "No day", "completedAt": "2026-11-18T12:00:00.000Z" }
+      ],
+      "completions": [],
+      "expect": [
+        {
+          "start": "2026-11-16",
+          "end": "2026-11-22",
+          "collapsedByDefault": false,
+          "count": 2,
+          "days": [
+            { "date": "2026-11-17", "entries": [{ "id": "dry", "source": "task", "title": "Pick up dry cleaning", "occurrenceDue": null }] },
+            { "date": "2026-11-16", "entries": [{ "id": "book", "source": "task", "title": "Assemble bookshelf", "occurrenceDue": null }] }
+          ]
+        },
+        {
+          "start": "2026-11-09",
+          "end": "2026-11-15",
+          "collapsedByDefault": true,
+          "count": 1,
+          "days": [
+            { "date": "2026-11-14", "entries": [{ "id": "bill", "source": "task", "title": "Pay the bill", "occurrenceDue": null }] }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "a Sunday finish belongs to the week that started the Monday before",
+      "today": "2026-11-18",
+      "tasks": [
+        { "id": "sun", "title": "Sunday job", "completedAt": "2026-11-15T20:00:00.000Z", "completedOn": "2026-11-15" }
+      ],
+      "completions": [],
+      "expect": [
+        {
+          "start": "2026-11-09",
+          "end": "2026-11-15",
+          "collapsedByDefault": false,
+          "count": 1,
+          "days": [
+            { "date": "2026-11-15", "entries": [{ "id": "sun", "source": "task", "title": "Sunday job", "occurrenceDue": null }] }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "recorded completions are included, skips are not, and a finished series is not listed twice",
+      "today": "2026-11-18",
+      "tasks": [
+        { "id": "garbage", "title": "Take out garbage", "dueDate": "2026-11-26" },
+        { "id": "ended", "title": "Ended series", "completedAt": "2026-11-18T18:00:00.000Z", "completedOn": "2026-11-18" },
+        { "id": "renamed", "title": "Current name" }
+      ],
+      "completions": [
+        { "id": "c-skip", "taskId": "garbage", "kind": "skip", "completedOn": "2026-11-18", "completedAt": "2026-11-18T13:00:00.000Z", "occurrenceDue": "2026-11-12" },
+        { "id": "c-done", "taskId": "garbage", "kind": "done", "completedOn": "2026-11-18", "completedAt": "2026-11-18T12:00:00.000Z", "occurrenceDue": "2026-11-19" },
+        { "id": "c-end", "taskId": "ended", "kind": "done", "completedOn": "2026-11-18", "completedAt": "2026-11-18T18:00:00.000Z", "occurrenceDue": "2026-11-18" },
+        { "id": "c-old-name", "taskId": "renamed", "kind": "done", "completedOn": "2026-11-10", "completedAt": "2026-11-10T12:00:00.000Z", "occurrenceDue": "2026-11-10" },
+        { "id": "c-missing", "taskId": "missing", "kind": "done", "completedOn": "2026-11-18", "completedAt": "2026-11-18T12:00:00.000Z", "occurrenceDue": "2026-11-18" }
+      ],
+      "expect": [
+        {
+          "start": "2026-11-16",
+          "end": "2026-11-22",
+          "collapsedByDefault": false,
+          "count": 2,
+          "days": [
+            {
+              "date": "2026-11-18",
+              "entries": [
+                { "id": "c-end", "source": "occurrence", "title": "Ended series", "occurrenceDue": "2026-11-18" },
+                { "id": "c-done", "source": "occurrence", "title": "Take out garbage", "occurrenceDue": "2026-11-19" }
+              ]
+            }
+          ]
+        },
+        {
+          "start": "2026-11-09",
+          "end": "2026-11-15",
+          "collapsedByDefault": true,
+          "count": 1,
+          "days": [
+            { "date": "2026-11-10", "entries": [{ "id": "c-old-name", "source": "occurrence", "title": "Current name", "occurrenceDue": "2026-11-10" }] }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "the same timestamp keeps the smaller id first",
+      "today": "2026-11-18",
+      "tasks": [
+        { "id": "b", "title": "B", "completedAt": "2026-11-18T12:00:00.000Z", "completedOn": "2026-11-18" },
+        { "id": "a", "title": "A", "completedAt": "2026-11-18T12:00:00.000Z", "completedOn": "2026-11-18" }
+      ],
+      "completions": [],
+      "expect": [
+        {
+          "start": "2026-11-16",
+          "end": "2026-11-22",
+          "collapsedByDefault": false,
+          "count": 2,
+          "days": [
+            {
+              "date": "2026-11-18",
+              "entries": [
+                { "id": "a", "source": "task", "title": "A", "occurrenceDue": null },
+                { "id": "b", "source": "task", "title": "B", "occurrenceDue": null }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "a completion of a task in Trash is left out",
+      "today": "2026-11-18",
+      "tasks": [
+        { "id": "trashed", "title": "Trashed", "deletedAt": "2026-11-18T12:00:00.000Z", "deletedOn": "2026-11-18" }
+      ],
+      "completions": [
+        { "id": "c-trash", "taskId": "trashed", "kind": "done", "completedOn": "2026-11-17", "completedAt": "2026-11-17T12:00:00.000Z", "occurrenceDue": "2026-11-17" }
+      ],
+      "expect": []
+    },
+    {
+      "name": "nothing finished",
+      "today": "2026-11-18",
+      "tasks": [{ "id": "open", "title": "Open" }],
+      "completions": [],
+      "expect": []
+    },
+    {
+      "name": "the newest week starts open even when it is not this week",
+      "today": "2026-11-18",
+      "tasks": [
+        { "id": "old", "title": "Oil change", "completedAt": "2026-08-20T12:00:00.000Z", "completedOn": "2026-08-20" }
+      ],
+      "completions": [],
+      "expect": [
+        {
+          "start": "2026-08-17",
+          "end": "2026-08-23",
+          "collapsedByDefault": false,
+          "count": 1,
+          "days": [
+            { "date": "2026-08-20", "entries": [{ "id": "old", "source": "task", "title": "Oil change", "occurrenceDue": null }] }
+          ]
+        }
+      ]
+    }
+  ]
+}

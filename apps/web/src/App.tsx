@@ -1,4 +1,4 @@
-import { APP_NAME, buildBoard, type Task } from '@app/core';
+import { APP_NAME, buildBoard, buildCompletedLog, type Task } from '@app/core';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from './auth/auth-gate.tsx';
 import { BoardActionsProvider } from './components/board/board-actions.tsx';
@@ -7,6 +7,7 @@ import { SearchDialog } from './components/board/search-dialog.tsx';
 import { TWO_PANE_QUERY } from './components/board/surface.tsx';
 import { TaskPane, TaskSheet } from './components/board/task-sheet.tsx';
 import { CaptureSheet } from './components/board/capture-sheet.tsx';
+import { CompletedLogView } from './components/board/completed-log.tsx';
 import { AddTaskFab, FAB_CLEARANCE, Toolbar } from './components/board/toolbar.tsx';
 import { Icon } from './components/icon.tsx';
 import { Toaster } from './components/ui/sonner.tsx';
@@ -61,7 +62,7 @@ export function App() {
   const writes = useTaskWrites(today);
   const twoPane = useMediaQuery(TWO_PANE_QUERY);
   const online = useOnline();
-  const [view, setView] = useState<'board' | 'trash'>('board');
+  const [view, setView] = useState<'board' | 'trash' | 'log'>('board');
   const [showCompleted, setShowCompleted] = usePersistedBoolean('board:showCompleted', false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -108,6 +109,7 @@ export function App() {
     [data, today, view, showCompleted],
   );
   const shown = useMemo(() => (board && view === 'trash' ? { ...board, sections: board.sections.filter((s) => s.id === 'trash') } : board), [board, view]);
+  const log = useMemo(() => (data ? buildCompletedLog(data.tasks, data.completions, today) : null), [data, today]);
   const selected = data?.tasks.find((t) => t.id === selectedId) ?? null;
 
   const open = useCallback((task: Task) => {
@@ -128,7 +130,9 @@ export function App() {
     <BoardActionsProvider today={today} writes={writes} onOpen={open}>
       <div ref={appRef} className="flex min-h-dvh">
         <main className={`mx-auto flex min-h-dvh w-full max-w-2xl min-w-0 flex-col px-row-x pb-[max(2rem,env(safe-area-inset-bottom))] ${view === 'board' ? FAB_CLEARANCE : ''}`}>
-          {view === 'trash' ? (
+          {view === 'log' ? (
+            <Toolbar title="Completed log" subtitle="Newest first. A repeating task is listed each time it was completed." onBack={() => setView('board')} />
+          ) : view === 'trash' ? (
             <Toolbar title="Trash" subtitle="Deleted tasks are removed for good after 30 days." onBack={() => setView('board')} />
           ) : (
             <Toolbar
@@ -144,7 +148,13 @@ export function App() {
                 setAdding(true);
               }}
               addDisabled={!online}
-              menu={{ showCompleted, onShowCompletedChange: setShowCompleted, onTrash: () => setView('trash'), account: auth.email ? { email: auth.email, onSignOut: () => void auth.signOut() } : undefined }}
+              menu={{
+                showCompleted,
+                onShowCompletedChange: setShowCompleted,
+                onCompletedLog: () => setView('log'),
+                onTrash: () => setView('trash'),
+                account: auth.email ? { email: auth.email, onSignOut: () => void auth.signOut() } : undefined,
+              }}
             />
           )}
           <div className="pt-2">
@@ -158,12 +168,18 @@ export function App() {
             )}
             {error && <p className="px-row-x text-destructive">{error}</p>}
             {view === 'board' && adding && online && <QuickAdd writes={writes} onClose={() => setAdding(false)} />}
-            {empty && (
+            {view === 'log' && log && log.weeks.length === 0 && (
+              <p className="px-row-x py-8 text-center text-muted-foreground" data-slot="empty">
+                Nothing finished yet.
+              </p>
+            )}
+            {view === 'log' && log && log.weeks.length > 0 && <CompletedLogView log={log} today={today} tasks={data?.tasks ?? []} />}
+            {view !== 'log' && empty && (
               <p className="px-row-x py-8 text-center text-muted-foreground" data-slot="empty">
                 {view === 'trash' ? 'Trash is empty' : 'No tasks yet.'}
               </p>
             )}
-            {shown && data && <BoardView board={shown} today={today} positions={online ? data.positions : undefined} selectedId={twoPane || sheetOpen ? selectedId : null} actionContext={(task) => ({ recurring: task.repeat != null })} />}
+            {view !== 'log' && shown && data && <BoardView board={shown} today={today} positions={online ? data.positions : undefined} selectedId={twoPane || sheetOpen ? selectedId : null} actionContext={(task) => ({ recurring: task.repeat != null })} />}
           </div>
         </main>
         {/* The pane's room is always reserved, so the list stays put when a task is selected. */}
