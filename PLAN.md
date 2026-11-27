@@ -306,7 +306,7 @@ One table in `packages/tokens` maps each meaning to its icon on each platform, s
 | Move to In Progress (from Waiting) | `PlayCircle` | `play.circle` |
 | Flag | `Flag` (Fill when on) | `flag` / `flag.fill` |
 | Drag handle (reorder) | `DotsSixVertical` | `line.3.horizontal` |
-| Repeats | `ArrowClockwise` | `arrow.clockwise` |
+| Repeats | `Repeat` | `repeat` |
 | Recently deleted | `Trash` | `trash` |
 | Capture | `Sparkle` | `sparkles` |
 

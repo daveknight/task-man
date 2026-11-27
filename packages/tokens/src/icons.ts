@@ -17,7 +17,7 @@ export const icons = {
   inProgress: { phosphor: 'Play', sfSymbol: 'play' },
   resume: { phosphor: 'PlayCircle', sfSymbol: 'play.circle' },
   flag: { phosphor: 'Flag', sfSymbol: 'flag', sfSymbolActive: 'flag.fill' },
-  repeat: { phosphor: 'ArrowClockwise', sfSymbol: 'arrow.clockwise' },
+  repeat: { phosphor: 'Repeat', sfSymbol: 'repeat' },
   history: { phosphor: 'ClockCounterClockwise', sfSymbol: 'clock.arrow.counterclockwise' },
   subtasks: { phosphor: 'ListChecks', sfSymbol: 'checklist' },
   tags: { phosphor: 'Tag', sfSymbol: 'tag' },
