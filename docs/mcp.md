@@ -46,6 +46,60 @@ A Cursor MCP config, once the Vercel URL is live:
 
 Replace the URL if the project name differs, and replace the token when it expires.
 
+## Claude Desktop
+
+Use the access token from the curl above. The value Claude sends is the header exactly as you type it, so it starts with `Bearer`, then a space, then the token.
+
+In Claude, open **Customize**, then **Connectors**, then **Add custom connector**. On a Team or Enterprise plan, an Owner adds it under **Organization settings**, **Connectors**, **Add**, **Custom**, **Web**. Name it TaskMan. The server URL is the production address ending in `/mcp`. Under **Authentication**, choose **No sign in**. Under **Request headers**, set the name to `authorization` and the value to `Bearer <access_token>`. Add the connector, then turn TaskMan on in a chat.
+
+That connector calls the server from Anthropic's cloud, so the URL has to be the public HTTPS address. The local `127.0.0.1` address is unreachable from there. **Request headers** is in beta, and some accounts do not show that section. When it is missing, connect from the desktop app instead. Open **Settings**, **Developer**, **Edit Config**. The file is `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS and `%APPDATA%\Claude\claude_desktop_config.json` on Windows. Node has to be installed so `npx` can run. Add this beside any servers already in the file:
+
+```json
+{
+  "mcpServers": {
+    "taskman": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "https://task-man-mcp.vercel.app/mcp",
+        "--transport",
+        "http-only",
+        "--header",
+        "Authorization:${AUTH_HEADER}"
+      ],
+      "env": {
+        "AUTH_HEADER": "Bearer <access_token>"
+      }
+    }
+  }
+}
+```
+
+Leave no space after `Authorization:` in `args`. The space lives in `AUTH_HEADER`, which keeps Windows from splitting the header. Quit Claude completely and open it again. For the local server, use `http://127.0.0.1:8787/mcp` and add `"--allow-http"` to `args`.
+
+When the token expires, sign in again. For the connector, remove it and add it again with the new value. For the config file, replace `AUTH_HEADER` and restart Claude.
+
+## ChatGPT desktop
+
+The ChatGPT desktop app reads `~/.codex/config.toml` (on Windows, `%USERPROFILE%\.codex\config.toml`), the same file Codex uses. The website's custom MCP plugin has no field for this token.
+
+Open **Settings**, then **MCP servers**, then **Add server**. Name it TaskMan, choose **Streamable HTTP**, and enter the production URL ending in `/mcp`. If the form has a bearer-token environment variable, set it to `TASKMAN_ACCESS_TOKEN`. Save, then **Restart**.
+
+The token itself goes in that environment variable, as the raw access token with no `Bearer` prefix. The app sends `Authorization: Bearer <access_token>`. If the form has no token field, add the variable name in the config file:
+
+```toml
+[mcp_servers.taskman]
+url = "https://task-man-mcp.vercel.app/mcp"
+bearer_token_env_var = "TASKMAN_ACCESS_TOKEN"
+```
+
+The app only sees variables that exist when it starts. An `export` in a terminal is invisible to a copy opened from the Dock or the Start menu.
+
+On macOS, run `launchctl setenv TASKMAN_ACCESS_TOKEN '<access_token>'`, quit ChatGPT completely, and open it again. That variable lasts until you log out. On Windows, add a user environment variable named `TASKMAN_ACCESS_TOKEN`, quit ChatGPT including its tray icon, and open it again.
+
+For the local server, use `http://127.0.0.1:8787/mcp` as the URL. When the token expires, replace the variable and restart the app.
+
 ## Tools
 
 | Tool | What it does |
