@@ -194,7 +194,7 @@ From the web attachments phase (PLAN.md Phase 3), ahead of the native apps. Phot
 - [x] Task sheet with a photo thumbnail and a named file – desktop 1440, light and dark
 - [x] Phone task sheet: one Add file button – phone
 - [x] Board row of a task that has a file: no paperclip, no count, no thumbnail – desktop 1440 and phone
-- [x] Settings: storage used of 1 GB, with the meter – desktop 1440, light and dark
+- [x] Settings: storage used of 1 GB, with the meter, and the version number – desktop 1440, light and dark
 - [x] Remove a file: the row is gone – desktop 1440
 - [x] A task in Recently deleted: Attachments shows what was attached, with no add or remove – desktop 1440
 - [x] Offline: Add file disabled – desktop 1440
@@ -214,7 +214,7 @@ All desktop 1440 unless noted.
 - [x] Waiting row menu
 - [x] Hide until picker from a row (Ready, In Progress)
 - [x] Wait until picker: status changed to Waiting in the task sheet
-- [x] Upcoming drop prompt: dragging a task due today into Upcoming
+- [x] Upcoming drop prompt: dragging a task due today into Upcoming asks “Move and remove start date?” with Remove start date and Cancel
 - [x] Task detail for an Open, a Waiting and an In Progress task: Start and Due, Hide until and Due, Due only – desktop 1440, light and dark
 
 ## Completed log

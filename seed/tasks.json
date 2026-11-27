@@ -560,7 +560,7 @@
       "tags": [
         "someday"
       ],
-      "description": "Deleted 29 days ago: still in Trash after a purge.",
+      "description": "Compare a few models for the office before buying one.",
       "afterPurge": "kept"
     },
     {
@@ -568,7 +568,7 @@
       "afterPurge": "kept",
       "title": "Compare robot vacuum models",
       "deleted": "-30d",
-      "description": "Deleted exactly 30 days ago: the boundary. Still in Trash after a purge; removed the day after."
+      "description": "See which one handles the stairs and the pet hair.",
     },
     {
       "expect": "trash",
@@ -577,7 +577,7 @@
       "tags": [
         "someday"
       ],
-      "description": "Deleted 31 days ago: in Trash at seed time, removed permanently by the next purge-trash.",
+      "description": "A someday idea. Start with a few chords on a cheap concert ukulele.",
       "afterPurge": "removed"
     }
   ]

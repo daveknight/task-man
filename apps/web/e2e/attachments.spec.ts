@@ -40,6 +40,7 @@ test('files are added on the task sheet and never marked on the row', async ({ p
   const settings = page.locator('[data-slot=settings]');
   await expect(settings.getByText(/of 1 GB/)).toBeVisible();
   await expect(settings.getByText('0 B of 1 GB')).toHaveCount(0);
+  await expect(settings.locator('[data-slot=app-version]')).toHaveText(/Version\s*0\.0\.0/);
   await settings.getByRole('button', { name: 'Done' }).click();
 
   await openTask(page);
