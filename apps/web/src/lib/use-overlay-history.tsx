@@ -1,8 +1,11 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   closeFileAction,
+  closeLogAction,
   closeTaskAction,
+  logReturnAddress,
   openFileAction,
+  openLogAction,
   openTaskAction,
   parseOverlayPath,
   type HistoryAction,
@@ -13,10 +16,13 @@ import {
 export type OverlayController = {
   taskId: string | null;
   fileId: string | null;
+  log: boolean;
   openTask: (taskId: string) => void;
   closeTask: () => void;
   openFile: (taskId: string, fileId: string) => void;
   closeFile: () => void;
+  openLog: () => void;
+  closeLog: () => void;
 };
 
 const OverlayHistoryContext = createContext<OverlayController | null>(null);
@@ -31,9 +37,9 @@ function readState(): OverlayHistoryState | null {
 }
 
 /**
- * The open task and image preview, kept in the address bar. Browser Back and
- * Forward move the same state. Closing from the screen uses Back when this
- * screen pushed the entry, so Forward opens it again.
+ * The open task, image preview, and completed log, kept in the address bar.
+ * Browser Back and Forward move the same state. Closing from the screen uses
+ * Back when this screen pushed the entry, so Forward opens it again.
  */
 export function useOverlayHistory(): OverlayController {
   const [address, setAddress] = useState<OverlayAddress>(() => parseOverlayPath(window.location.pathname));
@@ -60,6 +66,7 @@ export function useOverlayHistory(): OverlayController {
       return;
     }
     const historyState: OverlayHistoryState = { overlay: action.overlay };
+    if (action.type === 'push' && action.overlay === 'log') historyState.logBack = parseOverlayPath(window.location.pathname);
     if (action.type === 'push') window.history.pushState(historyState, '', action.url);
     else window.history.replaceState(historyState, '', action.url);
     setAddress(next);
@@ -68,7 +75,7 @@ export function useOverlayHistory(): OverlayController {
   const openTask = useCallback(
     (taskId: string) => {
       const now = parseOverlayPath(window.location.pathname);
-      apply(openTaskAction(now, taskId, window.location.search), { taskId, fileId: null });
+      apply(openTaskAction(now, taskId, window.location.search), { taskId, fileId: null, log: false });
     },
     [apply],
   );
@@ -76,24 +83,35 @@ export function useOverlayHistory(): OverlayController {
   const openFile = useCallback(
     (taskId: string, fileId: string) => {
       const now = parseOverlayPath(window.location.pathname);
-      apply(openFileAction(now, taskId, fileId, window.location.search), { taskId, fileId });
+      apply(openFileAction(now, taskId, fileId, window.location.search), { taskId, fileId, log: false });
     },
     [apply],
   );
 
   const closeFile = useCallback(() => {
     const now = parseOverlayPath(window.location.pathname);
-    apply(closeFileAction(now, readState(), window.location.search), { taskId: now.taskId, fileId: null });
+    apply(closeFileAction(now, readState(), window.location.search), { taskId: now.taskId, fileId: null, log: false });
   }, [apply]);
 
   const closeTask = useCallback(() => {
     const now = parseOverlayPath(window.location.pathname);
-    apply(closeTaskAction(now, readState(), window.location.search), { taskId: null, fileId: null });
+    apply(closeTaskAction(now, readState(), window.location.search), { taskId: null, fileId: null, log: false });
+  }, [apply]);
+
+  const openLog = useCallback(() => {
+    const now = parseOverlayPath(window.location.pathname);
+    apply(openLogAction(now, window.location.search), { taskId: null, fileId: null, log: true });
+  }, [apply]);
+
+  const closeLog = useCallback(() => {
+    const now = parseOverlayPath(window.location.pathname);
+    const state = readState();
+    apply(closeLogAction(now, state, window.location.search), logReturnAddress(state));
   }, [apply]);
 
   return useMemo(
-    () => ({ taskId: address.taskId, fileId: address.fileId, openTask, closeTask, openFile, closeFile }),
-    [address.taskId, address.fileId, openTask, closeTask, openFile, closeFile],
+    () => ({ taskId: address.taskId, fileId: address.fileId, log: address.log, openTask, closeTask, openFile, closeFile, openLog, closeLog }),
+    [address.taskId, address.fileId, address.log, openTask, closeTask, openFile, closeFile, openLog, closeLog],
   );
 }
 

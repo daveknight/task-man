@@ -415,7 +415,7 @@ Each phase ends with something you can use day to day and give feedback on befor
 
 **Phase 3: attachments**
 - Photos and files on the web app through Supabase Storage, image downscaling, and thumbnails in the task sheet. Built before the native apps so they only have to add the Apple side (see Phase 4).
-- The web address follows the open task, and a previewable image: `/tasks/<taskId>` and `/tasks/<taskId>/files/<fileId>`. A link or a refresh reopens them. Back closes the preview first, then the task, then leaves the board. A file the preview can't show still opens its signed URL and does not change the address. `?today=` and `?autosignin=` stay on the query string.
+- The web address follows the open task, a previewable image, and the completed log: `/tasks/<taskId>`, `/tasks/<taskId>/files/<fileId>`, and `/completed`. A link or a refresh reopens them. Back closes the preview first, then the task, then leaves the board. Back from the completed log returns to the board, and Forward opens the log again with the weeks as they were left. A file the preview can't show still opens its signed URL and does not change the address. `?today=` and `?autosignin=` stay on the query string.
 
 **Phase 4: native iOS + macOS**
 - SwiftUI multiplatform app with the same rules (passes the shared test vectors), local cache and offline queue, realtime sync, native drag-and-drop, and a bottom-sheet editor like your screenshots.
