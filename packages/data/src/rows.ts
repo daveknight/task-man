@@ -1,4 +1,4 @@
-import type { EditableField, ISODate, OccurrenceRecord, OccurrenceSnapshot, RepeatRule, Status, Subtask, Tag, Task, TaskPatch } from '@app/core';
+import type { ActivityRecord, EditableField, ISODate, OccurrenceRecord, OccurrenceSnapshot, RepeatRule, Status, Subtask, Tag, Task, TaskPatch } from '@app/core';
 
 /** A public.tasks row as PostgREST returns it. */
 export interface TaskRow {
@@ -149,6 +149,37 @@ export interface CompletionRow {
 }
 
 export const COMPLETION_COLUMNS = 'id,task_id,occurrence_due,kind,completed_on,completed_at,snapshot,created_at';
+
+/** A public.task_activities row as PostgREST returns it. */
+export interface ActivityRow {
+  id: string;
+  user_id: string;
+  task_id: string;
+  batch_id: string;
+  seq: number;
+  at: string;
+  kind: 'created' | 'changed';
+  field: string;
+  before: unknown;
+  after: unknown;
+}
+
+export const ACTIVITY_COLUMNS = 'id,user_id,task_id,batch_id,seq,at,kind,field,before,after';
+
+export function activityFromRow(row: ActivityRow): ActivityRecord {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    taskId: row.task_id,
+    batchId: row.batch_id,
+    seq: row.seq,
+    at: row.at,
+    kind: row.kind,
+    field: row.field,
+    before: row.before,
+    after: row.after,
+  };
+}
 
 export function completionFromRow(row: CompletionRow): OccurrenceRecord {
   return {

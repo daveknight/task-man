@@ -1,12 +1,14 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { autoSignInAvailable, autoSignInEnabled, setAutoSignIn, signInAsDevUser, storedSession, supabase, supabaseConfigured, type Session } from '@/supabase';
+import { autoSignInAvailable, autoSignInEnabled, sessionFrom, setAutoSignIn, signInAsDevUser, storedSession, supabase, supabaseConfigured, type Session } from '@/supabase';
 import { ForgotScreen, LoadingScreen, MIN_PASSWORD_LENGTH, NewPasswordScreen, ResetSentScreen, SignInScreen } from './auth-screens';
 
 type AuthState = { status: 'loading' } | { status: 'signedOut' } | { status: 'recovery' } | { status: 'signedIn'; session: Session };
 
 interface AuthContextValue {
   email: string;
+  /** Account name. Empty when there isn't one; the history screen says You. */
+  name: string;
   signOut: () => Promise<void>;
 }
 
@@ -17,6 +19,11 @@ export function useAuth(): AuthContextValue {
   const value = useContext(AuthContext);
   if (!value) throw new Error('useAuth needs AuthGate');
   return value;
+}
+
+/** The signed-in account's name, or empty on the design screens, which sit outside the gate. */
+export function useAccountName(): string {
+  return useContext(AuthContext)?.name ?? '';
 }
 
 /** A recovery link lands on the app with `type=recovery` in the URL; the new-password screen has to win over the session it carries. */
@@ -56,8 +63,8 @@ export function AuthGate({ children }: { children: ReactNode }) {
         return;
       }
       if (session) {
-        const next = { userId: session.user.id, email: session.user.email ?? '' };
-        setState((prev) => (prev.status === 'signedIn' && prev.session.userId === next.userId && prev.session.email === next.email ? prev : { status: 'signedIn', session: next }));
+        const next = sessionFrom(session.user);
+        setState((prev) => (prev.status === 'signedIn' && prev.session.userId === next.userId && prev.session.email === next.email && prev.session.name === next.name ? prev : { status: 'signedIn', session: next }));
         return;
       }
       if (event === 'INITIAL_SESSION') {
@@ -127,13 +134,13 @@ export function AuthGate({ children }: { children: ReactNode }) {
     recovering.current = false;
     // The link's tokens are in the URL; drop them so a reload doesn't reopen the recovery screen.
     window.history.replaceState(null, '', window.location.pathname);
-    setState({ status: 'signedIn', session: { userId: updated.user.id, email: updated.user.email ?? '' } });
+    setState({ status: 'signedIn', session: sessionFrom(updated.user) });
   };
 
-  const value = useMemo<AuthContextValue | null>(() => (state.status === 'signedIn' ? { email: state.session.email, signOut } : null), [state, signOut]);
+  const value = useMemo<AuthContextValue | null>(() => (state.status === 'signedIn' ? { email: state.session.email, name: state.session.name, signOut } : null), [state, signOut]);
 
   // Without a Supabase URL the app shows its own setup message instead of a login that can't work.
-  if (!supabaseConfigured) return <AuthContext.Provider value={{ email: '', signOut: async () => {} }}>{children}</AuthContext.Provider>;
+  if (!supabaseConfigured) return <AuthContext.Provider value={{ email: '', name: '', signOut: async () => {} }}>{children}</AuthContext.Provider>;
   if (state.status === 'loading') return <LoadingScreen />;
   if (state.status === 'signedIn' && value) return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
   if (state.status === 'recovery') {

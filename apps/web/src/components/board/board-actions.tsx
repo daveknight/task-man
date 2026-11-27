@@ -6,6 +6,7 @@ import {
   markNotDone,
   planOccurrence,
   planUndoOccurrence,
+  isOccurrenceHistory,
   taskHistory,
   planCreateTag,
   planDeleteTag,
@@ -320,9 +321,10 @@ export function BoardActionsProvider({
       undoLatest: (task) => {
         const snap = writes.current();
         const records = snap.completions.filter((row) => row.taskId === task.id);
-        const history = taskHistory(task, records, snap.positions.get(task.id) ?? null);
-        const index = history.findIndex((row) => row.undoable);
-        const record = index < 0 ? undefined : records.find((row) => row.id === history[index]!.id);
+        const history = taskHistory(task, records, snap.positions.get(task.id) ?? null, snap.activities ?? []);
+        const occurrences = history.filter(isOccurrenceHistory);
+        const index = occurrences.findIndex((row) => row.undoable);
+        const record = index < 0 ? undefined : records.find((row) => row.id === occurrences[index]!.id);
         if (record) undoOccurrence(task.id, record, index);
       },
     };

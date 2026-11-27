@@ -24,6 +24,23 @@ function isLocal(value: string): boolean {
 export interface Session {
   email: string;
   userId: string;
+  /** Empty when the account has no name. The history screen then says You. */
+  name: string;
+}
+
+/** The account name, when the user record has one. Email is not a name. */
+export function accountName(metadata: unknown): string {
+  if (!metadata || typeof metadata !== 'object') return '';
+  const meta = metadata as Record<string, unknown>;
+  for (const key of ['full_name', 'name']) {
+    const value = meta[key];
+    if (typeof value === 'string' && value.trim()) return value.trim();
+  }
+  return '';
+}
+
+export function sessionFrom(user: { id: string; email?: string | null; user_metadata?: unknown }): Session {
+  return { userId: user.id, email: user.email ?? '', name: accountName(user.user_metadata) };
 }
 
 const AUTOSIGNIN_KEY = 'taskman-autosignin';
@@ -60,8 +77,9 @@ export async function signInAsDevUser(): Promise<void> {
 /** The user kept in storage, for opening the cached board offline after the access token has expired. */
 export function storedSession(): Session | null {
   try {
-    const user = (JSON.parse(window.localStorage.getItem(STORAGE_KEY) ?? 'null') as { user?: { id?: string; email?: string } } | null)?.user;
-    return user?.id ? { userId: user.id, email: user.email ?? '' } : null;
+    const user = (JSON.parse(window.localStorage.getItem(STORAGE_KEY) ?? 'null') as { user?: { id?: string; email?: string; user_metadata?: unknown } } | null)?.user;
+    if (!user?.id) return null;
+    return sessionFrom({ id: user.id, email: user.email, user_metadata: user.user_metadata });
   } catch {
     return null;
   }
@@ -70,7 +88,7 @@ export function storedSession(): Session | null {
 /** The signed-in user. Offline with an expired token it falls back to the stored one, so the cached board still opens. */
 export async function currentSession(): Promise<Session> {
   const { data } = await supabase.auth.getSession();
-  if (data.session) return { userId: data.session.user.id, email: data.session.user.email ?? '' };
+  if (data.session) return sessionFrom(data.session.user);
   const stored = storedSession();
   if (stored && !navigator.onLine) return stored;
   throw new Error('Not signed in.');

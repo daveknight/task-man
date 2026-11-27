@@ -83,6 +83,48 @@ test('groups finished tasks by week and day, and the rows are read-only', async 
   await page.getByRole('button', { name: 'Back', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'TaskMan' })).toBeVisible();
   await expect(page.locator('[data-section=ready]')).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`\\/\\?today=${TODAY}$`));
+});
+
+test('the address keeps the completed log, and back and forward restore it', async ({ page }) => {
+  await openLog(page);
+  await expect(page).toHaveURL(new RegExp(`/completed\\?today=${TODAY}$`));
+  const subtitle = page.getByText('Repeating tasks are listed each time an occurrence was completed.');
+  await expect(subtitle).toBeVisible();
+
+  const lastWeek = page.locator('[data-log-week="2026-11-09"]');
+  await expect(lastWeek.getByRole('button')).toHaveAttribute('aria-expanded', 'false');
+  await lastWeek.getByRole('button').click();
+  await expect(lastWeek.locator('[data-slot=task-title]')).toHaveText('Pay November credit card bill');
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('log:open:2026-11-09'))).toBe('true');
+
+  await page.goBack();
+  await expect(page.getByRole('heading', { name: 'TaskMan' })).toBeVisible();
+  await expect(page.locator('[data-section=ready]')).toBeVisible();
+  await expect(page.locator('[data-slot=completed-log]')).toHaveCount(0);
+  await expect(page).toHaveURL(new RegExp(`\\/\\?today=${TODAY}$`));
+
+  await page.goForward();
+  await expect(page.getByRole('heading', { name: 'Completed log' })).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`/completed\\?today=${TODAY}$`));
+  await expect(lastWeek.getByRole('button')).toHaveAttribute('aria-expanded', 'true');
+  await expect(lastWeek.locator('[data-slot=task-title]')).toHaveText('Pay November credit card bill');
+
+  await page.getByRole('button', { name: 'Back', exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`\\/\\?today=${TODAY}$`));
+  await page.goForward();
+  await expect(page).toHaveURL(new RegExp(`/completed\\?today=${TODAY}$`));
+  await expect(lastWeek.getByRole('button')).toHaveAttribute('aria-expanded', 'true');
+
+  await page.goto(`/completed?today=${TODAY}`);
+  await expect(page.getByRole('heading', { name: 'Completed log' })).toBeVisible();
+  await page.goBack();
+  await expect(page.getByRole('heading', { name: 'TaskMan' })).toBeVisible();
+  await expect(page.locator('[data-section=ready]')).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`\\/\\?today=${TODAY}$`));
+  await page.goForward();
+  await expect(page).toHaveURL(new RegExp(`/completed\\?today=${TODAY}$`));
+  await expect(page.locator('[data-slot=completed-log]')).toBeVisible();
 });
 
 test('lists a repeating completion and leaves a skip out', async ({ page }) => {

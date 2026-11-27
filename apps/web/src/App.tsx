@@ -61,15 +61,16 @@ export function App() {
   return <OverlayHistoryProvider>{(overlay) => <AppScreen overlay={overlay} />}</OverlayHistoryProvider>;
 }
 
-function AppScreen({ overlay }: { overlay: { taskId: string | null; openTask: (taskId: string) => void; closeTask: () => void } }) {
-  const { taskId, openTask, closeTask } = overlay;
+function AppScreen({ overlay }: { overlay: { taskId: string | null; log: boolean; openTask: (taskId: string) => void; closeTask: () => void; openLog: () => void; closeLog: () => void } }) {
+  const { taskId, log: showingLog, openTask, closeTask, openLog, closeLog } = overlay;
   const auth = useAuth();
   const today = useToday();
   const snapshot = useSnapshot();
   const writes = useTaskWrites(today);
   const twoPane = useMediaQuery(TWO_PANE_QUERY);
   const online = useOnline();
-  const [view, setView] = useState<'board' | 'trash' | 'log'>('board');
+  const [showTrash, setShowTrash] = useState(false);
+  const view = showingLog ? 'log' : showTrash ? 'trash' : 'board';
   const [showCompleted, setShowCompleted] = usePersistedBoolean('board:showCompleted', false);
   const [adding, setAdding] = useState(false);
   const [capturing, setCapturing] = useState(false);
@@ -146,9 +147,9 @@ function AppScreen({ overlay }: { overlay: { taskId: string | null; openTask: (t
       <div ref={appRef} className="flex min-h-dvh">
         <main className={`mx-auto flex min-h-dvh w-full max-w-2xl min-w-0 flex-col px-row-x pb-[max(2rem,env(safe-area-inset-bottom))] ${view === 'board' ? FAB_CLEARANCE : ''}`}>
           {view === 'log' ? (
-            <Toolbar title="Completed log" subtitle="Repeating tasks are listed each time an occurrence was completed." onBack={() => setView('board')} />
+            <Toolbar title="Completed log" subtitle="Repeating tasks are listed each time an occurrence was completed." onBack={closeLog} />
           ) : view === 'trash' ? (
-            <Toolbar title="Recently deleted" subtitle="Deleted tasks are removed for good after 30 days." onBack={() => setView('board')} />
+            <Toolbar title="Recently deleted" subtitle="Deleted tasks are removed for good after 30 days." onBack={() => setShowTrash(false)} />
           ) : (
             <Toolbar
               title={APP_NAME}
@@ -166,8 +167,8 @@ function AppScreen({ overlay }: { overlay: { taskId: string | null; openTask: (t
               menu={{
                 showCompleted,
                 onShowCompletedChange: setShowCompleted,
-                onCompletedLog: () => setView('log'),
-                onTrash: () => setView('trash'),
+                onCompletedLog: openLog,
+                onTrash: () => setShowTrash(true),
                 onSettings: () => setSettingsOpen(true),
                 account: auth.email ? { email: auth.email, onSignOut: () => void auth.signOut() } : undefined,
               }}

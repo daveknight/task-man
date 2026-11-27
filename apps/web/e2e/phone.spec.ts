@@ -377,8 +377,8 @@ test('history opens from the task sheet and returns to the task', async ({ page 
   await expect(editor.locator('[data-slot=task-history]')).toHaveCount(0);
   await editor.getByRole('button', { name: 'More' }).tap();
   await page.getByRole('menuitem', { name: 'History' }).tap();
-  await expect(editor.getByRole('heading', { name: 'History' })).toBeVisible();
-  await expect(editor.getByText('No history.')).toBeVisible();
+  await expect(editor.getByRole('heading', { name: 'Task Activities' })).toBeVisible();
+  await expect(editor).toContainText('created the task');
   await editor.getByRole('button', { name: 'Task' }).tap();
   await expect(editor.getByRole('textbox', { name: 'Title' })).toHaveValue('Water the plants');
   await expect(editor.locator('[data-slot=task-history]')).toHaveCount(0);

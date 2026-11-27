@@ -502,7 +502,7 @@ export async function skipTask(ctx: Context, ref: string, on?: string): Promise<
 export async function historyTask(ctx: Context, ref: string) {
   const snapshot = await loadSnapshot(ctx.scope);
   const task = findTask(snapshot, ref);
-  return taskHistory(task, snapshot.completions, snapshot.positions.get(task.id) ?? null);
+  return taskHistory(task, snapshot.completions, snapshot.positions.get(task.id) ?? null, snapshot.activities);
 }
 
 export async function undoneTask(ctx: Context, ref: string): Promise<Changed> {
