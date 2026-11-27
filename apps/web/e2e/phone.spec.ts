@@ -396,6 +396,33 @@ test('phone search: the Tags filter narrows results, and result rows show no chi
 
 const TINY_PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
 
+test('the address keeps the task sheet and a preview, and back closes the preview first', async ({ page }) => {
+  const taskId = showTask('Buy new watch band').task.id;
+  await row(page, 'Buy new watch band').getByText('Buy new watch band').tap();
+  const sheet = page.locator('[data-slot=drawer-content]');
+  await expect(sheet.locator('[data-slot=task-editor]')).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`/tasks/${taskId}\\?today=${TODAY}$`));
+
+  const files = sheet.locator('[data-slot=files]');
+  await files.locator('[data-slot=file-input]').setInputFiles({ name: 'dot.png', mimeType: 'image/png', buffer: TINY_PNG });
+  await files.locator('[data-slot=file-row]').getByRole('button', { name: 'dot.png', exact: true }).tap();
+  const preview = page.getByRole('dialog', { name: 'dot.png' });
+  await expect(preview).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`/tasks/${taskId}/files/[^/?]+\\?today=${TODAY}$`));
+
+  await page.goBack();
+  await expect(preview).toBeHidden();
+  await expect(sheet.locator('[data-slot=task-editor]')).toBeVisible();
+  await page.goForward();
+  await expect(preview).toBeVisible();
+  await page.goBack();
+  await page.goBack();
+  await expect(sheet).toBeHidden();
+  await expect(page).toHaveURL(new RegExp(`\\/\\?today=${TODAY}$`));
+  await page.goForward();
+  await expect(sheet.locator('[data-slot=task-editor]')).toBeVisible();
+});
+
 test('the task sheet has one Add file button', async ({ page }) => {
   await row(page, 'Buy new watch band').getByText('Buy new watch band').tap();
   const files = page.locator('[data-slot=drawer-content] [data-slot=files]');
