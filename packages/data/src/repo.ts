@@ -1,7 +1,9 @@
-import { MAIN_VIEW_ID, OCCURRENCE_ALREADY_RECORDED, assertValid, orderTaskTags, sortSubtasks, sortTags, taskPatch, type ChangePlan, type ISODate, type OccurrencePlan, type OccurrenceRecord, type PositionWrite, type Subtask, type SubtaskChange, type Tag, type TagChange, type TagLink, type Task, type TaskTagChange, type UndoPlan } from '@app/core';
+import { MAIN_VIEW_ID, OCCURRENCE_ALREADY_RECORDED, assertValid, orderTaskTags, sortSubtasks, sortTags, taskPatch, type ActivityRecord, type ChangePlan, type ISODate, type OccurrencePlan, type OccurrenceRecord, type PositionWrite, type Subtask, type SubtaskChange, type Tag, type TagChange, type TagLink, type Task, type TaskTagChange, type UndoPlan } from '@app/core';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { drainFileDeletions } from './attachments.ts';
 import {
+  ACTIVITY_COLUMNS,
+  activityFromRow,
   COMPLETION_COLUMNS,
   completionFromRow,
   patchToRow,
@@ -15,6 +17,7 @@ import {
   TASK_TAG_COLUMNS,
   taskFromRow,
   taskTagRows,
+  type ActivityRow,
   type CompletionRow,
   type SubtaskRow,
   type TagRow,
@@ -39,6 +42,8 @@ export interface Snapshot {
   tags: Tag[];
   /** Completions and skips, oldest first, so the last one for a task is the one undo restores. */
   completions: OccurrenceRecord[];
+  /** Field changes, in the order they were recorded. Completions are not copied here. */
+  activities: ActivityRecord[];
 }
 
 function fail(what: string, error: { message: string } | null): void {
@@ -112,6 +117,34 @@ function withTags(tasks: Task[], links: readonly Pick<TaskTagRow, 'task_id' | 't
   return tasks.map((t) => ({ ...t, tags: orderTaskTags(byTask.get(t.id) ?? []) }));
 }
 
+async function selectActivities({ db, userId }: Scope): Promise<ActivityRow[]> {
+  const rows: ActivityRow[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await db
+      .from('task_activities')
+      .select(ACTIVITY_COLUMNS)
+      .eq('user_id', userId)
+      .order('at')
+      .order('seq')
+      .order('id')
+      .range(from, from + PAGE - 1)
+      .returns<ActivityRow[]>();
+    fail('select activities', error);
+    rows.push(...(data ?? []));
+    if ((data?.length ?? 0) < PAGE) break;
+  }
+  return rows;
+}
+
+/** Marks the next task or subtask write as the follow-up of a completion, skip or undo, so it is not copied beside the occurrence. */
+async function noteOccurrenceFollowup({ db, userId }: Scope, taskId: string): Promise<void> {
+  fail('note occurrence follow-up', (await db.rpc('note_occurrence_followup', { p_task_id: taskId, p_user_id: userId })).error);
+}
+
+async function clearOccurrenceFollowup({ db, userId }: Scope, taskId: string): Promise<void> {
+  fail('clear occurrence follow-up', (await db.rpc('clear_occurrence_followup', { p_task_id: taskId, p_user_id: userId })).error);
+}
+
 async function selectCompletions({ db, userId }: Scope): Promise<CompletionRow[]> {
   const rows: CompletionRow[] = [];
   for (let from = 0; ; from += PAGE) {
@@ -132,13 +165,14 @@ async function selectCompletions({ db, userId }: Scope): Promise<CompletionRow[]
 
 export async function loadSnapshot(scope: Scope): Promise<Snapshot> {
   const { db, userId } = scope;
-  const [tasks, positions, subtasks, tags, links, completions] = await Promise.all([
+  const [tasks, positions, subtasks, tags, links, completions, activities] = await Promise.all([
     db.from('tasks').select(TASK_COLUMNS).eq('user_id', userId).returns<TaskRow[]>(),
     db.from('task_positions').select('task_id,sort_key').eq('user_id', userId).eq('view_id', MAIN_VIEW_ID).returns<{ task_id: string; sort_key: string }[]>(),
     selectSubtasks(scope),
     selectTags(scope),
     selectTaskTags(scope),
     selectCompletions(scope),
+    selectActivities(scope),
   ]);
   fail('select tasks', tasks.error);
   fail('select positions', positions.error);
@@ -147,6 +181,7 @@ export async function loadSnapshot(scope: Scope): Promise<Snapshot> {
     positions: new Map((positions.data ?? []).map((p) => [p.task_id, p.sort_key])),
     tags,
     completions: completions.map(completionFromRow),
+    activities: activities.map(activityFromRow),
   };
 }
 
@@ -167,9 +202,22 @@ export async function writeOccurrence(scope: Scope, before: Task, plan: Occurren
   });
   if (inserted.error?.code === '23505') throw new Error(OCCURRENCE_ALREADY_RECORDED);
   fail('record occurrence', inserted.error);
-  await writeChange(scope, before.id, { patch: taskPatch(before, plan.task), positions: [], clearPosition: plan.clearPosition });
+  const patch = taskPatch(before, plan.task);
+  if (Object.keys(patch).length > 0) await noteOccurrenceFollowup(scope, before.id);
+  try {
+    await writeChange(scope, before.id, { patch, positions: [], clearPosition: plan.clearPosition });
+  } catch (error) {
+    if (Object.keys(patch).length > 0) await clearOccurrenceFollowup(scope, before.id);
+    throw error;
+  }
   for (const id of plan.resetSubtaskIds) {
-    await writeSubtaskChange(scope, before.id, { kind: 'edit', id, patch: { done: false } });
+    await noteOccurrenceFollowup(scope, before.id);
+    try {
+      await writeSubtaskChange(scope, before.id, { kind: 'edit', id, patch: { done: false } });
+    } catch (error) {
+      await clearOccurrenceFollowup(scope, before.id);
+      throw error;
+    }
   }
 }
 
@@ -178,13 +226,26 @@ export async function writeUndoOccurrence(scope: Scope, current: Task, plan: Und
   assertValid(plan.task);
   const { db, userId } = scope;
   fail('undo occurrence', (await db.from('task_completions').delete().eq('user_id', userId).eq('id', plan.completionId)).error);
-  await writeChange(scope, plan.task.id, {
-    patch: taskPatch(current, plan.task),
-    positions: plan.sortKey ? [{ taskId: plan.task.id, sortKey: plan.sortKey }] : [],
-    clearPosition: plan.sortKey == null,
-  });
+  const patch = taskPatch(current, plan.task);
+  if (Object.keys(patch).length > 0) await noteOccurrenceFollowup(scope, plan.task.id);
+  try {
+    await writeChange(scope, plan.task.id, {
+      patch,
+      positions: plan.sortKey ? [{ taskId: plan.task.id, sortKey: plan.sortKey }] : [],
+      clearPosition: plan.sortKey == null,
+    });
+  } catch (error) {
+    if (Object.keys(patch).length > 0) await clearOccurrenceFollowup(scope, plan.task.id);
+    throw error;
+  }
   for (const edit of plan.subtaskDone) {
-    await writeSubtaskChange(scope, plan.task.id, { kind: 'edit', id: edit.id, patch: { done: edit.done } });
+    await noteOccurrenceFollowup(scope, plan.task.id);
+    try {
+      await writeSubtaskChange(scope, plan.task.id, { kind: 'edit', id: edit.id, patch: { done: edit.done } });
+    } catch (error) {
+      await clearOccurrenceFollowup(scope, plan.task.id);
+      throw error;
+    }
   }
 }
 

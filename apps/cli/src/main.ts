@@ -69,7 +69,7 @@ Tasks (<task> is an id, an id prefix of 4+ characters, or a title prefix):
   move <task> --upcoming --start <date> [--clear-due]
                                             drop into Upcoming: Open, starting on that date
   done <task> [--on <date>]    undone <task>    skip <task> [--on <date>]
-  history <task>                            completions and skips, oldest first
+  history <task>                            field changes and occurrences, oldest first
   delete <task> [--forever]    restore <task>
   purge-trash                               permanently remove Recently deleted older than 30 days
   search "query" [--completed] [--flagged] [--tag <tag> ...]
@@ -103,9 +103,9 @@ picks schedule (by due date, the default), after_completion or dates. dates mode
 last, or an nth weekday such as "2nd tue". --ends is never, a date (that day is included) or count:N (completions
 and skips). --start-offset N shows the task N days before each due date (0 means the due date; leaving it off
 means no start date). A repeat with no due date uses today, or the first listed date. done --on and skip --on
-record that calendar day. history lists one task's occurrences, oldest first, including skips.
-Each row is a completion or a skip, with what that occurrence left behind and whether it can
-still be undone. log lists everything finished, newest first, grouped by week and day: one-off
+record that calendar day. history lists one task's field changes, completions and skips, oldest
+first. history --json is that same timeline. Each occurrence row keeps what it left behind and
+whether it can still be undone. A field change has no undo. log lists everything finished, newest first, grouped by week and day: one-off
 completions and each recorded completion of a repeating task, with skips left out. undone restores
 the latest one until the task is edited. --repeat none clears the rule.
 

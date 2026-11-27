@@ -155,7 +155,7 @@ Not captured in Figma yet; these are the states to add when Dave asks. The desig
 
 ## Repeats
 
-Not captured in Figma yet; these are the states to add when Dave asks. The picker designs are on Figma node 132-2. The field shows the cadence only (“Weekly on Wed”, “Every 2 weeks on Sun”); the menu writes the weekday out (“Weekly on Wednesday”). Choosing a repeat on a task with no due date sets the due date to today, or to the first listed date. “No due date” is hidden while a repeat is set. Clearing the repeat leaves the start and due dates. Skip this occurrence is a button on the sheet for a repeating task, and it stays in the Due menu. History is not on the sheet: the More menu opens it, newest first, with Undo on the latest row while the task is unedited. The Ends choices “On a date” and “After a count” are filled in (a calendar, and a count stepper starting at 1) because the frames only show the closed menu.
+Not captured in Figma yet; these are the states to add when Dave asks. The picker designs are on Figma node 132-2. The field shows the cadence only (“Weekly on Wed”, “Every 2 weeks on Sun”); the menu writes the weekday out (“Weekly on Wednesday”). Choosing a repeat on a task with no due date sets the due date to today, or to the first listed date. “No due date” is hidden while a repeat is set. Clearing the repeat leaves the start and due dates. Skip this occurrence is a button on the sheet for a repeating task, and it stays in the Due menu. History is not on the sheet: the More menu opens Task Activities, newest first. One card per save, with the account name or You, the time in Pacific, and a short detail. An arrow joins before and after when both exist. An occurrence keeps Undo on the latest row while the task is unedited. A field edit has no undo. The Ends choices “On a date” and “After a count” are filled in (a calendar, and a count stepper starting at 1) because the frames only show the closed menu.
 
 - [x] Task sheet Repeat row reads “None”, and the row has no repeat icon – desktop 1440, light and dark
 - [x] Presets popover: Daily, Weekly on that weekday, Monthly on that date, Yearly, Every weekday, Custom…, No repeat, with the note “Repeats from the due date. Next: …” – desktop 1440, light and dark
@@ -180,11 +180,12 @@ Skip is the existing “Skip this occurrence” pick inside Due, shown when the 
 - [ ] The last occurrence: the row strikes through and folds away like any completed task – desktop 1440 — skipped 2026-11-25: mid-animation only. Dave asked for settled screens.
 - [x] Phone: complete a repeating row, toast with Undo – phone
 - [x] Repeating task sheet: “Skip this occurrence” above the fields, and the sheet itself has no History list – desktop 1440, light and dark
-- [x] More menu, History, before anything is recorded: “No history.” – desktop 1440
-- [x] History after two skips: newest first, “Skipped” with each occurrence’s date, Undo on the latest – desktop 1440, light and dark
-- [x] History after the task was edited: the latest row has no Undo – desktop 1440
+- [ ] Task Activities for a task before a later edit: “You created the task” and the title – desktop 1440, light and dark
+- [ ] Task Activities after a title edit: “You changed the title”, the old title → the new one – desktop 1440, light and dark
+- [ ] Task Activities after two skips: newest first, each skip’s date, Undo on the latest – desktop 1440, light and dark
+- [ ] Task Activities after the task was edited: the latest occurrence has no Undo – desktop 1440
 - [x] A task that does not repeat: More menu still has History, and there is no Skip button – desktop 1440
-- [x] Phone: History from the task sheet’s More menu, then back to the task – phone
+- [ ] Phone: History from the task sheet’s More menu opens Task Activities, then back to the task – phone
 
 ## Attachments
 

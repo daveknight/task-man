@@ -9,7 +9,7 @@ import { connection, DEV_USER } from '../src/config.ts';
 import { adminClient, devUserId } from '../src/db.ts';
 
 const OTHER_USER = { email: 'other-user@example.com', password: 'other-password' };
-const TABLES = ['tasks', 'task_positions', 'subtasks', 'tags', 'task_tags', 'task_completions', 'tombstones', 'attachments', 'file_deletions'];
+const TABLES = ['tasks', 'task_positions', 'subtasks', 'tags', 'task_tags', 'task_completions', 'task_activities', 'tombstones', 'attachments', 'file_deletions'];
 
 const conn = connection();
 const admin = adminClient();

@@ -53,7 +53,11 @@ export interface ChangeOptions {
 export function useTaskWrites(today: ISODate) {
   const client = useQueryClient();
 
-  const current = useCallback((): Snapshot => client.getQueryData<Snapshot>(SNAPSHOT_KEY) ?? { tasks: [], positions: new Map(), tags: [], completions: [] }, [client]);
+  const current = useCallback((): Snapshot => {
+    const raw = client.getQueryData<Snapshot>(SNAPSHOT_KEY);
+    if (!raw) return { tasks: [], positions: new Map(), tags: [], completions: [], activities: [] };
+    return { ...raw, activities: raw.activities ?? [] };
+  }, [client]);
 
   const run = useCallback(
     async (optimistic: Snapshot, write: (s: Scope) => Promise<unknown>) => {
@@ -86,7 +90,7 @@ export function useTaskWrites(today: ISODate) {
     async (before: Task, after: Task, options: ChangeOptions = {}) => {
       const snapshot = current();
       const plan = planChange(snapshot.tasks, snapshot.positions, before, after, today, options.drop);
-      await run({ ...applyPlan(snapshot.tasks, snapshot.positions, after, plan), tags: snapshot.tags, completions: snapshot.completions }, (s) => writeChange(s, after.id, plan));
+      await run({ ...applyPlan(snapshot.tasks, snapshot.positions, after, plan), tags: snapshot.tags, completions: snapshot.completions, activities: snapshot.activities }, (s) => writeChange(s, after.id, plan));
     },
     [current, run, today],
   );
@@ -98,7 +102,7 @@ export function useTaskWrites(today: ISODate) {
       const next = new Map(snapshot.positions);
       for (const w of positions) next.set(w.taskId, w.sortKey);
       const optimistic = { ...task, createdAt: new Date().toISOString() };
-      await run({ tasks: [...snapshot.tasks, optimistic], positions: next, tags: snapshot.tags, completions: snapshot.completions }, (s) => insertTask(s, task, positions));
+      await run({ tasks: [...snapshot.tasks, optimistic], positions: next, tags: snapshot.tags, completions: snapshot.completions, activities: snapshot.activities }, (s) => insertTask(s, task, positions));
     },
     [current, run, today],
   );
