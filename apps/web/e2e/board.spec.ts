@@ -196,14 +196,14 @@ test('the flag item says Remove flag when the task is flagged, and Flag when it 
   await page.keyboard.press('Escape');
 });
 
-test('the board menu offers Show deleted, with no icon, and it opens Trash', async ({ page }) => {
+test('the board menu offers View recently deleted, with no icon, and it opens Recently deleted', async ({ page }) => {
   await page.getByRole('button', { name: 'Menu', exact: true }).click();
-  const item = page.getByRole('menuitem', { name: 'Show deleted', exact: true });
+  const item = page.getByRole('menuitem', { name: 'View recently deleted', exact: true });
   await expect(item).toBeVisible();
   await expect(item.locator('svg')).toHaveCount(0);
-  await expect(page.getByRole('menuitem', { name: 'Trash', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('menuitem', { name: 'Recently deleted', exact: true })).toHaveCount(0);
   await item.click();
-  await expect(page.getByRole('heading', { name: 'Trash' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Recently deleted' })).toBeVisible();
 });
 
 const background = (r: Locator) => r.evaluate((el) => getComputedStyle(el).backgroundColor);
@@ -602,7 +602,7 @@ test('clicking off the list closes the pane and clears the selection', async ({ 
 
   // Inside the pane, on a popover, and on a row's own controls keep the selection.
   await page.locator('[data-slot=task-editor]').getByRole('button', { name: 'More' }).click();
-  await expect(page.getByRole('menuitem', { name: /Move to Trash|Delete/ }).first()).toBeVisible();
+  await expect(page.getByRole('menuitem', { name: 'Delete', exact: true })).toBeVisible();
   await page.keyboard.press('Escape');
   await row(page, 'Buy new watch band').hover();
   await expect(pane(page)).toBeVisible();
@@ -667,7 +667,7 @@ test('search, then delete and restore from Trash', async ({ page }) => {
   await expect(section(page, 'ready').getByText('Renew passport')).toHaveCount(0);
 
   await page.getByRole('button', { name: 'Menu', exact: true }).click();
-  await page.getByRole('menuitem', { name: 'Show deleted' }).click();
+  await page.getByRole('menuitem', { name: 'View recently deleted' }).click();
   await row(page, 'Renew passport').hover();
   await row(page, 'Renew passport').getByRole('button', { name: 'Restore' }).click();
   await expect.poll(() => showTask('Renew passport').task.deletedAt).toBeNull();

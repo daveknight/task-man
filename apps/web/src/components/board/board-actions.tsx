@@ -310,7 +310,7 @@ export function BoardActionsProvider({
         const after = softDelete(task, new Date().toISOString(), today);
         void leaveThen(task.id, () =>
           writes.change(task, after).then(
-            () => toast(`Moved “${task.title}” to Trash`, { action: { label: 'Undo', onClick: () => void writes.change(after, restore(after)).catch(quiet) } }),
+            () => toast(`Moved “${task.title}” to Recently deleted`, { action: { label: 'Undo', onClick: () => void writes.change(after, restore(after)).catch(quiet) } }),
             quiet,
           ),
         );

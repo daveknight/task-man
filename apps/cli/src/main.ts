@@ -71,9 +71,9 @@ Tasks (<task> is an id, an id prefix of 4+ characters, or a title prefix):
   done <task> [--on <date>]    undone <task>    skip <task> [--on <date>]
   history <task>                            completions and skips, oldest first
   delete <task> [--forever]    restore <task>
-  purge-trash                               permanently remove Trash older than 30 days
+  purge-trash                               permanently remove Recently deleted older than 30 days
   search "query" [--completed] [--flagged] [--tag <tag> ...]
-                                            title, description and tag names; never Trash
+                                            title, description and tag names; never Recently deleted
                                             --completed: include completed, --flagged: only flagged,
                                             --tag (repeat it): only tasks that have every one of these tags
   capture "note" [--provider gemini|claude|openai] [--apply]
@@ -317,7 +317,7 @@ async function main(argv: string[]): Promise<void> {
     case 'undone':
       return printChanged(await undoneTask(ctx, arg(0, 'a task')), 'Not done:');
     case 'delete':
-      return printChanged(await deleteTask(ctx, arg(0, 'a task'), values.forever), values.forever ? 'Deleted forever:' : 'Moved to Trash:');
+      return printChanged(await deleteTask(ctx, arg(0, 'a task'), values.forever), values.forever ? 'Deleted forever:' : 'Moved to Recently deleted:');
     case 'restore':
       return printChanged(await restoreTask(ctx, arg(0, 'a task')), 'Restored');
     case 'purge-trash': {

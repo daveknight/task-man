@@ -45,7 +45,7 @@ export const SECTION_TITLES: Record<Section, string> = {
   ready: 'Ready',
   upcoming: 'Upcoming',
   completed: 'Completed',
-  trash: 'Trash',
+  trash: 'Recently deleted',
 };
 
 const SECTION_STATUS: Partial<Record<Section, Status>> = { in_progress: 'in_progress', waiting: 'waiting', ready: 'open' };

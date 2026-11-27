@@ -149,7 +149,7 @@ function AppScreen({ overlay }: { overlay: { taskId: string | null; log: boolean
           {view === 'log' ? (
             <Toolbar title="Completed log" subtitle="Repeating tasks are listed each time an occurrence was completed." onBack={closeLog} />
           ) : view === 'trash' ? (
-            <Toolbar title="Trash" subtitle="Deleted tasks are removed for good after 30 days." onBack={() => setShowTrash(false)} />
+            <Toolbar title="Recently deleted" subtitle="Deleted tasks are removed for good after 30 days." onBack={() => setShowTrash(false)} />
           ) : (
             <Toolbar
               title={APP_NAME}
@@ -193,7 +193,7 @@ function AppScreen({ overlay }: { overlay: { taskId: string | null; log: boolean
             {view === 'log' && log && log.weeks.length > 0 && <CompletedLogView log={log} today={today} tasks={data?.tasks ?? []} />}
             {view !== 'log' && empty && (
               <p className="px-row-x py-8 text-center text-muted-foreground" data-slot="empty">
-                {view === 'trash' ? 'Trash is empty' : 'No tasks yet.'}
+                {view === 'trash' ? 'Recently deleted is empty' : 'No tasks yet.'}
               </p>
             )}
             {view !== 'log' && shown && data && <BoardView board={shown} today={today} positions={online ? data.positions : undefined} selectedId={twoPane || selected ? taskId : null} actionContext={(task) => ({ recurring: task.repeat != null })} />}
