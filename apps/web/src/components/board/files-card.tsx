@@ -9,6 +9,7 @@ import { prepareUpload } from '@/lib/downscale';
 import { useOnline } from '@/lib/online';
 import { useBoardActions } from './board-actions';
 import { RowList } from './board-view';
+import { ImagePreview } from './image-preview';
 
 function message(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -19,6 +20,8 @@ function message(error: unknown): string {
  * otherwise. Nothing about them is shown on the board row. One Add file button opens the
  * system picker, with no accept filter and no capture flag, so a phone may still offer
  * the camera, the photo library, or files. A photo is still downscaled before upload.
+ * A previewable image's name opens a full-screen preview. Any other file opens its
+ * signed URL, the same as before.
  */
 export function FilesCard({ task }: { task: Task }) {
   const actions = useBoardActions();
@@ -27,6 +30,7 @@ export function FilesCard({ task }: { task: Task }) {
   const writes = useFileWrites(task.id);
   const [activity, setActivity] = useState<'adding' | 'deleting' | null>(null);
   const busy = activity != null;
+  const [preview, setPreview] = useState<AttachmentFile | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const locked = !!task.deletedAt || !online || !actions || busy;
 
@@ -70,7 +74,15 @@ export function FilesCard({ task }: { task: Task }) {
             ) : (
               <Icon name="file" className="size-icon shrink-0 text-muted-foreground" />
             )}
-            {file.url ? (
+            {file.url && isPreviewableImage(file.mime) ? (
+              <button
+                type="button"
+                className="optical-center min-w-0 flex-1 truncate rounded-sm text-left text-body text-foreground underline-offset-2 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-inset"
+                onClick={() => setPreview(file)}
+              >
+                {file.filename}
+              </button>
+            ) : file.url ? (
               <a href={file.url} target="_blank" rel="noreferrer" className="optical-center min-w-0 flex-1 truncate text-body text-foreground underline-offset-2 hover:underline">
                 {file.filename}
               </a>
@@ -107,6 +119,7 @@ export function FilesCard({ task }: { task: Task }) {
           </div>
         )}
       </RowList>
+      <ImagePreview file={preview?.url ? { filename: preview.filename, url: preview.url } : null} onClose={() => setPreview(null)} />
     </div>
   );
 }

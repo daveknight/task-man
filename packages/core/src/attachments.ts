@@ -37,7 +37,11 @@ export function isPhotoMime(mime: string): boolean {
   return PHOTO_MIME.has(mime.toLowerCase());
 }
 
-/** Images the sheet can show as a thumbnail. HEIC is not one of them until it has been re-encoded. */
+/**
+ * Images an `<img>` can paint, so the sheet shows a thumbnail and the name opens
+ * the preview. HEIC and HEIF are not, until a browser has re-encoded them.
+ * Anything else, including SVG and `image/jpg`, opens as a file.
+ */
 export function isPreviewableImage(mime: string): boolean {
   return ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/bmp'].includes(mime.toLowerCase());
 }

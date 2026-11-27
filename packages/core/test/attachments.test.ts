@@ -45,9 +45,13 @@ describe('photo sizing', () => {
     expect(isPhotoMime('image/heic')).toBe(true);
     expect(isPhotoMime('image/gif')).toBe(false);
     expect(isPhotoMime('application/pdf')).toBe(false);
-    expect(isPreviewableImage('image/gif')).toBe(true);
-    expect(isPreviewableImage('image/heic')).toBe(false);
-    expect(isPreviewableImage('application/pdf')).toBe(false);
+    for (const mime of ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/bmp']) {
+      expect(isPreviewableImage(mime)).toBe(true);
+      expect(isPreviewableImage(mime.toUpperCase())).toBe(true);
+    }
+    for (const mime of ['image/heic', 'image/heif', 'image/jpg', 'image/svg+xml', 'application/pdf', 'text/plain']) {
+      expect(isPreviewableImage(mime)).toBe(false);
+    }
   });
 });
 
