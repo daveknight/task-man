@@ -339,6 +339,8 @@ tags(id, user_id, name unique per user ignoring case, color unused)
 task_tags(user_id, task_id, tag_id)
 task_completions(id, user_id, task_id, occurrence_due date, kind: done|skip, completed_on date, completed_at, snapshot jsonb,
                  unique(task_id, occurrence_due))
+task_activities(id, user_id, task_id, batch_id, seq, at, kind: created|changed, field, before jsonb, after jsonb)
+                 -- triggers write one row per changed field; history unions these with task_completions
 tombstones(id, user_id, purged_at)
 capture_log(id, user_id, input text, provider, model, reply jsonb, saved jsonb, created_at)   -- phase 2b, last 50 kept
 attachments(id, user_id, task_id, storage_path, filename, mime, bytes)     -- phase 3

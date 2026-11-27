@@ -1,4 +1,4 @@
-import { addDays, APP_NAME, repeatLabel, sortSubtasks, startOfWeek, subtaskCount, weekdayOf, type Board, type CompletedLog, type ISODate, type RepeatRule, type Section, type Subtask, type Task } from '@app/core';
+import { addDays, APP_NAME, isOccurrenceHistory, localDate, repeatLabel, sortSubtasks, startOfWeek, subtaskCount, weekdayOf, HISTORY_ZONE, type Board, type CompletedLog, type ISODate, type RepeatRule, type Section, type Subtask, type Task, type TaskHistoryEntry } from '@app/core';
 import type { BoardTask } from './commands.ts';
 
 const SECTION_TITLES: Record<Section, string> = {
@@ -113,9 +113,15 @@ export function formatCompletedLog(log: CompletedLog): string {
   return out.join('\n');
 }
 
-export function formatHistory(rows: readonly { completedOn: string; kind: string; occurrenceDue: string }[]): string {
+export function formatHistory(rows: readonly TaskHistoryEntry[]): string {
   if (rows.length === 0) return 'No history.';
-  return rows.map((row) => `${row.completedOn}  ${row.kind}  due ${row.occurrenceDue}`).join('\n');
+  return rows
+    .map((row) => {
+      if (isOccurrenceHistory(row)) return `${row.completedOn}  ${row.kind}  due ${row.occurrenceDue}`;
+      const day = localDate(new Date(row.at), HISTORY_ZONE);
+      return `${day}  ${row.verb}${row.detail ? `  ${row.detail}` : ''}`;
+    })
+    .join('\n');
 }
 
 /** The subtasks, numbered the way `--done-subtask 2` and the other subtask flags count them. */

@@ -2,6 +2,7 @@
  * Repeats against local Supabase, through the same functions the CLI commands call.
  * `--today` is the context's today: done and skip with no `--on` use it.
  */
+import { isOccurrenceHistory } from '@app/core';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { exportAll, importAll } from '../src/backup.ts';
 import { adminClient, devUserId } from '../src/db.ts';
@@ -52,7 +53,7 @@ describe('schedule, after completion and dates', () => {
     expect(after.sortKey).toBeNull();
     expect(after.placement).toBe('upcoming');
 
-    const history = await historyTask(ctx, name('weekly'));
+    const history = (await historyTask(ctx, name('weekly'))).filter(isOccurrenceHistory);
     expect(history.map((row) => [row.kind, row.occurrenceDue, row.completedOn])).toEqual([['done', '2026-11-18', TODAY]]);
     expect(history[0]).toMatchObject({ action: 'completed', label: 'Done', undoable: true, effect: { outcome: 'advance', dueDate: '2026-11-25', completedOn: null } });
 
@@ -62,7 +63,7 @@ describe('schedule, after completion and dates', () => {
     expect(restored.task.startDate).toBe('2026-11-17');
     expect(restored.task.subtasks?.[0]?.done).toBe(true);
     expect(restored.sortKey).toBe(before.sortKey);
-    expect(await historyTask(ctx, name('weekly'))).toEqual([]);
+    expect((await historyTask(ctx, name('weekly'))).filter(isOccurrenceHistory)).toEqual([]);
   });
 
   it('counts a completion from the day it was done, including when that day is --on', async () => {
@@ -88,7 +89,7 @@ describe('schedule, after completion and dates', () => {
     expect(ended.note).toBe('Repeat ended');
     expect(ended.task.completedAt).toBe(ctx.now);
     expect(ended.task.dueDate).toBe('2026-11-19');
-    const history = await historyTask(ctx, name('skip'));
+    const history = (await historyTask(ctx, name('skip'))).filter(isOccurrenceHistory);
     expect(history.map((row) => row.kind)).toEqual(['skip', 'skip']);
     expect(history.map((row) => row.effect.outcome)).toEqual(['advance', 'end']);
   });
@@ -101,7 +102,7 @@ describe('schedule, after completion and dates', () => {
     const shown = await show('once');
     expect(shown.task.dueDate).toBe('2026-11-18');
     expect(shown.task.completedAt).toBeNull();
-    expect(await historyTask(ctx, name('once'))).toHaveLength(1);
+    expect((await historyTask(ctx, name('once'))).filter(isOccurrenceHistory)).toHaveLength(1);
   });
 
   it('ends a dates list when nothing is left, and an on-date is included', async () => {
@@ -165,6 +166,6 @@ describe('schedule, after completion and dates', () => {
     const back = await show('backup');
     expect(back.task.dueDate).toBe('2026-11-19');
     expect(back.task.startDate).toBe('2026-11-19');
-    expect(await historyTask(ctx, name('backup'))).toHaveLength(1);
+    expect((await historyTask(ctx, name('backup'))).filter(isOccurrenceHistory)).toHaveLength(1);
   });
 });
