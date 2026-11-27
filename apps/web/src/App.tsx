@@ -178,9 +178,7 @@ function AppScreen({ overlay }: { overlay: { taskId: string | null; log: boolean
             {!online && (
               <p className="mb-3 flex items-center gap-row-gap rounded-xl bg-notice px-row-x py-2.5 text-body text-notice-foreground" role="status" data-slot="offline-banner">
                 <Icon name="offline" weight="bold" className="size-5 shrink-0 text-flag" />
-                <span>
-                  <strong className="font-semibold">You're offline.</strong> This is the board as last loaded; changes are paused until you're back online.
-                </span>
+                <span>No connection. Tasks below show last loaded state and cannot be edited until you're back online.</span>
               </p>
             )}
             {error && <p className="px-row-x text-destructive">{error}</p>}

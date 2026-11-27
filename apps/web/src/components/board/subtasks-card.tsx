@@ -105,12 +105,27 @@ function SubtaskRow({
       data-done={subtask.done || undefined}
       // Only vertical movement, and the dragged row stays opaque above its neighbours.
       style={{ transform: CSS.Translate.toString(transform ? { ...transform, x: 0 } : null), transition }}
-      className={cn('group/row relative flex min-h-subtask items-center gap-row-gap bg-card pl-row-x pr-row-x', isDragging && 'z-20 shadow-md ring-1 ring-border')}
+      className={cn('group/row relative flex min-h-subtask items-center gap-row-gap bg-card px-row-x', isDragging && 'z-20 shadow-md ring-1 ring-border')}
     >
-      <span className="flex w-handle shrink-0 items-center justify-center self-stretch">
-        {!locked && <DragHandle title={subtask.title} attributes={attributes} listeners={listeners} activator={setActivatorNodeRef} dragging={isDragging} />}
+      {/* The grip sits in the padding, clear of the checkbox, so the circle lines up with the card icon and the title with the other field labels. It stays above the checkbox's expanded hit area, which reaches back into that padding. */}
+      {!locked && (
+        <span
+          className="absolute inset-y-0 left-0 z-10 flex items-center justify-center"
+          style={{ width: 'calc(var(--space-row-x) - (var(--size-checkbox) - var(--size-icon)) / 2 - 1px)' }}
+        >
+          <DragHandle
+            title={subtask.title}
+            attributes={attributes}
+            listeners={listeners}
+            activator={setActivatorNodeRef}
+            dragging={isDragging}
+            className="m-0 h-full w-full flex-none"
+          />
+        </span>
+      )}
+      <span className="flex size-icon shrink-0 items-center justify-center">
+        <Checkbox aria-label={subtask.title} checked={subtask.done} disabled={locked} onCheckedChange={(checked) => onToggle(checked)} />
       </span>
-      <Checkbox aria-label={subtask.title} checked={subtask.done} disabled={locked} onCheckedChange={(checked) => onToggle(checked)} />
       {editing ? (
         <SubtaskInput initial={subtask.title} label="Subtask title" onSubmit={onSubmit} onCancel={onCancel} />
       ) : (
@@ -144,9 +159,9 @@ function SubtaskRow({
 }
 
 /**
- * The Subtasks card between a task's dates and its description: a header with the done count, the subtasks in
- * order (tick, rename in place, drag the handle to reorder) and an Add subtask row that keeps offering another.
- * A task in Trash shows its subtasks as they were, unchanged.
+ * The Subtasks card between a task's dates and its description: a header with the done count and a grey
+ * "+ Add" link, then the subtasks in order (tick, rename in place, drag the handle to reorder). Return in
+ * the field saves and asks for another. A task in Recently deleted shows its subtasks as they were, unchanged.
  */
 export function SubtasksCard({ task }: { task: Task }) {
   const actions = useBoardActions();
@@ -193,6 +208,17 @@ export function SubtasksCard({ task }: { task: Task }) {
               {done} of {total}
             </span>
           )}
+          {!task.deletedAt && (
+            <button
+              type="button"
+              data-slot="subtask-add"
+              disabled={locked}
+              onClick={() => setEditing({ kind: 'new', nonce: Date.now() })}
+              className="inline-flex shrink-0 items-center self-stretch rounded-sm text-body text-muted-foreground underline-offset-2 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/50 disabled:opacity-50"
+            >
+              <span className="optical-center">+ Add</span>
+            </button>
+          )}
         </div>
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
           <SortableContext items={subtasks.map((s) => s.id)} strategy={verticalListSortingStrategy}>
@@ -211,25 +237,10 @@ export function SubtasksCard({ task }: { task: Task }) {
             ))}
           </SortableContext>
         </DndContext>
-        {!task.deletedAt && (
-          <div className="flex min-h-subtask items-center gap-row-gap pr-row-x pl-row-x" data-slot="subtask-add">
-            <span className="w-handle shrink-0" />
-            {editing?.kind === 'new' ? (
-              <>
-                <Icon name="add" className="size-checkbox shrink-0 text-muted-foreground" />
-                <SubtaskInput key={editing.nonce} initial="" label="New subtask" placeholder="Add subtask" onSubmit={submitNew} onCancel={() => setEditing(null)} />
-              </>
-            ) : (
-              <button
-                type="button"
-                disabled={locked}
-                onClick={() => setEditing({ kind: 'new', nonce: Date.now() })}
-                className="flex min-h-subtask min-w-0 flex-1 items-center gap-row-gap rounded-sm text-left text-muted-foreground outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/50 disabled:opacity-50"
-              >
-                <Icon name="add" className="size-checkbox shrink-0" />
-                <span className="optical-center text-body">Add subtask</span>
-              </button>
-            )}
+        {!task.deletedAt && editing?.kind === 'new' && (
+          <div className="flex min-h-subtask items-center gap-row-gap px-row-x" data-slot="subtask-new">
+            <Icon name="add" className="size-icon shrink-0 text-muted-foreground" />
+            <SubtaskInput key={editing.nonce} initial="" label="New subtask" placeholder="Add subtask" onSubmit={submitNew} onCancel={() => setEditing(null)} />
           </div>
         )}
       </RowList>

@@ -24,7 +24,7 @@ Design guidelines for TaskMan, drawn from Dave's Figma review feedback and sign-
 10. **Only Ready and Upcoming tasks have a start date.** Going into Waiting or In Progress clears it. Hide until is Waiting's own date. It may be after the due date, and it's cleared when a task leaves Waiting.
 11. **Changing into Waiting always opens the picker.** Default is "Don't hide". There is no Keep tile.
 12. **Due today stays blue.** Presets count from today.
-13. **Dropping a task due today or earlier into Upcoming** explains why and offers "Remove due date" or Cancel.
+13. **Dropping a task due today or earlier into Upcoming** explains that a start date can't be after the due date. The title is "Move and remove start date?" and the body is "Upcoming tasks cannot have a start date after a due date which this task currently has." The buttons are "Remove start date" and Cancel. Remove start date clears the start date and keeps the due date. The task stays where it was.
 
 ## Color and icons
 

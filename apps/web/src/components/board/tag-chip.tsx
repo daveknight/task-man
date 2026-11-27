@@ -7,7 +7,7 @@ export function TagChip({ children, className, ...props }: { children: ReactNode
   return (
     <span
       data-slot="tag-chip"
-      className={cn('inline-flex h-5 max-w-40 shrink-0 items-center rounded-full bg-accent px-2 text-footnote font-medium whitespace-nowrap text-section-header', className)}
+      className={cn('inline-flex h-5 max-w-40 shrink-0 items-center rounded-full bg-accent px-2 text-footnote font-normal whitespace-nowrap text-section-header', className)}
       {...props}
     >
       <span className="optical-center truncate">{children}</span>

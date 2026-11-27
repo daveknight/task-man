@@ -183,7 +183,7 @@ export function TagPicker({ task, className }: { task: Task; className?: string 
             className="min-h-9 text-primary pointer-coarse:min-h-11 pointer-coarse:text-body data-selected:text-primary"
           >
             <Icon name="add" />
-            <span className="optical-center truncate">Create “{typed}”</span>
+            <span className="optical-center truncate">Create tag “{typed}”</span>
           </CommandItem>
         )}
         {shown.length === 0 && !typed && (

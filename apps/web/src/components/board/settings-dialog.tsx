@@ -1,4 +1,5 @@
 import { STORAGE_BYTE_LIMIT, formatStorage } from '@app/core';
+import webPackage from '../../../package.json';
 import { Button } from '@/components/ui/button';
 import { useStorageUsage } from '@/data/files';
 import { Surface } from './surface';
@@ -29,6 +30,10 @@ export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenCh
             <div className="h-full rounded-full bg-primary" style={{ width: `${width}%` }} />
           </div>
           <p className="text-footnote text-muted-foreground">50 MB per file. Photos are downscaled before they upload.</p>
+        </div>
+        <div data-slot="app-version" className="flex items-baseline justify-between gap-3">
+          <span className="text-body">Version</span>
+          <span className="text-body text-muted-foreground">{webPackage.version}</span>
         </div>
         <Button className="pointer-coarse:h-control w-full" onClick={() => onOpenChange(false)}>
           Done

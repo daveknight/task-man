@@ -276,9 +276,9 @@ test('subtasks in the bottom sheet: the grip is always shown, tick and add work,
   await sheet.getByRole('checkbox', { name: 'Find model number' }).tap();
   await expect(sheet.locator('[data-slot=subtasks-progress]')).toHaveText('1 of 2');
   await expect.poll(() => showTask(title).subtaskCount).toEqual({ done: 1, total: 2 });
-  await expect(row(page, title).locator('[data-slot=subtask-count]')).toContainText('1/2');
+  await expect(row(page, title).locator('[data-slot=subtask-count]')).toHaveAttribute('aria-label', '1 of 2 subtasks');
 
-  await sheet.getByRole('button', { name: 'Add subtask' }).tap();
+  await sheet.getByRole('button', { name: '+ Add' }).tap();
   await page.keyboard.type('Measure the old wheel');
   await page.keyboard.press('Enter');
   await page.keyboard.press('Escape');

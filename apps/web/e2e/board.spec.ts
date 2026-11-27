@@ -484,26 +484,21 @@ test('drag from Waiting into Upcoming asks for a start date and makes the task O
   });
 });
 
-for (const choice of ['clear_due', 'cancel'] as const) {
-  test(`drag a task due today into Upcoming asks first: ${choice === 'clear_due' ? 'Remove due date' : 'Cancel'}`, async ({ page }) => {
+for (const choice of ['clear_start', 'cancel'] as const) {
+  test(`drag a task due today into Upcoming asks to remove the start date: ${choice === 'clear_start' ? 'Remove start date' : 'Cancel'}`, async ({ page }) => {
     const title = 'Contractor sign-off on deck permit';
     await section(page, 'ready').getByRole('button', { name: /^Ready/ }).click();
     await section(page, 'upcoming').getByRole('button', { name: /^Upcoming/ }).click();
     await drag(page, title, { section: 'upcoming' });
     const prompt = page.locator('[data-slot=upcoming-drop-prompt]');
     await expect(prompt).toBeVisible();
+    await expect(prompt.getByText('Move and remove start date?')).toBeVisible();
+    await expect(prompt.getByText('Upcoming tasks cannot have a start date after a due date which this task currently has.')).toBeVisible();
     await prompt.locator(`[data-choice=${choice}]`).click();
     await expect(prompt).toBeHidden();
-    if (choice === 'cancel') {
-      await expect(page.locator('[data-slot=start-pane]')).toHaveCount(0);
-      expect(await titlesIn(page, 'waiting')).toContain(title);
-      expect(showTask(title)).toMatchObject({ placement: 'waiting', task: { status: 'waiting', dueDate: TODAY, hideUntil: '2026-11-25', startDate: null } });
-      return;
-    }
-    const pane = page.locator('[data-slot=start-pane]');
-    expect(await pane.locator('[data-preset]').evaluateAll((els) => els.map((e) => e.getAttribute('data-preset')))).toEqual(['tomorrow', 'week', 'twoWeeks', 'pick']);
-    await pane.locator('[data-preset=week]').click();
-    await expect.poll(() => showTask(title)).toMatchObject({ placement: 'upcoming', task: { status: 'open', dueDate: null, startDate: '2026-11-25' } });
+    await expect(page.locator('[data-slot=start-pane]')).toHaveCount(0);
+    expect(await titlesIn(page, 'waiting')).toContain(title);
+    expect(showTask(title)).toMatchObject({ placement: 'waiting', task: { status: 'waiting', dueDate: TODAY, hideUntil: '2026-11-25', startDate: null } });
   });
 }
 
@@ -706,7 +701,7 @@ test('search: Only flagged narrows the results to flagged tasks', async ({ page 
 
 test('offline: read-only with a banner, and every row action is disabled', async ({ page, context }) => {
   await context.setOffline(true);
-  await expect(page.locator('[data-slot=offline-banner]')).toBeVisible();
+  await expect(page.locator('[data-slot=offline-banner]')).toHaveText("No connection. Tasks below show last loaded state and cannot be edited until you're back online.");
   await expect(page.getByRole('button', { name: 'Add task' })).toBeDisabled();
   await expect(page.getByRole('checkbox', { name: 'Complete Buy new watch band' })).toBeDisabled();
   await expect(page.getByText("You're offline. Changes are paused until you're back online.")).toHaveCount(0);

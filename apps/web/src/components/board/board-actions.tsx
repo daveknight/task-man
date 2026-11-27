@@ -57,7 +57,7 @@ export interface BoardActions {
   showPresets: (task: Task, group: ActionGroup, pick?: Preset) => void;
   /** The status menu and drag-and-drop. Into Waiting always asks for a hide-until date. */
   setStatus: (task: Task, to: Status, drop?: DropPlanner) => void;
-  /** Dropped into Upcoming: asks for a future start date (first offering to remove a due date of today or earlier), and makes the task Open. */
+  /** Dropped into Upcoming: asks for a future start date. A task due today or earlier is asked to remove its start date instead, and stays put. */
   pickStart: (task: Task, drop?: DropPlanner) => void;
   setField: (task: Task, field: 'start' | 'due' | 'hideUntil', date: ISODate | null) => void;
   /** Sets or clears the repeat. A rule with no due date is anchored to today. */
@@ -338,19 +338,21 @@ export function BoardActionsProvider({
         <Surface
           open
           onOpenChange={(open) => !open && close()}
-          title="Start later"
-          description={`Upcoming tasks start after today, and a start can't be after the due date. It's due ${pending.decision.dueDate === today ? 'today' : longDate(pending.decision.dueDate, today)}. Remove the due date to start it later.`}
+          title="Move and remove start date?"
+          description="Upcoming tasks cannot have a start date after a due date which this task currently has."
           slot="upcoming-drop-prompt"
         >
           <div className="flex flex-col gap-2">
             <Button
-              data-choice="clear_due"
+              data-choice="clear_start"
               onClick={() => {
-                const result = planUpcomingDrop(pending.task, today, 'clear_due');
-                if (result.task) setPending(upcomingStart(pending.task, result, pending.drop));
+                const task = pending.task;
+                close();
+                // The due date stays. Clearing the start date does not move the task into Upcoming.
+                if (task.startDate) commit(task, { ...task, startDate: null });
               }}
             >
-              Remove due date
+              Remove start date
             </Button>
             <Button variant="ghost" data-choice="cancel" onClick={close}>
               Cancel

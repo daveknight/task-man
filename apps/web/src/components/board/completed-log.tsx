@@ -35,17 +35,6 @@ function LogCheck() {
   );
 }
 
-function LogDue({ date, today, struck }: { date: ISODate; today: ISODate; struck?: boolean }) {
-  return (
-    <span className="inline-flex items-center gap-1">
-      <Icon name="dueDate" className="size-4 text-muted-foreground" />
-      <span data-slot="due-label" className={cn('optical-center text-footnote whitespace-nowrap text-muted-foreground', struck && 'line-through')}>
-        {dayLabel(date, today)}
-      </span>
-    </span>
-  );
-}
-
 function LogRow({ entry, task, today }: { entry: CompletedLogEntry; task: Task | undefined; today: ISODate }) {
   const due = entry.source === 'occurrence' ? entry.occurrenceDue : (task?.dueDate ?? null);
   return (
@@ -59,11 +48,6 @@ function LogRow({ entry, task, today }: { entry: CompletedLogEntry; task: Task |
       </span>
       <span data-slot="task-title" aria-hidden className="optical-center min-w-0 flex-1 truncate text-body text-muted-foreground line-through">
         {entry.title}
-      </span>
-      <span aria-hidden className="flex shrink-0 items-center gap-2">
-        {entry.source === 'occurrence' && <Icon name="repeat" className="size-3.5 text-muted-foreground" data-slot="repeat-icon" />}
-        {due && <LogDue date={due} today={today} struck={entry.source === 'task'} />}
-        {task?.flagged && <Icon name="flag" active className="size-4 text-flag" data-slot="log-flag" />}
       </span>
     </div>
   );
@@ -119,7 +103,7 @@ function WeekGroup({ week, today, tasks }: { week: CompletedLogWeek; today: ISOD
   );
 }
 
-/** The completed log. Rows are a record of what was finished: no checkbox, drag, or menu. */
+/** The completed log. Rows are a record of what was finished: the title only, with no checkbox, drag, menu, or date. */
 export function CompletedLogView({ log, today, tasks }: { log: CompletedLog; today: ISODate; tasks: readonly Task[] }) {
   const byId = new Map(tasks.map((task) => [task.id, task]));
   return (

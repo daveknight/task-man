@@ -121,13 +121,13 @@ Not captured in Figma yet; these are the states to add when Dave asks. The desig
 
 - [x] Task sheet with subtasks: “Draft holiday card list” – the Subtasks card with the “N of M” count, a mix of done and not done – desktop 1440
 - [x] Subtasks card in the overlay and the phone bottom sheet – overlay 900 and phone
-- [x] Adding: tap Add subtask, field live with the hint “Return saves and adds another. Escape finishes.” – desktop 1440
+- [x] Adding: tap + Add on the subtasks header, field live with the hint “Return saves and adds another. Escape finishes.” – desktop 1440
 - [x] Editing a subtask title in place (hint showing) – desktop 1440
-- [x] A task with none yet: only the Add subtask row, no count – desktop 1440
+- [x] A task with none yet: “+ Add” on the right of the subtasks header, no count and no extra row – desktop 1440
 - [ ] Dragging a subtask by its grip: the lifted row and the drop position – desktop 1440 — skipped 2026-11-25: mid-animation only. Dave asked for settled screens.
-- [x] Board rows with subtasks show done/total next to the dates – desktop 1440 and phone
+- [x] Board rows with subtasks show the subtask icon and not the done/total count – desktop 1440 and phone
 - [x] Hover shows the delete button on a subtask row (fine pointers only) – desktop 1440
-- [x] A task in Recently deleted: subtasks visible but read-only, no Add row – desktop 1440
+- [x] A task in Recently deleted: subtasks visible but read-only, no + Add – desktop 1440
 - [x] Offline: subtasks read-only – desktop 1440
 
 ## Tags
@@ -140,7 +140,7 @@ Not captured in Figma yet; these are the states to add when Dave asks. The desig
 - [x] Task sheet with tags: the Tags row after Due lists every tag, right-aligned – desktop 1440 and overlay 900
 - [x] Task sheet with no tags: the Tags row reads “None” – desktop 1440
 - [x] Tag picker popover: search field “Search or create tag”, the tags alphabetically with a blue check on the ones the task has, no counts – desktop 1440, light and dark
-- [x] Tag picker with “out” typed: the matching tag, then “Create “out”” in blue – desktop 1440
+- [x] Tag picker with “out” typed: the matching tag, then “Create tag “out”” in blue – desktop 1440
 - [x] Tag picker bottom sheet: centered “Tags” title, blue Done, same list – phone
 - [x] Phone task sheet with tags in the Tags row – phone
 - [x] A refused name (a comma, or over 30 characters): the reason under the field, no Create row – desktop 1440
@@ -191,13 +191,13 @@ Skip is the existing “Skip this occurrence” pick inside Due, shown when the 
 
 From the web attachments phase (PLAN.md Phase 3), ahead of the native apps. Photos and other files are added only on the task sheet, through Supabase Storage, from one Add file button on desktop and phone. On a phone the system picker may still offer the camera, the photo library, or files. The board row has no paperclip and no count. Thumbnails stay in the sheet. A photo is downscaled before upload. Settings, from the board menu, shows storage used of 1 GB. A file can be removed. Offline and Recently deleted leave the files read-only. Capture does not add files. A previewable image's name opens a full-screen preview (pinch to zoom on a phone, zoom controls with a mouse, plus Open original and Close). Any other file still opens its signed URL. The address is `/tasks/<taskId>` while a task is open and `/tasks/<taskId>/files/<fileId>` while a previewable image is open, so a link or refresh reopens them. Back closes the preview, then the task, then leaves the board. Forward reopens what Back closed. A file that is not previewable does not change the address. Quick Look waits for the SwiftUI app.
 
-- [x] Task sheet Files, empty: "Files" and Add file – desktop 1440, light and dark
+- [x] Task sheet Attachments, empty: "Attachments" and Add file – desktop 1440, light and dark
 - [x] Task sheet with a photo thumbnail and a named file – desktop 1440, light and dark
 - [x] Phone task sheet: one Add file button – phone
 - [x] Board row of a task that has a file: no paperclip, no count, no thumbnail – desktop 1440 and phone
-- [x] Settings: storage used of 1 GB, with the meter – desktop 1440, light and dark
+- [x] Settings: storage used of 1 GB, with the meter, and the version number – desktop 1440, light and dark
 - [x] Remove a file: the row is gone – desktop 1440
-- [x] A task in Recently deleted: Files shows what was attached, with no add or remove – desktop 1440
+- [x] A task in Recently deleted: Attachments shows what was attached, with no add or remove – desktop 1440
 - [x] Offline: Add file disabled – desktop 1440
 - [x] Capture has no way to add a file – desktop 1440
 - [ ] Image preview: a photo's name opens full screen, with the picture, zoom, Open original, and Close; a named file still opens directly – desktop 1440, light and dark, and phone
@@ -215,16 +215,16 @@ All desktop 1440 unless noted.
 - [x] Waiting row menu
 - [x] Hide until picker from a row (Ready, In Progress)
 - [x] Wait until picker: status changed to Waiting in the task sheet
-- [x] Upcoming drop prompt: dragging a task due today into Upcoming
+- [x] Upcoming drop prompt: dragging a task due today into Upcoming asks “Move and remove start date?” with Remove start date and Cancel
 - [x] Task detail for an Open, a Waiting and an In Progress task: Start and Due, Hide until and Due, Due only – desktop 1440, light and dark
 
 ## Completed log
 
-From Phase 2c. A read-only screen opened from Completed log in the board menu (Show completed still toggles the board section). The address is `/completed`, so a link or refresh opens it. Back returns to the board, and Forward opens the log again. Grouped by Monday-start week, then by day, newest first. The newest week starts open and older weeks start collapsed; each week remembers whether you left it open, including after Back and Forward. One-off finishes and each recorded completion of a repeating task are listed. Skips are not. Rows have a check mark and a struck-through title, no checkbox, drag handle, menu or swipe. A repeating row shows the repeat icon and that occurrence's due date. Nothing here edits a task.
+From Phase 2c. A read-only screen opened from Completed log in the board menu (Show completed still toggles the board section). The address is `/completed`, so a link or refresh opens it. Back returns to the board, and Forward opens the log again. Grouped by Monday-start week, then by day, newest first. The newest week starts open and older weeks start collapsed; each week remembers whether you left it open, including after Back and Forward. One-off finishes and each recorded completion of a repeating task are listed. Skips are not. Rows have a check mark and a struck-through title, no checkbox, drag handle, menu, swipe, date, repeat icon or flag. Nothing here edits a task.
 
 - [x] Completed log: This week open (Pick up dry cleaning on Tue Nov 17, Assemble bookshelf on Mon Nov 16), Last week and older weeks collapsed – desktop 1440, light and dark
-- [x] An older week expanded: “Pay November credit card bill” with its due date struck through – desktop 1440
-- [x] A repeating completion on Today (“Water the plants”): repeat icon and due date, title struck through, and the task still open on the board – desktop 1440, phone
+- [x] An older week expanded: “Pay November credit card bill”, title only, struck through – desktop 1440
+- [x] A repeating completion on Today (“Water the plants”): title only, struck through, and the task still open on the board – desktop 1440, phone
 - [x] Empty: “Nothing finished yet.” – desktop 1440
 - [x] Phone: the log under the status bar, week header and rows full width, back returns to the board – phone
 

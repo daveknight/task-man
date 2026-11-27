@@ -69,8 +69,10 @@ test('groups finished tasks by week and day, and the rows are read-only', async 
   await lastWeek.getByRole('button').click();
   const bill = lastWeek.locator('[data-slot=log-row]', { hasText: 'Pay November credit card bill' });
   await expect(bill).toBeVisible();
-  await expect(bill.locator('[data-slot=due-label]')).toHaveText('Nov 16');
-  await expect(bill.locator('[data-slot=due-label]')).toHaveCSS('text-decoration-line', 'line-through');
+  await expect(bill.locator('[data-slot=task-title]')).toHaveText('Pay November credit card bill');
+  await expect(bill.locator('[data-slot=task-title]')).toHaveCSS('text-decoration-line', 'line-through');
+  await expect(bill.locator('[data-slot=due-label]')).toHaveCount(0);
+  await expect(bill.locator('[data-slot=repeat-icon]')).toHaveCount(0);
 
   await newest.locator('[data-slot=log-row]').first().click({ button: 'right' });
   await expect(page.getByRole('menu')).toHaveCount(0);
@@ -140,9 +142,10 @@ test('lists a repeating completion and leaves a skip out', async ({ page }) => {
   const done = page.locator('[data-slot=log-row][data-source=occurrence]', { hasText: 'Water the plants' });
   await expect(done).toBeVisible();
   await expect(done).toHaveAttribute('data-occurrence-due', TODAY);
-  await expect(done.locator('[data-slot=repeat-icon]')).toBeVisible();
-  await expect(done.locator('[data-slot=due-label]')).toHaveText('Today');
-  await expect(done.locator('[data-slot=due-label]')).not.toHaveCSS('text-decoration-line', 'line-through');
+  await expect(done.locator('[data-slot=task-title]')).toHaveText('Water the plants');
+  await expect(done.locator('[data-slot=repeat-icon]')).toHaveCount(0);
+  await expect(done.locator('[data-slot=due-label]')).toHaveCount(0);
+  await expect(done.locator('[data-slot=log-flag]')).toHaveCount(0);
   await expect(page.locator('[data-log-day="2026-11-18"]')).toContainText('Today, Nov 18');
   await expect(page.locator('[data-slot=log-row]', { hasText: 'Take out garbage' })).toHaveCount(0);
 });
