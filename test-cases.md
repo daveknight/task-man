@@ -188,7 +188,7 @@ Skip is the existing “Skip this occurrence” pick inside Due, shown when the 
 
 ## Attachments
 
-From the web attachments phase (PLAN.md Phase 3), ahead of the native apps. Photos and other files are added only on the task sheet, through Supabase Storage, from one Add file button on desktop and phone. On a phone the system picker may still offer the camera, the photo library, or files. The board row has no paperclip and no count. Thumbnails stay in the sheet. A photo is downscaled before upload. Settings, from the board menu, shows storage used of 1 GB. A file can be removed. Offline and Trash leave the files read-only. Capture does not add files. Quick Look waits for the SwiftUI app.
+From the web attachments phase (PLAN.md Phase 3), ahead of the native apps. Photos and other files are added only on the task sheet, through Supabase Storage, from one Add file button on desktop and phone. On a phone the system picker may still offer the camera, the photo library, or files. The board row has no paperclip and no count. Thumbnails stay in the sheet. A photo is downscaled before upload. Settings, from the board menu, shows storage used of 1 GB. A file can be removed. Offline and Trash leave the files read-only. Capture does not add files. A previewable image's name opens a full-screen preview (pinch to zoom on a phone, zoom controls with a mouse, plus Open original and Close). Any other file still opens its signed URL. Quick Look waits for the SwiftUI app.
 
 - [x] Task sheet Files, empty: "Files" and Add file – desktop 1440, light and dark
 - [x] Task sheet with a photo thumbnail and a named file – desktop 1440, light and dark
@@ -199,6 +199,7 @@ From the web attachments phase (PLAN.md Phase 3), ahead of the native apps. Phot
 - [x] A task in Trash: Files shows what was attached, with no add or remove – desktop 1440
 - [x] Offline: Add file disabled – desktop 1440
 - [x] Capture has no way to add a file – desktop 1440
+- [ ] Image preview: a photo's name opens full screen, with the picture, zoom, Open original, and Close; a named file still opens directly – desktop 1440, light and dark, and phone
 
 ## Dialogs, prompts and pickers
 

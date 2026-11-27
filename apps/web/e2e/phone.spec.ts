@@ -413,6 +413,38 @@ test('the task sheet has one Add file button', async ({ page }) => {
   await expect(fileRow.locator('[data-slot=file-thumb]')).toBeVisible();
   await expect(row(page, 'Buy new watch band').locator('img')).toHaveCount(0);
 
+  await fileRow.getByRole('button', { name: 'dot.png', exact: true }).tap();
+  const preview = page.getByRole('dialog', { name: 'dot.png' });
+  await expect(preview).toBeVisible();
+  await expect(preview.getByRole('button', { name: 'Zoom in' })).toBeHidden();
+  await expect(preview.getByRole('link', { name: 'Open original' })).toBeVisible();
+  const stage = preview.locator('[data-slot=image-stage]');
+  const box = await stage.boundingBox();
+  if (!box) throw new Error('preview stage has no box');
+  const session = await page.context().newCDPSession(page);
+  const y = box.y + box.height / 2;
+  const mid = box.x + box.width / 2;
+  await session.send('Input.dispatchTouchEvent', {
+    type: 'touchStart',
+    touchPoints: [
+      { x: mid - 30, y, id: 1 },
+      { x: mid + 30, y, id: 2 },
+    ],
+  });
+  await session.send('Input.dispatchTouchEvent', {
+    type: 'touchMove',
+    touchPoints: [
+      { x: box.x + 16, y, id: 1 },
+      { x: box.x + box.width - 16, y, id: 2 },
+    ],
+  });
+  await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await expect.poll(async () => Number(await preview.locator('img').getAttribute('data-zoom'))).toBeGreaterThan(1);
+
+  await preview.getByRole('button', { name: 'Close', exact: true }).tap();
+  await expect(preview).toBeHidden();
+  await expect(files).toBeVisible();
+
   await fileRow.getByRole('button', { name: 'Remove dot.png' }).tap();
   await expect(files.locator('[data-slot=file-row]')).toHaveCount(0);
 });

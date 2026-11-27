@@ -32,6 +32,8 @@ export const icons = {
   restore: { phosphor: 'ArrowCounterClockwise', sfSymbol: 'arrow.uturn.backward' },
   add: { phosphor: 'Plus', sfSymbol: 'plus' },
   search: { phosphor: 'MagnifyingGlass', sfSymbol: 'magnifyingglass' },
+  zoomIn: { phosphor: 'MagnifyingGlassPlus', sfSymbol: 'plus.magnifyingglass' },
+  zoomOut: { phosphor: 'MagnifyingGlassMinus', sfSymbol: 'minus.magnifyingglass' },
   more: { phosphor: 'DotsThree', sfSymbol: 'ellipsis' },
   settings: { phosphor: 'GearSix', sfSymbol: 'gearshape' },
   camera: { phosphor: 'Camera', sfSymbol: 'camera' },

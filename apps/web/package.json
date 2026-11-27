@@ -9,7 +9,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.json",
-    "test": "node --disable-warning=ExperimentalWarning --experimental-strip-types --test src/lib/dictation.test.ts",
+    "test": "node --disable-warning=ExperimentalWarning --experimental-strip-types --test src/lib/dictation.test.ts src/lib/image-zoom.test.ts",
     "screenshots": "tsx scripts/screenshots.ts",
     "e2e": "playwright test",
     "icons": "tsx scripts/icons.ts",

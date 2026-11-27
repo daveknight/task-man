@@ -95,6 +95,65 @@ test('capture has no file picker, and trash keeps files read-only', async ({ pag
   await expect(files.locator('input[type=file]')).toHaveCount(0);
 });
 
+test('a photo opens in a preview and another file opens directly', async ({ page }) => {
+  await openTask(page);
+  const files = editor(page).locator('[data-slot=files]');
+  await files.locator('[data-slot=file-input]').setInputFiles([
+    { name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('remember the milk') },
+    { name: 'dot.png', mimeType: 'image/png', buffer: TINY_PNG },
+  ]);
+  const notes = files.locator('[data-slot=file-row]').filter({ hasText: 'notes.txt' });
+  const photo = files.locator('[data-slot=file-row]').filter({ hasText: 'dot.png' });
+  await expect(notes.getByRole('link', { name: 'notes.txt', exact: true })).toHaveAttribute('target', '_blank');
+  await expect(photo.getByRole('link', { name: 'dot.png', exact: true })).toHaveCount(0);
+
+  await photo.getByRole('button', { name: 'dot.png', exact: true }).click();
+  const preview = page.getByRole('dialog', { name: 'dot.png' });
+  await expect(preview).toBeVisible();
+  const box = await preview.boundingBox();
+  expect(box!.width).toBeGreaterThan(1000);
+  expect(box!.height).toBeGreaterThan(700);
+  const image = preview.locator('[data-slot=image-stage] img');
+  await expect(image).toBeVisible();
+  await expect(image).toHaveAttribute('data-zoom', '1');
+
+  const { dark, background } = await preview.evaluate((el) => ({
+    dark: document.documentElement.classList.contains('dark'),
+    background: getComputedStyle(el).backgroundColor,
+  }));
+  const channels = background.match(/\d+/g)?.map(Number) ?? [];
+  expect(channels.length).toBeGreaterThanOrEqual(3);
+  const sum = channels[0]! + channels[1]! + channels[2]!;
+  if (dark) expect(sum).toBeLessThan(180 * 3);
+  else expect(sum).toBeGreaterThan(180 * 3);
+
+  const zoomIn = preview.getByRole('button', { name: 'Zoom in' });
+  const zoomOut = preview.getByRole('button', { name: 'Zoom out' });
+  await expect(zoomIn).toBeVisible();
+  await expect(zoomOut).toBeDisabled();
+  await zoomIn.click();
+  await expect(image).toHaveAttribute('data-zoom', '1.5');
+  await expect(zoomOut).toBeEnabled();
+  await zoomOut.click();
+  await expect(image).toHaveAttribute('data-zoom', '1');
+
+  const original = preview.getByRole('link', { name: 'Open original' });
+  await expect(original).toHaveAttribute('target', '_blank');
+  await expect(original).toHaveAttribute('rel', /noreferrer/);
+  await expect(original).toHaveAttribute('href', (await photo.locator('[data-slot=file-thumb]').getAttribute('src')) ?? '');
+
+  await preview.getByRole('button', { name: 'Close', exact: true }).click();
+  await expect(preview).toBeHidden();
+  await expect(editor(page)).toBeVisible();
+
+  await photo.getByRole('button', { name: 'dot.png', exact: true }).click();
+  await expect(preview).toBeVisible();
+  await expect(image).toHaveAttribute('data-zoom', '1');
+  await page.keyboard.press('Escape');
+  await expect(preview).toBeHidden();
+  await expect(editor(page)).toBeVisible();
+});
+
 test('the files card uses the theme behind it', async ({ page }) => {
   await openTask(page);
   const card = editor(page).locator('[data-slot=files] .bg-card').first();
