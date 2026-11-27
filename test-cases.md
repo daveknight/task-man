@@ -188,16 +188,16 @@ Skip is the existing “Skip this occurrence” pick inside Due, shown when the 
 
 ## Attachments
 
-From the web attachments phase (PLAN.md Phase 3), ahead of the native apps. Photos and other files are added only on the task sheet, through Supabase Storage. The board row has no paperclip and no count. Thumbnails stay in the sheet. A photo is downscaled before upload. Settings, from the board menu, shows storage used of 1 GB. A file can be removed. Offline and Trash leave the files read-only. Capture does not add files. Quick Look waits for the SwiftUI app.
+From the web attachments phase (PLAN.md Phase 3), ahead of the native apps. Photos and other files are added only on the task sheet, through Supabase Storage, from one Add file button on desktop and phone. On a phone the system picker may still offer the camera, the photo library, or files. The board row has no paperclip and no count. Thumbnails stay in the sheet. A photo is downscaled before upload. Settings, from the board menu, shows storage used of 1 GB. A file can be removed. Offline and Trash leave the files read-only. Capture does not add files. Quick Look waits for the SwiftUI app.
 
-- [x] Task sheet Files, empty: "Files" and Add photo, Add file – desktop 1440, light and dark
+- [x] Task sheet Files, empty: "Files" and Add file – desktop 1440, light and dark
 - [x] Task sheet with a photo thumbnail and a named file – desktop 1440, light and dark
-- [x] Phone task sheet: Camera, Photo library, and File – phone
+- [x] Phone task sheet: one Add file button – phone
 - [x] Board row of a task that has a file: no paperclip, no count, no thumbnail – desktop 1440 and phone
 - [x] Settings: storage used of 1 GB, with the meter – desktop 1440, light and dark
 - [x] Remove a file: the row is gone – desktop 1440
 - [x] A task in Trash: Files shows what was attached, with no add or remove – desktop 1440
-- [x] Offline: Add photo and Add file disabled – desktop 1440
+- [x] Offline: Add file disabled – desktop 1440
 - [x] Capture has no way to add a file – desktop 1440
 
 ## Dialogs, prompts and pickers

@@ -16,8 +16,9 @@ function message(error: unknown): string {
 
 /**
  * Files live on the task sheet only: a thumbnail for a photo, a file icon and the name
- * otherwise. Nothing about them is shown on the board row. The phone offers the camera,
- * the photo library and the file picker; a desktop offers a photo and a file.
+ * otherwise. Nothing about them is shown on the board row. One Add file button opens the
+ * system picker, with no accept filter and no capture flag, so a phone may still offer
+ * the camera, the photo library, or files. A photo is still downscaled before upload.
  */
 export function FilesCard({ task }: { task: Task }) {
   const actions = useBoardActions();
@@ -25,10 +26,7 @@ export function FilesCard({ task }: { task: Task }) {
   const files = useTaskFiles(task.id, actions != null);
   const writes = useFileWrites(task.id);
   const [busy, setBusy] = useState(false);
-  const camera = useRef<HTMLInputElement>(null);
-  const library = useRef<HTMLInputElement>(null);
-  const anyFile = useRef<HTMLInputElement>(null);
-  const photo = useRef<HTMLInputElement>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
   const locked = !!task.deletedAt || !online || !actions || busy;
 
   const onPick = (event: ChangeEvent<HTMLInputElement>) => {
@@ -96,30 +94,9 @@ export function FilesCard({ task }: { task: Task }) {
         ))}
         {!task.deletedAt && (
           <div className="flex flex-col gap-2 px-row-x py-2">
-            <input ref={camera} data-slot="file-input-camera" type="file" accept="image/*" capture="environment" tabIndex={-1} aria-hidden className="sr-only" onChange={onPick} />
-            <input ref={library} data-slot="file-input-library" type="file" accept="image/*" multiple tabIndex={-1} aria-hidden className="sr-only" onChange={onPick} />
-            <input ref={anyFile} data-slot="file-input-file" type="file" multiple tabIndex={-1} aria-hidden className="sr-only" onChange={onPick} />
-            <input ref={photo} data-slot="file-input-photo" type="file" accept="image/*" multiple tabIndex={-1} aria-hidden className="sr-only" onChange={onPick} />
-            <div data-slot="file-add-touch" className="hidden flex-wrap gap-2 max-md:flex pointer-coarse:flex">
-              <Button type="button" variant="outline" size="sm" className="pointer-coarse:h-control" disabled={locked} onClick={() => camera.current?.click()}>
-                <Icon name="camera" data-icon="inline-start" />
-                Camera
-              </Button>
-              <Button type="button" variant="outline" size="sm" className="pointer-coarse:h-control" disabled={locked} onClick={() => library.current?.click()}>
-                <Icon name="photo" data-icon="inline-start" />
-                Photo library
-              </Button>
-              <Button type="button" variant="outline" size="sm" className="pointer-coarse:h-control" disabled={locked} onClick={() => anyFile.current?.click()}>
-                <Icon name="file" data-icon="inline-start" />
-                File
-              </Button>
-            </div>
-            <div data-slot="file-add-desktop" className="flex flex-wrap gap-2 max-md:hidden pointer-coarse:hidden">
-              <Button type="button" variant="outline" size="sm" disabled={locked} onClick={() => photo.current?.click()}>
-                <Icon name="photo" data-icon="inline-start" />
-                Add photo
-              </Button>
-              <Button type="button" variant="outline" size="sm" disabled={locked} onClick={() => anyFile.current?.click()}>
+            <input ref={fileInput} data-slot="file-input" type="file" multiple tabIndex={-1} aria-hidden className="sr-only" onChange={onPick} />
+            <div data-slot="file-add">
+              <Button type="button" variant="outline" size="sm" className="pointer-coarse:h-control" disabled={locked} onClick={() => fileInput.current?.click()}>
                 <Icon name="file" data-icon="inline-start" />
                 Add file
               </Button>
