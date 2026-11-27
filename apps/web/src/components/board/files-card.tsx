@@ -1,12 +1,13 @@
 import { formatBytes, isPreviewableImage, type Task } from '@app/core';
 import type { AttachmentFile } from '@app/data';
-import { useRef, useState, type ChangeEvent } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { toast } from 'sonner';
 import { Icon } from '@/components/icon';
 import { Button } from '@/components/ui/button';
 import { useFileWrites, useTaskFiles } from '@/data/files';
 import { prepareUpload } from '@/lib/downscale';
 import { useOnline } from '@/lib/online';
+import { useOverlayController } from '@/lib/use-overlay-history';
 import { useBoardActions } from './board-actions';
 import { RowList } from './board-view';
 import { ImagePreview } from './image-preview';
@@ -20,16 +21,18 @@ function message(error: unknown): string {
  * otherwise. Nothing about them is shown on the board row. One Add file button opens the
  * system picker, with no accept filter and no capture flag, so a phone may still offer
  * the camera, the photo library, or files. A photo is still downscaled before upload.
- * A previewable image's name opens a full-screen preview. Any other file opens its
- * signed URL, the same as before.
+ * A previewable image's name opens a full-screen preview and puts that file on
+ * the address. Any other file opens its signed URL, with no history entry.
+ * The design screens have no address history, so a preview there stays local.
  */
 export function FilesCard({ task }: { task: Task }) {
   const actions = useBoardActions();
   const online = useOnline();
   const files = useTaskFiles(task.id, actions != null);
   const writes = useFileWrites(task.id);
+  const overlay = useOverlayController();
   const [busy, setBusy] = useState(false);
-  const [preview, setPreview] = useState<AttachmentFile | null>(null);
+  const [localPreview, setLocalPreview] = useState<AttachmentFile | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const locked = !!task.deletedAt || !online || !actions || busy;
 
@@ -58,6 +61,21 @@ export function FilesCard({ task }: { task: Task }) {
   };
 
   const list = files.data ?? [];
+  const preview = overlay ? (list.find((file) => file.id === overlay.fileId) ?? null) : localPreview;
+  const closePreview = () => {
+    if (overlay) overlay.closeFile();
+    else setLocalPreview(null);
+  };
+
+  // A link to a missing file, or to one the preview can't paint, drops back to the task.
+  const previewFileId = overlay?.fileId ?? null;
+  const closeFile = overlay?.closeFile;
+  useEffect(() => {
+    if (!previewFileId || !closeFile || !files.isSuccess) return;
+    const match = (files.data ?? []).find((file) => file.id === previewFileId);
+    if (!match?.url || !isPreviewableImage(match.mime)) closeFile();
+  }, [previewFileId, closeFile, files.isSuccess, files.data]);
+
   return (
     <div data-slot="files" data-base-ui-swipe-ignore>
       <RowList fields className="ring-1 ring-border/60">
@@ -77,7 +95,10 @@ export function FilesCard({ task }: { task: Task }) {
               <button
                 type="button"
                 className="optical-center min-w-0 flex-1 truncate rounded-sm text-left text-body text-foreground underline-offset-2 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-inset"
-                onClick={() => setPreview(file)}
+                onClick={() => {
+                  if (overlay) overlay.openFile(task.id, file.id);
+                  else setLocalPreview(file);
+                }}
               >
                 {file.filename}
               </button>
@@ -117,7 +138,7 @@ export function FilesCard({ task }: { task: Task }) {
           </div>
         )}
       </RowList>
-      <ImagePreview file={preview?.url ? { filename: preview.filename, url: preview.url } : null} onClose={() => setPreview(null)} />
+      <ImagePreview file={preview?.url && isPreviewableImage(preview.mime) ? { filename: preview.filename, url: preview.url } : null} onClose={closePreview} />
     </div>
   );
 }

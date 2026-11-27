@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { openBoard, reseed, row } from './helpers';
+import { openBoard, reseed, row, showTask, TODAY } from './helpers';
 
 const TASK = 'Buy new watch band';
 
@@ -152,6 +152,97 @@ test('a photo opens in a preview and another file opens directly', async ({ page
   await page.keyboard.press('Escape');
   await expect(preview).toBeHidden();
   await expect(editor(page)).toBeVisible();
+});
+
+test('the address keeps the task and a preview, and back closes the preview first', async ({ page }) => {
+  const taskId = showTask(TASK).task.id;
+  await openTask(page);
+  await expect(page).toHaveURL(new RegExp(`/tasks/${taskId}\\?today=${TODAY}$`));
+
+  await page.reload();
+  await expect(editor(page)).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`/tasks/${taskId}\\?today=${TODAY}$`));
+
+  await row(page, 'Water the plants').getByText('Water the plants').click();
+  const otherId = showTask('Water the plants').task.id;
+  await expect(editor(page).getByRole('textbox', { name: 'Title' })).toHaveValue('Water the plants');
+  await expect(page).toHaveURL(new RegExp(`/tasks/${otherId}\\?today=${TODAY}$`));
+  await page.goBack();
+  await expect(page).toHaveURL(new RegExp(`\\/\\?today=${TODAY}$`));
+  await expect(editor(page)).toBeHidden();
+  await page.goForward();
+  await expect(editor(page).getByRole('textbox', { name: 'Title' })).toHaveValue('Water the plants');
+
+  await editor(page).getByRole('button', { name: 'Close', exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`\\/\\?today=${TODAY}$`));
+  await page.goForward();
+  await expect(editor(page)).toBeVisible();
+
+  const files = editor(page).locator('[data-slot=files]');
+  await files.locator('[data-slot=file-input]').setInputFiles([
+    { name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('remember the milk') },
+    { name: 'dot.png', mimeType: 'image/png', buffer: TINY_PNG },
+  ]);
+  const notes = files.locator('[data-slot=file-row]').filter({ hasText: 'notes.txt' });
+  const before = await page.evaluate(() => ({ url: location.href, length: history.length }));
+  const popupPromise = page.waitForEvent('popup');
+  await notes.getByRole('link', { name: 'notes.txt', exact: true }).click();
+  const popup = await popupPromise;
+  await expect.poll(() => page.evaluate(() => ({ url: location.href, length: history.length }))).toEqual(before);
+  await popup.close();
+
+  await files.locator('[data-slot=file-row]').filter({ hasText: 'dot.png' }).getByRole('button', { name: 'dot.png', exact: true }).click();
+  const preview = page.getByRole('dialog', { name: 'dot.png' });
+  await expect(preview).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`/tasks/${otherId}/files/[^/?]+\\?today=${TODAY}$`));
+  const previewUrl = page.url();
+
+  await page.reload();
+  await expect(page.getByRole('dialog', { name: 'dot.png' })).toBeVisible();
+  await expect(editor(page)).toBeVisible();
+
+  await page.goBack();
+  await expect(page.getByRole('dialog', { name: 'dot.png' })).toBeHidden();
+  await expect(editor(page)).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`/tasks/${otherId}\\?today=${TODAY}$`));
+  await page.goForward();
+  await expect(page.getByRole('dialog', { name: 'dot.png' })).toBeVisible();
+
+  await page.getByRole('dialog', { name: 'dot.png' }).getByRole('button', { name: 'Close', exact: true }).click();
+  await expect(page.getByRole('dialog', { name: 'dot.png' })).toBeHidden();
+  await expect(page).toHaveURL(new RegExp(`/tasks/${otherId}\\?today=${TODAY}$`));
+  await page.goForward();
+  await expect(page.getByRole('dialog', { name: 'dot.png' })).toBeVisible();
+  await page.goBack();
+  await page.goBack();
+  await expect(editor(page)).toBeHidden();
+  await expect(page).toHaveURL(new RegExp(`\\/\\?today=${TODAY}$`));
+
+  await page.goto(previewUrl);
+  await expect(page.getByRole('dialog', { name: 'dot.png' })).toBeVisible();
+  await page.goBack();
+  await expect(editor(page)).toBeVisible();
+  await expect(page.getByRole('dialog', { name: 'dot.png' })).toBeHidden();
+  await page.goBack();
+  await expect(editor(page)).toBeHidden();
+  await page.goForward();
+  await expect(editor(page)).toBeVisible();
+  await page.goForward();
+  await expect(page.getByRole('dialog', { name: 'dot.png' })).toBeVisible();
+});
+
+test('at overlay width the sheet is on the address, and back closes it', async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 900 });
+  const taskId = showTask(TASK).task.id;
+  await openTask(page);
+  const sheet = page.locator('[data-slot=sheet-content]');
+  await expect(sheet).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`/tasks/${taskId}\\?today=${TODAY}$`));
+  await page.goBack();
+  await expect(sheet).toBeHidden();
+  await expect(page).toHaveURL(new RegExp(`\\/\\?today=${TODAY}$`));
+  await page.goForward();
+  await expect(sheet).toBeVisible();
 });
 
 test('the files card uses the theme behind it', async ({ page }) => {

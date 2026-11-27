@@ -1,6 +1,7 @@
 import { APP_NAME, buildBoard, buildCompletedLog, type Task } from '@app/core';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from './auth/auth-gate.tsx';
+import { OverlayHistoryProvider } from './lib/use-overlay-history.tsx';
 import { BoardActionsProvider } from './components/board/board-actions.tsx';
 import { BoardView, RowList } from './components/board/board-view.tsx';
 import { SearchDialog } from './components/board/search-dialog.tsx';
@@ -57,6 +58,11 @@ function QuickAdd({ writes, onClose }: { writes: TaskWrites; onClose: () => void
 }
 
 export function App() {
+  return <OverlayHistoryProvider>{(overlay) => <AppScreen overlay={overlay} />}</OverlayHistoryProvider>;
+}
+
+function AppScreen({ overlay }: { overlay: { taskId: string | null; openTask: (taskId: string) => void; closeTask: () => void } }) {
+  const { taskId, openTask, closeTask } = overlay;
   const auth = useAuth();
   const today = useToday();
   const snapshot = useSnapshot();
@@ -65,8 +71,6 @@ export function App() {
   const online = useOnline();
   const [view, setView] = useState<'board' | 'trash' | 'log'>('board');
   const [showCompleted, setShowCompleted] = usePersistedBoolean('board:showCompleted', false);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [sheetOpen, setSheetOpen] = useState(false);
   const [adding, setAdding] = useState(false);
   const [capturing, setCapturing] = useState(false);
 
@@ -93,17 +97,17 @@ export function App() {
   }, []);
 
   // Floating layers (menus, dialogs, toasts) are portaled outside the app container, so they never count as off the list.
-  const paneOpen = twoPane && !!selectedId;
+  const paneOpen = twoPane && !!taskId;
   useEffect(() => {
     if (!paneOpen) return;
     const onPointerDown = (e: PointerEvent) => {
       const target = e.target as Element;
       if (e.button !== 0 || !e.isPrimary || !appRef.current?.contains(target) || target.closest('[data-slot=task-row], [data-slot=task-pane]')) return;
-      setSelectedId(null);
+      closeTask();
     };
     document.addEventListener('pointerdown', onPointerDown, true);
     return () => document.removeEventListener('pointerdown', onPointerDown, true);
-  }, [paneOpen]);
+  }, [paneOpen, closeTask]);
 
   const data = snapshot.data;
   const board = useMemo(
@@ -112,12 +116,21 @@ export function App() {
   );
   const shown = useMemo(() => (board && view === 'trash' ? { ...board, sections: board.sections.filter((s) => s.id === 'trash') } : board), [board, view]);
   const log = useMemo(() => (data ? buildCompletedLog(data.tasks, data.completions, today) : null), [data, today]);
-  const selected = data?.tasks.find((t) => t.id === selectedId) ?? null;
+  const selected = data?.tasks.find((t) => t.id === taskId) ?? null;
 
-  const open = useCallback((task: Task) => {
-    setSelectedId(task.id);
-    setSheetOpen(true);
-  }, []);
+  // A link can name a task the signed-in user no longer has. Wait until this visit has
+  // loaded the board, so a cached copy can't dismiss a task that is about to arrive.
+  useEffect(() => {
+    if (!snapshot.isFetchedAfterMount || !taskId || !data) return;
+    if (!data.tasks.some((task) => task.id === taskId)) closeTask();
+  }, [snapshot.isFetchedAfterMount, data, taskId, closeTask]);
+
+  const open = useCallback(
+    (task: Task) => {
+      openTask(task.id);
+    },
+    [openTask],
+  );
 
   const error = !supabaseConfigured
     ? import.meta.env.DEV
@@ -182,13 +195,13 @@ export function App() {
                 {view === 'trash' ? 'Trash is empty' : 'No tasks yet.'}
               </p>
             )}
-            {view !== 'log' && shown && data && <BoardView board={shown} today={today} positions={online ? data.positions : undefined} selectedId={twoPane || sheetOpen ? selectedId : null} actionContext={(task) => ({ recurring: task.repeat != null })} />}
+            {view !== 'log' && shown && data && <BoardView board={shown} today={today} positions={online ? data.positions : undefined} selectedId={twoPane || selected ? taskId : null} actionContext={(task) => ({ recurring: task.repeat != null })} />}
           </div>
         </main>
         {/* The pane's room is always reserved, so the list stays put when a task is selected. */}
         {twoPane && (
           <div className="flex w-[400px] shrink-0 justify-end">
-            <TaskPane task={selected} today={today} onClose={() => setSelectedId(null)} />
+            <TaskPane task={selected} today={today} onClose={closeTask} />
           </div>
         )}
       </div>
@@ -213,7 +226,7 @@ export function App() {
         tasks={data?.tasks ?? []}
         onApply={(cards) => saveCapture(cards, writes, today)}
       />
-      {!twoPane && <TaskSheet task={selected} today={today} open={sheetOpen && !!selected} onOpenChange={setSheetOpen} />}
+      {!twoPane && <TaskSheet task={selected} today={today} open={!!selected} onOpenChange={(next) => { if (!next) closeTask(); }} />}
       <SearchDialog open={searching} onOpenChange={setSearching} today={today} onOpen={open} />
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
       <Toaster position="bottom-center" />

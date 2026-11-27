@@ -58,7 +58,7 @@ jobs:
         run: npm run test -w @app/core
       - name: "Design tokens: generated CSS is current, text contrast is 4.5:1 in light and dark"
         run: npm run test -w @app/tokens
-      - name: Dictation controller
+      - name: Web unit tests
         run: npm run test -w @app/web
       - name: Seed expectations at pinned dates (no database)
         run: npm run test -w @app/cli
