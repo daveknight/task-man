@@ -39,7 +39,9 @@ test('every row with subtasks shows done of total, matching the CLI', async ({ p
   const withSubtasks = board.sections.flatMap((s) => s.tasks).filter((t) => t.subtaskCount.total > 0);
   expect(withSubtasks.length).toBeGreaterThanOrEqual(4);
   for (const t of withSubtasks.filter((t) => ['Draft holiday card list', 'Finance quarterly action items', TASK].includes(t.title))) {
-    await expect(row(page, t.title).locator('[data-slot=subtask-count]')).toContainText(`${t.subtaskCount.done}/${t.subtaskCount.total}`);
+    const mark = row(page, t.title).locator('[data-slot=subtask-count]');
+    await expect(mark).toHaveAttribute('aria-label', `${t.subtaskCount.done} of ${t.subtaskCount.total} subtasks`);
+    await expect(mark).toHaveText('');
   }
   await expect(row(page, 'Buy new watch band').locator('[data-slot=subtask-count]')).toHaveCount(0);
 });
@@ -58,7 +60,7 @@ test('a task with no subtasks shows only the header and Add subtask, with no cou
   await openTask(page, 'Buy new watch band');
   await expect(card(page).locator('[data-slot=subtask-row]')).toHaveCount(0);
   await expect(card(page).locator('[data-slot=subtasks-progress]')).toHaveCount(0);
-  await expect(card(page).getByRole('button', { name: 'Add subtask' })).toBeVisible();
+  await expect(card(page).getByRole('button', { name: '+ Add' })).toBeVisible();
 });
 
 test('the card sits between the dates and the description', async ({ page }) => {
@@ -72,7 +74,7 @@ test('the card sits between the dates and the description', async ({ page }) => 
 
 test('Return saves a subtask and offers another; Escape finishes; the row count follows', async ({ page }) => {
   await openTask(page);
-  await card(page).getByRole('button', { name: 'Add subtask' }).click();
+  await card(page).getByRole('button', { name: '+ Add' }).click();
   await expect(card(page).locator('[data-slot=subtasks-hint]')).toHaveText('Return saves and adds another. Escape finishes.');
   await page.keyboard.type('Measure the old wheel');
   await page.keyboard.press('Enter');
@@ -93,16 +95,16 @@ test('Return saves a subtask and offers another; Escape finishes; the row count 
     { title: 'Compare prices', done: false },
   ]);
   await expect(card(page).locator('[data-slot=subtasks-progress]')).toHaveText('0 of 4');
-  await expect(row(page, TASK).locator('[data-slot=subtask-count]')).toContainText('0/4');
+  await expect(row(page, TASK).locator('[data-slot=subtask-count]')).toHaveAttribute('aria-label', '0 of 4 subtasks');
 });
 
 test('Return on an empty new subtask finishes, and Escape drops what was typed', async ({ page }) => {
   await openTask(page);
-  await card(page).getByRole('button', { name: 'Add subtask' }).click();
+  await card(page).getByRole('button', { name: '+ Add' }).click();
   await page.keyboard.press('Enter');
   await expect(card(page).locator('[data-slot=subtask-input]')).toHaveCount(0);
 
-  await card(page).getByRole('button', { name: 'Add subtask' }).click();
+  await card(page).getByRole('button', { name: '+ Add' }).click();
   await page.keyboard.type('Never saved');
   await page.keyboard.press('Escape');
   await expect(card(page).locator('[data-slot=subtask-input]')).toHaveCount(0);
@@ -112,7 +114,7 @@ test('Return on an empty new subtask finishes, and Escape drops what was typed',
 
 test('leaving the field saves what was typed', async ({ page }) => {
   await openTask(page);
-  await card(page).getByRole('button', { name: 'Add subtask' }).click();
+  await card(page).getByRole('button', { name: '+ Add' }).click();
   await page.keyboard.type('Saved on blur');
   await page.locator('[data-slot=task-editor]').getByRole('textbox', { name: 'Description' }).click();
   await expect.poll(() => stored().map((s) => s.title)).toEqual(['Find model number', 'Order from parts site', 'Saved on blur']);
@@ -123,7 +125,7 @@ test('ticking a subtask updates the sheet, the row and the database, and unticki
   await subtaskRow(page, 'Find model number').getByRole('checkbox').click();
   await expect(subtaskRow(page, 'Find model number').locator('[data-slot=subtask-title]')).toHaveCSS('text-decoration-line', 'line-through');
   await expect(card(page).locator('[data-slot=subtasks-progress]')).toHaveText('1 of 2');
-  await expect(row(page, TASK).locator('[data-slot=subtask-count]')).toContainText('1/2');
+  await expect(row(page, TASK).locator('[data-slot=subtask-count]')).toHaveAttribute('aria-label', '1 of 2 subtasks');
   await expect.poll(stored).toEqual([
     { title: 'Find model number', done: true },
     { title: 'Order from parts site', done: false },
@@ -132,7 +134,7 @@ test('ticking a subtask updates the sheet, the row and the database, and unticki
   // Ticking the last one doesn't complete the task.
   await subtaskRow(page, 'Order from parts site').getByRole('checkbox').click();
   await expect(card(page).locator('[data-slot=subtasks-progress]')).toHaveText('2 of 2');
-  await expect(row(page, TASK).locator('[data-slot=subtask-count]')).toContainText('2/2');
+  await expect(row(page, TASK).locator('[data-slot=subtask-count]')).toHaveAttribute('aria-label', '2 of 2 subtasks');
   await expect.poll(() => showTask(TASK).subtaskCount).toEqual({ done: 2, total: 2 });
   expect(showTask(TASK).task.completedAt).toBeNull();
 
@@ -173,7 +175,7 @@ test('clearing a subtask and pressing Return deletes it', async ({ page }) => {
   await page.keyboard.press('Escape');
   await expect(subtaskRow(page, 'Find model number')).toHaveCount(0);
   await expect.poll(stored).toEqual([{ title: 'Order from parts site', done: false }]);
-  await expect(row(page, TASK).locator('[data-slot=subtask-count]')).toContainText('0/1');
+  await expect(row(page, TASK).locator('[data-slot=subtask-count]')).toHaveAttribute('aria-label', '0 of 1 subtasks');
 });
 
 test('the delete button on a hovered subtask removes it, and the count drops', async ({ page }) => {
@@ -220,7 +222,7 @@ test('the drag handle shows only on a hovered subtask, in its own column', async
 test('subtasks added with the CLI show up in the board and the sheet after a reload', async ({ page }) => {
   cli('edit', TASK, '--add-subtask', 'Measure the old wheel', '--done-subtask', '1');
   await page.reload();
-  await expect(row(page, TASK).locator('[data-slot=subtask-count]')).toContainText('1/3');
+  await expect(row(page, TASK).locator('[data-slot=subtask-count]')).toHaveAttribute('aria-label', '1 of 3 subtasks');
   await row(page, TASK).click();
   expect(await titles(page)).toEqual(['Find model number', 'Order from parts site', 'Measure the old wheel']);
   await expect(subtaskRow(page, 'Find model number').getByRole('checkbox')).toBeChecked();
@@ -233,7 +235,7 @@ test('a completed task keeps its subtasks and still shows the count', async ({ p
   await page.getByRole('menuitemcheckbox', { name: 'Show completed' }).click();
   await page.keyboard.press('Escape');
   await page.locator('[data-section=completed]').getByRole('button', { name: /^Completed/ }).click();
-  await expect(row(page, TASK).locator('[data-slot=subtask-count]')).toContainText('0/2');
+  await expect(row(page, TASK).locator('[data-slot=subtask-count]')).toHaveAttribute('aria-label', '0 of 2 subtasks');
 });
 
 test('a task in Trash shows its subtasks without letting them change', async ({ page }) => {
@@ -244,7 +246,7 @@ test('a task in Trash shows its subtasks without letting them change', async ({ 
   await row(page, TASK).click();
   expect(await titles(page)).toEqual(['Find model number', 'Order from parts site']);
   await expect(subtaskRow(page, 'Find model number').getByRole('checkbox')).toBeDisabled();
-  await expect(card(page).getByRole('button', { name: 'Add subtask' })).toHaveCount(0);
+  await expect(card(page).getByRole('button', { name: '+ Add' })).toHaveCount(0);
   await expect(subtaskRow(page, 'Find model number').getByRole('button', { name: /^Reorder/ })).toHaveCount(0);
 });
 
@@ -267,7 +269,7 @@ test('in the overlay sheet, Escape finishes the list without closing the sheet',
   await row(page, TASK).getByText(TASK).click();
   const sheet = page.locator('[data-slot=sheet-content]');
   await expect(sheet.locator('[data-slot=subtasks-card]')).toBeVisible();
-  await sheet.getByRole('button', { name: 'Add subtask' }).click();
+  await sheet.getByRole('button', { name: '+ Add' }).click();
   await page.keyboard.type('Measure the old wheel');
   await page.keyboard.press('Enter');
   await page.keyboard.press('Escape');

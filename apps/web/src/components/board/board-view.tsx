@@ -129,12 +129,14 @@ export function DragHandle({
   listeners,
   activator,
   dragging,
+  className,
 }: {
   title: string;
   attributes: DraggableAttributes;
   listeners: DraggableSyntheticListeners;
   activator: (node: HTMLElement | null) => void;
   dragging: boolean;
+  className?: string;
 }) {
   return (
     <button
@@ -149,7 +151,10 @@ export function DragHandle({
       onPointerDown={(e) => e.stopPropagation()}
       // Its column is always reserved, but the grip shows only while the row is hovered, the handle has keyboard focus
       // or it is being dragged. Screens with no hover (phones) show it all the time.
-      className="m-1 mr-0 flex flex-1 cursor-grab self-stretch touch-none items-center justify-center rounded-sm text-checkbox opacity-0 transition-opacity duration-150 outline-none group-hover/row:opacity-100 hover:text-muted-foreground focus-visible:text-muted-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-inset active:cursor-grabbing data-dragging:opacity-100 motion-reduce:transition-none [@media(hover:none)]:opacity-100"
+      className={cn(
+        'm-1 mr-0 flex flex-1 cursor-grab self-stretch touch-none items-center justify-center rounded-sm text-checkbox opacity-0 transition-opacity duration-150 outline-none group-hover/row:opacity-100 hover:text-muted-foreground focus-visible:text-muted-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-inset active:cursor-grabbing data-dragging:opacity-100 motion-reduce:transition-none [@media(hover:none)]:opacity-100',
+        className,
+      )}
     >
       <Icon name="reorder" weight="bold" className="size-3.5" />
     </button>

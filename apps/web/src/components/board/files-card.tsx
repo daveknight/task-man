@@ -82,7 +82,7 @@ export function FilesCard({ task }: { task: Task }) {
       <RowList fields className="ring-1 ring-border/60">
         <div className="flex min-h-row items-center gap-row-gap px-row-x">
           <Icon name="file" className="size-icon shrink-0 text-muted-foreground" />
-          <span className="optical-center flex-1 text-body">Files</span>
+          <span className="optical-center flex-1 text-body">Attachments</span>
         </div>
         {files.isError && <p className="px-row-x py-2 text-footnote text-destructive">Couldn't load files.</p>}
         {list.map((file) => (

@@ -687,7 +687,7 @@ test('search: Only flagged narrows the results to flagged tasks', async ({ page 
 
 test('offline: read-only with a banner, and every row action is disabled', async ({ page, context }) => {
   await context.setOffline(true);
-  await expect(page.locator('[data-slot=offline-banner]')).toBeVisible();
+  await expect(page.locator('[data-slot=offline-banner]')).toHaveText("No connection. Tasks below show last loaded state and cannot be edited until you're back online.");
   await expect(page.getByRole('button', { name: 'Add task' })).toBeDisabled();
   await expect(page.getByRole('checkbox', { name: 'Complete Buy new watch band' })).toBeDisabled();
   await expect(page.getByText("You're offline. Changes are paused until you're back online.")).toHaveCount(0);

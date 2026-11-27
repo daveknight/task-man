@@ -63,7 +63,7 @@ test('typing a new name offers Create, and Return makes the tag and puts it on t
   await openPicker(page);
   await picker(page).getByPlaceholder('Search or create tag').fill('garden');
   await expect(picker(page).getByRole('option')).toHaveCount(1);
-  await expect(picker(page).locator('[data-slot=tag-create]')).toHaveText('Create “garden”');
+  await expect(picker(page).locator('[data-slot=tag-create]')).toHaveText('Create tag “garden”');
   await page.keyboard.press('Enter');
   await expect.poll(() => tagNames(ONE).includes('garden')).toBe(true);
   expect(tagList().find((t) => t.name === 'garden')?.count).toBe(1);
@@ -74,7 +74,7 @@ test('typing a new name offers Create, and Return makes the tag and puts it on t
 test('a partial name lists the matches first and Create after them', async ({ page }) => {
   await openPicker(page);
   await picker(page).getByPlaceholder('Search or create tag').fill('out');
-  await expect(picker(page).getByRole('option')).toHaveText(['outdoors', 'Create “out”']);
+  await expect(picker(page).getByRole('option')).toHaveText(['outdoors', 'Create tag “out”']);
 });
 
 test('a name that is already a tag, ignoring case, offers no Create and reuses it', async ({ page }) => {

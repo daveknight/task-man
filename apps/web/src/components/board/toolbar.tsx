@@ -153,7 +153,7 @@ export function AddTaskFab({ disabled, onAdd, onCapture }: { disabled?: boolean;
   return (
     <div className="fixed right-[calc(env(safe-area-inset-right)+1rem)] bottom-[calc(env(safe-area-inset-bottom)+1rem)] z-30 flex items-center gap-3 md:hidden">
       {onCapture && (
-        <Button aria-label="Capture" variant="outline" disabled={disabled} onClick={onCapture} className="size-14 rounded-full bg-background shadow-lg">
+        <Button aria-label="Capture" variant="outline" disabled={disabled} onClick={onCapture} className="size-14 rounded-full bg-background shadow-lg dark:bg-background dark:hover:bg-muted">
           <Icon name="capture" className="size-6" />
         </Button>
       )}

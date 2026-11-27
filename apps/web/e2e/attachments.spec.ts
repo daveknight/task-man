@@ -24,7 +24,7 @@ test('files are added on the task sheet and never marked on the row', async ({ p
   await expect(files.getByRole('button', { name: 'Add file' })).toHaveCount(1);
   await expect(files.getByRole('button', { name: 'Add photo' })).toHaveCount(0);
   await expect(files.locator('[data-slot=file-input]')).toHaveCount(1);
-  await expect(files.getByText('Files')).toBeVisible();
+  await expect(files.getByText('Attachments')).toBeVisible();
 
   await files.locator('[data-slot=file-input]').setInputFiles({ name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('remember the milk') });
   const fileRow = files.locator('[data-slot=file-row]');
@@ -89,7 +89,7 @@ test('capture has no file picker, and trash keeps files read-only', async ({ pag
   await page.getByRole('menuitem', { name: 'View recently deleted' }).click();
   await row(page, 'Duplicate: buy watch band').click();
   const files = editor(page).locator('[data-slot=files]');
-  await expect(files.getByText('Files')).toBeVisible();
+  await expect(files.getByText('Attachments')).toBeVisible();
   await expect(files.getByRole('button', { name: 'Add photo' })).toHaveCount(0);
   await expect(files.getByRole('button', { name: 'Add file' })).toHaveCount(0);
   await expect(files.locator('input[type=file]')).toHaveCount(0);

@@ -93,12 +93,8 @@ function TrailingMeta({ id, task, today, onClick, dueGroup, disabled }: { id: st
     <span id={id} data-slot="trailing-meta" className="flex shrink-0 items-center gap-2" onClick={onClick}>
       <TagChips tags={task.tags} className="max-md:hidden" />
       {subtasks.total > 0 && (
-        <span data-slot="subtask-count" className="inline-flex items-center gap-1 text-footnote whitespace-nowrap text-muted-foreground">
+        <span data-slot="subtask-count" role="img" aria-label={`${subtasks.done} of ${subtasks.total} subtasks`} className="inline-flex text-muted-foreground">
           <Icon name="subtasks" className="size-3.5" />
-          <span className="optical-center">
-            {subtasks.done}/{subtasks.total}
-            <span className="sr-only"> subtasks done</span>
-          </span>
         </span>
       )}
       {task.repeat && <Icon name="repeat" className="size-3.5 text-muted-foreground" aria-label="Repeats" data-slot="repeat-icon" />}
