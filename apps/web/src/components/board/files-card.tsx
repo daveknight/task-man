@@ -31,7 +31,8 @@ export function FilesCard({ task }: { task: Task }) {
   const files = useTaskFiles(task.id, actions != null);
   const writes = useFileWrites(task.id);
   const overlay = useOverlayController();
-  const [busy, setBusy] = useState(false);
+  const [activity, setActivity] = useState<'adding' | 'deleting' | null>(null);
+  const busy = activity != null;
   const [localPreview, setLocalPreview] = useState<AttachmentFile | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const locked = !!task.deletedAt || !online || !actions || busy;
@@ -40,24 +41,24 @@ export function FilesCard({ task }: { task: Task }) {
     const picked = [...(event.target.files ?? [])];
     event.target.value = '';
     if (picked.length === 0 || locked) return;
-    setBusy(true);
+    setActivity('adding');
     void (async () => {
       try {
         for (const file of picked) await writes.add(await prepareUpload(file));
       } catch (error) {
         toast.error(message(error));
       } finally {
-        setBusy(false);
+        setActivity(null);
       }
     })();
   };
 
   const remove = (file: AttachmentFile) => {
-    setBusy(true);
+    setActivity('deleting');
     void writes
       .remove(file)
       .catch((error: unknown) => toast.error(message(error)))
-      .finally(() => setBusy(false));
+      .finally(() => setActivity(null));
   };
 
   const list = files.data ?? [];
@@ -134,7 +135,8 @@ export function FilesCard({ task }: { task: Task }) {
                 Add file
               </Button>
             </div>
-            {busy && <p className="text-footnote text-muted-foreground">Adding…</p>}
+            {activity === 'adding' && <p className="text-footnote text-muted-foreground">Adding…</p>}
+            {activity === 'deleting' && <p className="text-footnote text-muted-foreground">Deleting…</p>}
           </div>
         )}
       </RowList>
