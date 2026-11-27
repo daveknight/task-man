@@ -146,7 +146,7 @@ function AppScreen({ overlay }: { overlay: { taskId: string | null; openTask: (t
       <div ref={appRef} className="flex min-h-dvh">
         <main className={`mx-auto flex min-h-dvh w-full max-w-2xl min-w-0 flex-col px-row-x pb-[max(2rem,env(safe-area-inset-bottom))] ${view === 'board' ? FAB_CLEARANCE : ''}`}>
           {view === 'log' ? (
-            <Toolbar title="Completed log" subtitle="Newest first. A repeating task is listed each time it was completed." onBack={() => setView('board')} />
+            <Toolbar title="Completed log" subtitle="Repeating tasks are listed each time an occurrence was completed." onBack={() => setView('board')} />
           ) : view === 'trash' ? (
             <Toolbar title="Trash" subtitle="Deleted tasks are removed for good after 30 days." onBack={() => setView('board')} />
           ) : (
