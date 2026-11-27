@@ -107,10 +107,10 @@ function SubtaskRow({
       style={{ transform: CSS.Translate.toString(transform ? { ...transform, x: 0 } : null), transition }}
       className={cn('group/row relative flex min-h-subtask items-center gap-row-gap bg-card px-row-x', isDragging && 'z-20 shadow-md ring-1 ring-border')}
     >
-      {/* The grip sits in the padding, clear of the checkbox, so the circle lines up with the card icon and the title with the other field labels. */}
+      {/* The grip sits in the padding, clear of the checkbox, so the circle lines up with the card icon and the title with the other field labels. It stays above the checkbox's expanded hit area, which reaches back into that padding. */}
       {!locked && (
         <span
-          className="absolute inset-y-0 left-0 flex items-center justify-center"
+          className="absolute inset-y-0 left-0 z-10 flex items-center justify-center"
           style={{ width: 'calc(var(--space-row-x) - (var(--size-checkbox) - var(--size-icon)) / 2 - 1px)' }}
         >
           <DragHandle
