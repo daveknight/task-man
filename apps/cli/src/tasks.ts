@@ -313,9 +313,9 @@ export async function editTask(ctx: Context, ref: string, options: EditOptions):
     }
   }
   const subtaskChanges = hasSubtaskEdits(options.subtasks) ? planSubtaskEdits(before.subtasks, options.subtasks!) : [];
-  if (subtaskChanges.length > 0 && before.deletedAt) throw new Error('Subtasks of a task in Trash can\'t be changed; restore it first');
+  if (subtaskChanges.length > 0 && before.deletedAt) throw new Error('Subtasks of a task in Recently deleted can\'t be changed; restore it first');
   const tagPlan = options.tags === undefined ? null : planTaskTags(snapshot.tags, before.tags, parseTagList(options.tags), () => crypto.randomUUID());
-  if (tagPlan && before.deletedAt && (tagPlan.attach.length > 0 || tagPlan.detach.length > 0)) throw new Error('Tags of a task in Trash can\'t be changed; restore it first');
+  if (tagPlan && before.deletedAt && (tagPlan.attach.length > 0 || tagPlan.detach.length > 0)) throw new Error('Tags of a task in Recently deleted can\'t be changed; restore it first');
   const result = await commit(ctx, snapshot, before, after, undefined, note);
   if (subtaskChanges.length === 0 && !tagPlan) return result;
   for (const change of subtaskChanges) await writeSubtaskChange(ctx.scope, before.id, change);
@@ -523,7 +523,7 @@ export async function deleteTask(ctx: Context, ref: string, forever: boolean): P
   const snapshot = await loadSnapshot(ctx.scope);
   const before = findTask(snapshot, ref);
   if (forever) {
-    if (!before.deletedAt) throw new Error('Delete forever only works on tasks in Trash; delete it first');
+    if (!before.deletedAt) throw new Error('Delete forever only works on tasks in Recently deleted; delete it first');
     await deleteForever(ctx.scope, before.id);
     return { task: before, placement: 'deleted_forever', subtaskCount: subtaskCount(before.subtasks) };
   }

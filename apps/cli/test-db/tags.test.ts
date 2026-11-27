@@ -113,7 +113,7 @@ describe('edit --tags', () => {
   it("can't change the tags of a task in Trash", async () => {
     const { task } = await add('trashed', [tag('t1')]);
     await deleteTask(ctx, task.id, false);
-    await expect(editTask(ctx, task.id, { tags: tag('t2') })).rejects.toThrow('Trash');
+    await expect(editTask(ctx, task.id, { tags: tag('t2') })).rejects.toThrow('Recently deleted');
     await restoreTask(ctx, task.id);
     await editTask(ctx, task.id, { tags: tag('t2') });
     expect(names((await show('trashed')).task.tags)).toEqual([tag('t2')]);

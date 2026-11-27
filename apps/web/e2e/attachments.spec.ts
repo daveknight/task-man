@@ -86,7 +86,7 @@ test('capture has no file picker, and trash keeps files read-only', async ({ pag
   await page.keyboard.press('Escape');
 
   await page.getByRole('button', { name: 'Menu', exact: true }).click();
-  await page.getByRole('menuitem', { name: 'Show deleted' }).click();
+  await page.getByRole('menuitem', { name: 'View recently deleted' }).click();
   await row(page, 'Duplicate: buy watch band').click();
   const files = editor(page).locator('[data-slot=files]');
   await expect(files.getByText('Files')).toBeVisible();
