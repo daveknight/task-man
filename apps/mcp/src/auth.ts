@@ -12,11 +12,17 @@ export interface OpenedUser {
   scope: Scope;
 }
 
-/** 401 before any database call. A missing or unusable token never opens a client that could write. */
-export function unauthorized(message: string): Response {
+/**
+ * 401 before any database call. A missing or unusable token never opens a client that could write.
+ * `resource_metadata` is how an MCP client finds the browser login.
+ */
+export function unauthorized(message: string, options?: { resourceMetadataUrl?: string; invalidToken?: boolean }): Response {
+  const params: string[] = [];
+  if (options?.invalidToken) params.push('error="invalid_token"');
+  if (options?.resourceMetadataUrl) params.push(`resource_metadata="${options.resourceMetadataUrl}"`);
   return Response.json(
     { error: 'unauthorized', message },
-    { status: 401, headers: { 'cache-control': 'no-store', 'www-authenticate': 'Bearer' } },
+    { status: 401, headers: { 'cache-control': 'no-store', 'www-authenticate': params.length ? `Bearer ${params.join(', ')}` : 'Bearer' } },
   );
 }
 
@@ -53,10 +59,13 @@ function userClient(url: string, anonKey: string, accessToken: string): Supabase
  * Checks the bearer token with Supabase Auth and returns a client that sends it on every
  * request. Row-level security then scopes reads and writes to that user.
  */
-export async function openUser(authorization: string | null): Promise<OpenedUser | Response> {
+export async function openUser(authorization: string | null, resourceMetadataUrl?: string): Promise<OpenedUser | Response> {
+  const challenge = resourceMetadataUrl ? { resourceMetadataUrl } : undefined;
   const token = bearerToken(authorization);
-  if (!token) return unauthorized(TOKEN_REQUIRED);
-  if (token.startsWith('sb_secret_') || jwtClaim(token, 'role') === 'service_role') return unauthorized(SERVICE_ROLE_REJECTED);
+  if (!token) return unauthorized(TOKEN_REQUIRED, challenge);
+  if (token.startsWith('sb_secret_') || jwtClaim(token, 'role') === 'service_role') {
+    return unauthorized(SERVICE_ROLE_REJECTED, { ...challenge, invalidToken: true });
+  }
 
   let url: string;
   let anonKey: string;
@@ -70,7 +79,7 @@ export async function openUser(authorization: string | null): Promise<OpenedUser
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
   });
   const { data, error } = await auth.auth.getUser(token);
-  if (error || !data.user) return unauthorized(TOKEN_REJECTED);
+  if (error || !data.user) return unauthorized(TOKEN_REJECTED, { ...challenge, invalidToken: true });
 
   const exp = jwtClaim(token, 'exp');
   const info: AuthInfo = {

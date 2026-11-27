@@ -1,6 +1,6 @@
 import { createServer, type Server } from 'node:http';
 import { localhostHostValidation, localhostOriginValidation, toWebRequest } from '@modelcontextprotocol/node';
-import { handleMcp } from './server.ts';
+import { handleHttp } from './router.ts';
 import { writeNodeResponse } from './node-http.ts';
 
 export interface ListeningServer {
@@ -21,7 +21,7 @@ export function listen(options?: { port?: number; host?: string }): Promise<List
       try {
         if (!validateHost(req, res) || !validateOrigin(req, res)) return;
         const request = await toWebRequest(req);
-        await writeNodeResponse(res, await handleMcp(request));
+        await writeNodeResponse(res, await handleHttp(request));
       } catch (error) {
         console.error(error instanceof Error ? error.message : error);
         if (!res.headersSent) {

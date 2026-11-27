@@ -8,13 +8,15 @@ The URL is not live until the Vercel project below exists. After that project is
 
 If Vercel adds a suffix because that name is taken, use the production URL shown on the project, still with `/mcp` on the end. Locally, with the server started as below, the address is `http://127.0.0.1:8787/mcp`.
 
-## The access token
+## Sign in
 
-Every request needs the signed-in user's Supabase **access token**. The server checks that token with Supabase Auth and sends it on every read and write, so row-level security applies. A request with no token is rejected. A service-role key is rejected too. Do not put a service-role key in the client or in the server's environment.
+Every tool call needs the signed-in user's Supabase **access token**. The server checks that token with Supabase Auth and sends it on every read and write, so row-level security applies. A request with no token is rejected. A service-role key is rejected too. Do not put a service-role key in the client or in the server's environment.
 
-The access token expires (Supabase's default is one hour). This server does not take the refresh token. Sign in again and send the new access token.
+Claude and ChatGPT sign in through the browser. The client opens a page on this server. You enter the TaskMan email and password. Sign-ups stay off. The web app keeps its own login screen. The client then receives that user's access token and refresh token. Later calls send the access token. When it expires (Supabase's default is one hour), the client exchanges the refresh token here, and this server asks Supabase for a new pair. The page asks only for that email and password.
 
-Get one with the hosted project's URL and anon key (the same public values as the web app's `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`):
+A pasted access token still works, for Cursor and for any client that sends a header instead of signing in. This server does not refresh a pasted token. When it expires, sign in again and send the new one.
+
+Get a pasted token with the hosted project's URL and anon key (the same public values as the web app's `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`):
 
 ```bash
 curl -s "$SUPABASE_URL/auth/v1/token?grant_type=password" \
@@ -46,13 +48,13 @@ A Cursor MCP config, once the Vercel URL is live:
 
 Replace the URL if the project name differs, and replace the token when it expires.
 
-## Claude Desktop
+## Claude
 
-Use the access token from the curl above. The value Claude sends is the header exactly as you type it, so it starts with `Bearer`, then a space, then the token.
+Claude signs in with the browser page. Leave the connector on the server's own sign-in.
 
-In Claude, open **Customize**, then **Connectors**, then **Add custom connector**. On a Team or Enterprise plan, an Owner adds it under **Organization settings**, **Connectors**, **Add**, **Custom**, **Web**. Name it TaskMan. The server URL is the production address ending in `/mcp`. Under **Authentication**, choose **No sign in**. Under **Request headers**, set the name to `authorization` and the value to `Bearer <access_token>`. Add the connector, then turn TaskMan on in a chat.
+In Claude, open **Customize**, then **Connectors**, then **Add custom connector**. On a Team or Enterprise plan, an Owner adds it under **Organization settings**, **Connectors**, **Add**, **Custom**, **Web**. Name it TaskMan. The server URL is the production address ending in `/mcp`. Leave authentication as the sign-in the server offers. Add the connector. Claude opens a browser to this server. Sign in with the TaskMan email and password, then turn TaskMan on in a chat.
 
-That connector calls the server from Anthropic's cloud, so the URL has to be the public HTTPS address. The local `127.0.0.1` address is unreachable from there. **Request headers** is in beta, and some accounts do not show that section. When it is missing, connect from the desktop app instead. Open **Settings**, **Developer**, **Edit Config**. The file is `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS and `%APPDATA%\Claude\claude_desktop_config.json` on Windows. Node has to be installed so `npx` can run. Add this beside any servers already in the file:
+That connector calls the server from Anthropic's cloud, so the URL has to be the public HTTPS address. The local `127.0.0.1` address is unreachable from there. The same sign-in works from the desktop app's config when you want the local server, or when the connector form is not available. Open **Settings**, **Developer**, **Edit Config**. The file is `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS and `%APPDATA%\Claude\claude_desktop_config.json` on Windows. Node has to be installed so `npx` can run. Add this beside any servers already in the file:
 
 ```json
 {
@@ -64,41 +66,33 @@ That connector calls the server from Anthropic's cloud, so the URL has to be the
         "mcp-remote",
         "https://task-man-mcp.vercel.app/mcp",
         "--transport",
-        "http-only",
-        "--header",
-        "Authorization:${AUTH_HEADER}"
-      ],
-      "env": {
-        "AUTH_HEADER": "Bearer <access_token>"
-      }
+        "http-only"
+      ]
     }
   }
 }
 ```
 
-Leave no space after `Authorization:` in `args`. The space lives in `AUTH_HEADER`, which keeps Windows from splitting the header. Quit Claude completely and open it again. For the local server, use `http://127.0.0.1:8787/mcp` and add `"--allow-http"` to `args`.
+Quit Claude completely and open it again. `mcp-remote` opens the same sign-in page. For the local server, use `http://127.0.0.1:8787/mcp` and add `"--allow-http"` to `args`.
 
-When the token expires, sign in again. For the connector, remove it and add it again with the new value. For the config file, replace `AUTH_HEADER` and restart Claude.
+Claude refreshes the token on its own. Sign in again only when Claude asks.
 
-## ChatGPT desktop
+## ChatGPT
 
-The ChatGPT desktop app reads `~/.codex/config.toml` (on Windows, `%USERPROFILE%\.codex\config.toml`), the same file Codex uses. The website's custom MCP plugin has no field for this token.
+ChatGPT and Codex sign in with the same browser page. Leave the bearer-token field empty.
 
-Open **Settings**, then **MCP servers**, then **Add server**. Name it TaskMan, choose **Streamable HTTP**, and enter the production URL ending in `/mcp`. If the form has a bearer-token environment variable, set it to `TASKMAN_ACCESS_TOKEN`. Save, then **Restart**.
+Add TaskMan by its production URL ending in `/mcp`. When ChatGPT asks you to sign in, use the TaskMan email and password. The website and the desktop app both reach a public HTTPS address. The local `127.0.0.1` address works from the desktop app and from Codex on this machine. The website needs the public HTTPS address.
 
-The token itself goes in that environment variable, as the raw access token with no `Bearer` prefix. The app sends `Authorization: Bearer <access_token>`. If the form has no token field, add the variable name in the config file:
+The desktop app reads `~/.codex/config.toml` (on Windows, `%USERPROFILE%\.codex\config.toml`). Leave the bearer token out:
 
 ```toml
 [mcp_servers.taskman]
 url = "https://task-man-mcp.vercel.app/mcp"
-bearer_token_env_var = "TASKMAN_ACCESS_TOKEN"
 ```
 
-The app only sees variables that exist when it starts. An `export` in a terminal is invisible to a copy opened from the Dock or the Start menu.
+For the local server, use `http://127.0.0.1:8787/mcp` as the URL. ChatGPT refreshes the token on its own.
 
-On macOS, run `launchctl setenv TASKMAN_ACCESS_TOKEN '<access_token>'`, quit ChatGPT completely, and open it again. That variable lasts until you log out. On Windows, add a user environment variable named `TASKMAN_ACCESS_TOKEN`, quit ChatGPT including its tray icon, and open it again.
-
-For the local server, use `http://127.0.0.1:8787/mcp` as the URL. When the token expires, replace the variable and restart the app.
+A pasted token, if you prefer it for this app, is the section above: set `bearer_token_env_var = "TASKMAN_ACCESS_TOKEN"` and put the raw access token in that variable, with no `Bearer` prefix. The app only sees variables that exist when it starts.
 
 ## Tools
 
@@ -129,7 +123,7 @@ export SUPABASE_ANON_KEY="<anon key from supabase status>"
 npm run start -w @app/mcp
 ```
 
-That listens on `http://127.0.0.1:8787/mcp`. Sign in as the dev user (`dev@example.com` / `dev-password`) with the curl above to get a local access token. Nothing here talks to the hosted database unless you point `SUPABASE_URL` at it yourself.
+That listens on `http://127.0.0.1:8787/mcp`. Sign in as the dev user (`dev@example.com` / `dev-password`) with the curl above to get a local access token, or point a client that allows HTTP at that address and use the browser page. Nothing here talks to the hosted database unless you point `SUPABASE_URL` at it yourself.
 
 ## Deploy it beside the web app
 
@@ -143,7 +137,7 @@ The web app stays the Vercel project `task-man` (`apps/web`). This server is a s
 6. **Environment Variables**, **Production** only:
    - `SUPABASE_URL` — the hosted Project URL, `https://aihwgaginnmrrcasmhwt.supabase.co`
    - `SUPABASE_ANON_KEY` — the anon / publishable key. It is the same value as `VITE_SUPABASE_ANON_KEY` on the web project. Copy the value. Do not reuse the `VITE_` name.
-   - Do not add a service-role or secret key. The server never reads one, and it rejects that key if a client sends it.
-7. Deploy. The production URL plus `/mcp` is the address in the config above. Preview deployments have no Supabase variables unless you add them, so leave them off previews.
+   - Do not add a service-role or secret key. The server never reads one, and it rejects that key if a client sends it. The browser sign-in uses the anon key and the user's password. The sign-in code is stored in the database for a few minutes; that table arrives with the migrations. No other variable is required.
+7. Deploy. The production URL plus `/mcp` is the address in the config above. The sign-in page, the token endpoint, and the discovery documents are on that same host. Preview deployments have no Supabase variables unless you add them, so leave them off previews.
 
 The hosted database is the one that token can read: the access token is a session for your user in project `aihwgaginnmrrcasmhwt`, and row-level security limits every tool to that user's rows.

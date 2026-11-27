@@ -1,22 +1,17 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { toWebRequest } from '@modelcontextprotocol/node';
-import { authorizeAndServe } from './server.ts';
+import { handleHttp } from './router.ts';
 import { writeNodeResponse } from './node-http.ts';
 
 /**
- * Vercel Node entry. The project route is `/mcp`; `/` is the same function when the
- * platform mounts it at that path. Authorization is the same gate as the local server.
+ * Vercel Node entry. The same function serves `/mcp` and the OAuth routes
+ * (authorize, token, register, and the well-known metadata). Authorization of
+ * tool calls is the same gate as the local server.
  */
 export default async function handler(req: IncomingMessage, res: ServerResponse): Promise<void> {
   try {
     const request = await toWebRequest(req);
-    const path = new URL(request.url).pathname;
-    if (path !== '/mcp' && path !== '/' && path !== '/api/mcp') {
-      res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
-      res.end('Not found');
-      return;
-    }
-    await writeNodeResponse(res, await authorizeAndServe(request));
+    await writeNodeResponse(res, await handleHttp(request));
   } catch (error) {
     console.error(error instanceof Error ? error.message : error);
     if (!res.headersSent) {
