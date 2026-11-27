@@ -3,6 +3,7 @@
 -- Done and skip stay in task_completions; an occurrence's own follow-up write is not copied here.
 -- A reorder that stays in the same section is a task_positions change and is not a trigger here.
 -- updated_at and the generated search vector are not fields.
+-- allow-data-change: the deletes are inside functions and only remove one caller's row from private.activity_suppress, a table this migration creates. They do not run against existing tasks.
 
 create schema if not exists private;
 
