@@ -629,10 +629,29 @@ test('the pane slides in and out, keeping the last task while it leaves', async 
   expect(widths.some((w) => w > 0 && w < 400)).toBe(true);
 
   await settled(page);
+  // Sample the slide from the click. A later snapshot can miss the 200ms leave on a slow runner.
+  const closing = page.evaluate(
+    () =>
+      new Promise<{ widths: number[]; titles: string[] }>((resolve) => {
+        const widths: number[] = [];
+        const titles: string[] = [];
+        let frames = 0;
+        const step = () => {
+          const el = document.querySelector('[data-slot=task-pane]');
+          widths.push(el ? el.getBoundingClientRect().width : -1);
+          const title = el?.querySelector('[aria-label="Title"]');
+          titles.push(title instanceof HTMLInputElement || title instanceof HTMLTextAreaElement ? title.value : '');
+          frames += 1;
+          if (frames < 40) requestAnimationFrame(step);
+          else resolve({ widths, titles });
+        };
+        requestAnimationFrame(step);
+      }),
+  );
   await pane(page).getByRole('button', { name: 'Close' }).click();
+  const { widths: closingWidths, titles } = await closing;
+  expect(closingWidths.some((width, i) => width > 0 && width < 400 && titles[i] === 'Fix squeaky closet door')).toBe(true);
   await expect(row(page, 'Fix squeaky closet door')).not.toHaveAttribute('data-selected');
-  await expect(pane(page).getByRole('textbox', { name: 'Title' })).toHaveValue('Fix squeaky closet door');
-  expect(await pane(page).evaluate((el) => el.getBoundingClientRect().width)).toBeGreaterThan(0);
   await expect(pane(page)).toHaveCount(0);
 });
 
