@@ -10,6 +10,7 @@ Personal task manager for todos. "TaskMan" is a working name: it lives in `APP_N
 | `packages/tokens` | Design tokens (light and dark colors from Apple's system palette, type scale, spacing, row heights) and the Phosphor/SF Symbols icon map. `npm run generate -w @app/tokens` writes `generated/tokens.css` and the Tailwind theme `generated/tailwind.css` |
 | `packages/data` | Supabase reads and writes shared by the CLI and the web app (`loadSnapshot`, `writeChange`, `insertTask`, `searchTasks`, row mapping) |
 | `apps/cli` | Agent and seeding CLI: every Phase 1a action, through the same `core` rules and `@app/data` writes as the app. Local Supabase only |
+| `apps/mcp` | Remote MCP server over HTTP. The same commands and `@app/data` writes as the CLI, run with the caller's Supabase access token so row-level security applies. No service-role key. See [docs/mcp.md](docs/mcp.md) |
 | `apps/web` | Vite + React with shadcn/ui on Base UI (components in `src/components/ui`, owned by us), Tailwind on the tokens, Phosphor icons. Login screen (email and password, password reset, sign out); signs in as the dev user in local dev; the board, task sheet, search, Recently deleted, the completed log, and files on a task (Supabase Storage). Static Phase 1a design screens at `/design` in dev |
 | `supabase/` | Local Supabase config, migrations, and `seed.sql` (the dev user) |
 | `seed/` | Fixture tasks with hand-written expectations, and AI-capture examples |
@@ -74,15 +75,15 @@ tags rename <tag> <new name> / tags delete <tag>
 
 | Command | Needs Supabase | Checks |
 |---|---|---|
-| `npm test` | no | core vectors and unit tests; tokens (generated CSS is current, every declared text pair reaches 4.5:1 in light and dark, and the listed exact-Apple exceptions stay at 2:1 or more); seed expectations at the pinned Wednesday (2026-11-18) and Saturday (2026-11-21) |
+| `npm test` | no | core vectors and unit tests; tokens (generated CSS is current, every declared text pair reaches 4.5:1 in light and dark, and the listed exact-Apple exceptions stay at 2:1 or more); seed expectations at the pinned Wednesday (2026-11-18) and Saturday (2026-11-21); MCP tool-argument mapping |
 | `npm run typecheck` | no | all packages |
 | `npm run check:hosted -- --base origin/main` | no | the hosted-safety guard: existing migrations unchanged, new ones newer and free of unflagged data changes, no `[remotes]` in `config.toml`, the seed's local-only guard |
 | `npm run db:reset && npm run db:lint` | yes | every migration applies from scratch; Supabase linter |
-| `npm run test:db` | yes | RLS on every table as real signed-in users, `user_id default auth.uid()`, trigger-set `updated_at`, start ≤ due, start only on Open and hide-until only on Waiting, completion uniqueness, tombstones, byte-wise sort keys; `search_tasks` (own tasks only, never Recently deleted, literal `%` and `_`, tag filter that needs every tag) and the tag commands and `purge_trash` (30 days, not callable by users, scheduled daily); attachment files private to the owner, 50 MB and 1 GB caps, and removal through the Storage API |
+| `npm run test:db` | yes | RLS on every table as real signed-in users, `user_id default auth.uid()`, trigger-set `updated_at`, start ≤ due, start only on Open and hide-until only on Waiting, completion uniqueness, tombstones, byte-wise sort keys; `search_tasks` (own tasks only, never Recently deleted, literal `%` and `_`, tag filter that needs every tag) and the tag commands and `purge_trash` (30 days, not callable by users, scheduled daily); attachment files private to the owner, 50 MB and 1 GB caps, and removal through the Storage API. Then the MCP server against the same local database: create, a field change that shows up in history, complete, a call with no token, and a service-role key |
 | `npm run check:seed -- 2026-11-18 2026-11-21` | yes | seeds through the real CLI and compares `board --json` with every `expect` in `seed/tasks.json` |
 | `npm run e2e -w @app/web` | yes | Playwright against the dev server at the pinned Wednesday: the board matches `board --json`, and the main actions (complete and undo, presets, subtasks, tags, repeating complete/skip/undo, Waiting picker, drag-and-drop, quick add, sheet edits, search, Recently deleted, the completed log) in light, dark and on an iPhone-sized touch screen. Uses the installed Google Chrome |
 
-CI (`.github/workflows/ci.yml`) runs all of these. The end-to-end suite is split across two jobs so they run in parallel (light and phone with the database checks, dark in its own job), and pull requests that change only docs, `.cursor/` or the keep-alive workflow skip the two local-Supabase jobs, which then report as skipped (passing). Core tests and Hosted safety always run.
+CI (`.github/workflows/ci.yml`) runs all of these, and also builds the MCP server. The end-to-end suite is split across two jobs so they run in parallel (light and phone with the database checks, dark in its own job), and pull requests that change only docs, `.cursor/` or the keep-alive workflow skip the two local-Supabase jobs, which then report as skipped (passing). Core tests and Hosted safety always run.
 
 ## Design
 

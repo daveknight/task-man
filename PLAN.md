@@ -37,7 +37,7 @@ Waiting is a **status**, on the same picker as In Progress, because a task can't
   - Only an Open task can be in Upcoming.
   - `core`'s `changeStatus(task, to, today)` decides this for every client and returns the task. It has no decision step, no `choice` argument and no policy defaults. Non-interactive callers (CLI commands, AI capture, sync) call it the same way, so the CLI's `status`, `act` and `move` never exit with code 2 for a date question.
 - The hide-until date is its own field, `hideUntil` (`hide_until`), and only Waiting tasks have it. Which sub-state a task is in is derived, never stored, like the sections.
-- In Phase 5, the hide-until date can also send a notification.
+- In Phase 6, the hide-until date can also send a notification.
 
 Not on the board by default: completed tasks (a "Show completed" toggle in the menu adds a collapsed Completed section at the bottom) and deleted tasks (a Recently deleted screen in the menu).
 
@@ -66,7 +66,7 @@ Not on the board by default: completed tasks (a "Show completed" toggle in the m
 
 One shared function in `core`, `actionsFor(task, today)`, picks the actions from the task's state, so phone swipes, the desktop right-click menu and hover buttons always match.
 
-- **Offline:** the app is read-only. A banner says so, and every control that would change something is disabled (checkboxes, hover buttons, context menu items, swipe buttons, the sheet's editing controls). Edits queue only in the native apps (Phase 4).
+- **Offline:** the app is read-only. A banner says so, and every control that would change something is disabled (checkboxes, hover buttons, context menu items, swipe buttons, the sheet's editing controls). Edits queue only in the native apps (Phase 5).
 - **Swipe right:** reveals the **Flag** toggle, and that's all. There's no full-swipe complete; completing is the checkbox.
 - **Hover buttons (desktop):** Delete, the state button, then the date button, left to right, so the date sits at the right next to the row's dates. Every open row has the Due button, Waiting rows too (a Waiting row's state buttons, Hide until and Move to In Progress, come first): the icon alone when no due date is set, and the due date itself (orange icon and the date) when one is. Clicking anywhere on it opens the Due picks. A completed task's due date is a plain label, struck through with its title, with a grey icon.
 - **Swipe left:** reveals the same buttons in the same order as desktop: **Delete** (red), the **state** button (blue; a follow-up gets two, Hide until and Move to In Progress), then the **date** buttons (orange): Start or Hide until where the row has one, then Due.
@@ -85,7 +85,7 @@ One shared function in `core`, `actionsFor(task, today)`, picks the actions from
 - A recurring task adds **Skip this occurrence** to its date presets.
 - A task due after today adds **+1 day** (a day after its due date) as the first due preset. It's left out when the task is due today or overdue, where it would equal Tomorrow, so a due date never moves to another past day.
 - When a task's state changes the presets, the button's icon changes too (calendar, closed eye for hide until, sunrise for start), so you can tell what it will do before tapping.
-- These come with Phase 1a (swipe in mobile Safari, right-click and hover on desktop) and carry over to the native apps in Phase 4.
+- These come with Phase 1a (swipe in mobile Safari, right-click and hover on desktop) and carry over to the native apps in Phase 5.
 
 ### Task fields
 
@@ -96,7 +96,7 @@ One shared function in `core`, `actionsFor(task, today)`, picks the actions from
 - **Status:** open, in progress or waiting, plus completed and deleted timestamps.
 - **Tags** (phase 2): many-to-many, used by search and future filtered views. A tag is just a name: unique per user ignoring case, up to 30 characters, no comma, and no color (the `color` column is unused). Names show as neutral grey chips; a task keeps its tags in the order they were added. Tags can be created from the picker, renamed and deleted (which removes them from every task but leaves the tasks). Search filters by tags with AND: a task must have every selected tag. Desktop rows show up to two chips then "+N"; phone rows show none, and the sheet and picker list them all.
 - **Subtasks** (phase 2): title and done flag, ordered, and they exist only inside their parent task.
-- **Repeat rule** (phase 2), **attachments** (phase 3), **reminders** (phase 5).
+- **Repeat rule** (phase 2), **attachments** (phase 3), **reminders** (phase 6).
 
 ### Recurrence
 
@@ -221,6 +221,7 @@ flowchart LR
   core["core: shared rules (sections, recurrence, sort keys)"]
   web["Web app (React + Vite)"]
   cli["CLI for agents and seeding"]
+  mcp["MCP server (remote HTTP)"]
   ios["SwiftUI app (iOS + macOS)"]
   supa["Supabase free: Postgres + Auth + Storage + Realtime"]
   edge["Edge Function parse-capture"]
@@ -231,12 +232,14 @@ flowchart LR
   tokens["tokens: shared design tokens"]
   core --> web
   core --> cli
+  core --> mcp
   fixtures --> core
   fixtures --> ios
   tokens --> web
   tokens --> ios
   web --> supa
   cli --> supa
+  mcp --> supa
   ios --> supa
 ```
 
@@ -244,21 +247,22 @@ flowchart LR
 - **The login screen came late, but security didn't.** Row-level security (`user_id = auth.uid()`) is on from the first migration, and every table, including subtasks, tags, completions and positions, carries `user_id default auth.uid()`. Locally, the web app signs in automatically as a seeded development user, so you never see a login screen while we iterate, yet every query already runs exactly as it will in production. The real login screen (email and password, sign-ups disabled, long-lived sessions so the installed web app stays signed in, and password reset) arrived in Phase 1b, just before the app went onto a public URL with your real tasks. Built from the same shadcn components and tokens, it shows whenever nobody is signed in; the board menu has Sign out. Only local `vite dev` and `preview:local` builds still sign in as the dev user automatically (`?autosignin=off`, or signing out, shows the login screen there). Other sign-in methods are in the backlog.
 - **Web:** Vite + React + TypeScript, shadcn/ui components on Base UI, Tailwind, Phosphor icons, dnd-kit for drag-and-drop, TanStack Query. See [Design system](#design-system). Hosted as a static site, either on DreamHost (already paid for) or a free static host.
 - **Shared rules package (`core`):** pure TypeScript with no UI, holding section derivation, the next-occurrence math, sort keys, and relative-date parsing. Unit-tested with Vitest against **JSON test vectors** (input task + today, expected output). The Swift apps later port the same functions and run the same vectors, so all clients behave identically.
-- **Native (phase 4):** one SwiftUI multiplatform target for iOS and macOS, using `supabase-swift`, with a local SwiftData or GRDB cache so the app opens instantly and works offline. Edits made offline are queued and replayed later, and Realtime pushes changes from other devices.
+- **MCP server (`apps/mcp`, Phase 4):** a remote HTTP server for agents. It calls the same `core` rules and the same reads and writes as the CLI. The caller sends a Supabase user access token, and every query runs as that user, so row-level security applies. It does not use the service-role key. See [docs/mcp.md](docs/mcp.md).
+- **Native (phase 5):** one SwiftUI multiplatform target for iOS and macOS, using `supabase-swift`, with a local SwiftData or GRDB cache so the app opens instantly and works offline. Edits made offline are queued and replayed later, and Realtime pushes changes from other devices.
 - **Sync safety, built into the schema from Phase 0** so the native phase doesn't need a migration of live data:
   - `updated_at` is set by a database trigger, never by device clocks.
   - Clients send only the fields they changed, so editing the title on the phone and the due date on the Mac both survive. Conflicts on the same field go to the last write.
   - Complete and Skip are server functions keyed by `(task_id, occurrence_due)`, so the same occurrence completed offline on two devices advances the task only once.
   - Sort keys get a short random suffix, with the task id as the final tiebreak, so two devices never produce the same key.
   - Tombstones (above) stop an offline edit from resurrecting a purged task.
-- **Reminders (phase 5)** can be **local notifications** scheduled on each device from synced data, so no push server is needed.
+- **Reminders (phase 6)** can be **local notifications** scheduled on each device from synced data, so no push server is needed.
 
 ### Free-plan limits and how the design handles them
 
 | Limit | Impact | Mitigation |
 |---|---|---|
 | Paused after 1 week with no activity | Only if you stop using it for a week | Daily use counts as activity. A daily scheduled GitHub Actions workflow in this repo (`.github/workflows/keep-alive.yml`) makes one tiny read-only request with the public anon key as a keep-alive. GitHub disables schedules in a repo with no commits for 60 days, so if development stops for two months, re-enable it from the Actions tab |
-| No automatic backups | Data loss risk | Deferred to Phase 6 (the last phase): until then, run `cli export` by hand against the hosted project's data if you want a copy, and Supabase's free plan keeps no backups of its own. The planned design is a nightly export with a read-only database role (not the all-powerful service key) committed to a private repo, with a CI export, import, compare round trip so restore is known to work. Attachments get backed up from Phase 3 |
+| No automatic backups | Data loss risk | Deferred to Phase 7 (the last phase): until then, run `cli export` by hand against the hosted project's data if you want a copy, and Supabase's free plan keeps no backups of its own. The planned design is a nightly export with a read-only database role (not the all-powerful service key) committed to a private repo, with a CI export, import, compare round trip so restore is known to work. Attachments get backed up from Phase 3 |
 | 500 MB database | Years of text tasks fit easily | Nothing needed |
 | 1 GB file storage, 50 MB per file | Matters only for attachments | Downscale photos before upload, and show storage usage in Settings |
 
@@ -273,7 +277,7 @@ Fallbacks if Supabase ever stops working for this: custom PHP and MySQL on Dream
 - One source of truth, `packages/tokens` (`@app/tokens`): semantic tokens for color (light and dark pairs), radius, spacing, type scale and row heights. Apps never use raw hex values or one-off sizes.
 - Color names follow shadcn's variables (`background`, `foreground`, `card`, `muted`, `muted-foreground`, `border`, `input`, `ring`, `primary`, `accent`, `destructive`, `sidebar-*`) plus app roles: `flag` (orange), `overdue` (red), `section-header`, `swipe-date` (orange), `swipe-state` (blue) and `swipe-delete` (red).
 - Values are Apple's exact system colors and grouped backgrounds (for example blue `#007AFF` / `#0A84FF`, orange `#FF9500` / `#FF9F0A`, red `#FF3B30` / `#FF453A`, gray `#8E8E93` for light / dark), so the web app and the native apps read as one product.
-- The web app gets generated CSS variables for Tailwind and shadcn. From Phase 4 the same file generates a Swift theme for the few places native needs custom color (the flag, overdue dates, swipe buttons). Everywhere else native uses system colors directly.
+- The web app gets generated CSS variables for Tailwind and shadcn. From Phase 5 the same file generates a Swift theme for the few places native needs custom color (the flag, overdue dates, swipe buttons). Everywhere else native uses system colors directly.
 
 ### Web (from Phase 1a)
 
@@ -285,7 +289,7 @@ Fallbacks if Supabase ever stops working for this: custom PHP and MySQL on Dream
 - **Icons:** Phosphor (`@phosphor-icons/react`, MIT), the closest licensed match to SF Symbols. Regular weight by default, Fill for selected or active states. Lucide, shadcn's default, is replaced.
 - **Accessibility:** keyboard reachable everywhere (Base UI handles focus and menus), visible focus rings, and text contrast of at least 4.5:1 in both themes, except where Apple's exact colors are used as they are on Apple's platforms (white on blue, orange and red buttons, red and blue text, gray secondary text). A test lists those exceptions and keeps them at 2:1 or more.
 
-### Native (Phase 4)
+### Native (Phase 5)
 
 - **SwiftUI system components first:** `List` with sections, `swipeActions`, `contextMenu`, `NavigationSplitView` sidebar on macOS and iPad, sheets with detents for the task sheet, `DatePicker`, `Menu`, toolbars and keyboard shortcuts. Standard components pick up Liquid Glass, Dynamic Type, accessibility and dark mode for free, so custom drawing is a last resort.
 - **SF Symbols** for every icon.
@@ -314,7 +318,7 @@ One table in `packages/tokens` maps each meaning to its icon on each platform, s
 
 - **Web screens:** the Obra shadcn/ui kit, Community edition (free; CC BY 4.0, so credit Obra Studio in the repo's design notes), with its color variables re-pointed to our tokens and the Phosphor plugin for icons.
 - **Native screens:** Apple's official iOS 27 and macOS 27 UI kits (free, from Apple Design Resources), with the SF Symbols app for icons.
-- **Before building each UI phase,** its new screens are designed in light and dark. The web kit is used from Phase 1a, and the Apple kits from Phase 4.
+- **Before building each UI phase,** its new screens are designed in light and dark. The web kit is used from Phase 1a, and the Apple kits from Phase 5.
 - Token values are changed in `packages/tokens` first, so code stays the source of truth. They're mirrored into the Figma variables only when Dave asks.
 - Agents create or update anything in Figma (screens, screenshots, variables) only when Dave explicitly asks, never as a routine part of a PR or task.
 
@@ -344,7 +348,7 @@ task_activities(id, user_id, task_id, batch_id, seq, at, kind: created|changed, 
 tombstones(id, user_id, purged_at)
 capture_log(id, user_id, input text, provider, model, reply jsonb, saved jsonb, created_at)   -- phase 2b, last 50 kept
 attachments(id, user_id, task_id, storage_path, filename, mime, bytes)     -- phase 3
-reminders(id, user_id, task_id, kind: offset|time_on_due|absolute, ...)   -- phase 5
+reminders(id, user_id, task_id, kind: offset|time_on_due|absolute, ...)   -- phase 6
 ```
 
 ## The CLI (for agents and seeding)
@@ -395,13 +399,13 @@ Each phase ends with something you can use day to day and give feedback on befor
 - The four sections with Upcoming collapsed, and the task sheet (title, description with list auto-format, start and due dates, status, flag).
 - Quick add, drag to reorder and drag across sections, done/undone with undo, Show completed, Recently deleted with the 30-day purge, search over title and description.
 - The full CLI command set, Playwright end-to-end tests (including both color schemes), responsive layout so it works in mobile Safari too.
-- **Installable to the iPhone home screen** (a progressive web app): app icon, full-screen launch with no browser bars, safe-area padding for the notch and home indicator, and a cached app shell so it opens instantly. Offline, it shows the last-loaded board **read-only, with a banner**, so no edit is ever silently lost. Offline editing arrives with the native apps in Phase 4.
+- **Installable to the iPhone home screen** (a progressive web app): app icon, full-screen launch with no browser bars, safe-area padding for the notch and home indicator, and a cached app shell so it opens instantly. Offline, it shows the last-loaded board **read-only, with a banner**, so no edit is ever silently lost. Offline editing arrives with the native apps in Phase 5.
 - You try it against seed data in a browser preview.
 
 **Phase 1b: go live**
 - The real login screen (built from the same shadcn components and tokens), the hosted Supabase project, and deploying the web app.
 - A daily keep-alive workflow in this repo, so the free Supabase project never pauses.
-- Backups are not part of this phase: see Phase 6.
+- Backups are not part of this phase: see Phase 7.
 - From here you use it daily on your phone and laptop.
 
 **Phase 2: richer tasks**
@@ -413,13 +417,20 @@ Each phase ends with something you can use day to day and give feedback on befor
 - The Capture box and review sheet (cards with field chips) are designed in the Figma web kit first.
 
 **Phase 2c: completed log**
-- A "what I finished" view across all tasks, grouped by day and week, including each recurring task's completion history (built on the completions recorded since Phase 2). It is a read-only view, so it needs no new task rules, and it is designed in the Figma web kit first. It comes before the native apps so Phase 4 can build it once, on the final data.
+- A "what I finished" view across all tasks, grouped by day and week, including each recurring task's completion history (built on the completions recorded since Phase 2). It is a read-only view, so it needs no new task rules, and it is designed in the Figma web kit first. It comes before the native apps so Phase 5 can build it once, on the final data.
 
 **Phase 3: attachments**
-- Photos and files on the web app through Supabase Storage, image downscaling, and thumbnails in the task sheet. Built before the native apps so they only have to add the Apple side (see Phase 4).
+- Photos and files on the web app through Supabase Storage, image downscaling, and thumbnails in the task sheet. Built before the native apps so they only have to add the Apple side (see Phase 5).
 - The web address follows the open task, a previewable image, and the completed log: `/tasks/<taskId>`, `/tasks/<taskId>/files/<fileId>`, and `/completed`. A link or a refresh reopens them. Back closes the preview first, then the task, then leaves the board. Back from the completed log returns to the board, and Forward opens the log again with the weeks as they were left. A file the preview can't show still opens its signed URL and does not change the address. `?today=` and `?autosignin=` stay on the query string.
 
-**Phase 4: native iOS + macOS**
+**Phase 4: Task MCP server**
+- A remote MCP server in `apps/mcp`, over HTTP, so an agent that is not on this machine can use a URL. It calls `packages/core` and the same data path as the CLI. It does not grow a second set of task rules.
+- The agent sends the Supabase user's access token. Every read and write runs with that token, so row-level security stays in force. There is no service-role key. A missing token is rejected. A full OAuth consent screen waits until someone else needs to connect.
+- Tools cover the task and its metadata, not file bytes. Read: the board for a day, one task, search, and history (field changes plus done and skip). Write: create, update title, description, status, flag, start, due, hide-until, repeat, tags, and subtasks, plus complete, skip, and undo of the latest occurrence. Attachments list name, type, and size. Upload, download, reordering within a section, and reminders are not in this server.
+- Change alerts are not part of this phase. The history triggers already write `task_activities`. A later slice can add a database webhook that POSTs those rows to a URL. That does not require this server to stay connected, and it is not built here.
+- Deployed beside the web app, against the hosted database that token can read, so the URL stays up. How to pass the token, and the deploy steps: [docs/mcp.md](docs/mcp.md).
+
+**Phase 5: native iOS + macOS**
 - SwiftUI multiplatform app with the same rules (passes the shared test vectors), local cache and offline queue, realtime sync, native drag-and-drop, and a bottom-sheet editor like your screenshots.
 - **Built from Apple's system components:**
   - The screens are designed first in Apple's iOS and macOS Figma kits, in light and dark.
@@ -429,10 +440,10 @@ Each phase ends with something you can use day to day and give feedback on befor
 - Distributed through TestFlight. Not needed: an App Store listing.
 - Attachments from Phase 3 show up natively too: the photo and file pickers, thumbnails, and Quick Look.
 
-**Phase 5: reminders**
+**Phase 6: reminders**
 - Off by default. Three kinds: N minutes/hours/days before the due date, a time on the due date, or a specific date and time. All scheduled as local notifications on each native device.
 
-**Phase 6: backups**
+**Phase 7: backups**
 - A private backup repo with a nightly export of the database (and attachments, once Phase 3 exists), using a read-only database role rather than the service key, plus the restore round-trip test in CI (seed, export, wipe, restore, export, compare).
 - The work is already written and tested on the branch `cursor/backup-later-5a30` (read-only `backup_reader` role migration, export and restore commands, the round-trip test, and the backup repo template). Revive it by rebasing that branch onto `main`; it needs a fresh migration timestamp and a refresh for any tables added since.
 

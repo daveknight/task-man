@@ -2,7 +2,7 @@
   "name": "@app/tokens",
   "version": "0.0.0",
   "private": true,
-  "description": "Design tokens (colors in light and dark, type, spacing, row heights) and the icon map. The single source for web CSS variables and, from Phase 4, the Swift theme.",
+  "description": "Design tokens (colors in light and dark, type, spacing, row heights) and the icon map. The single source for web CSS variables and, from Phase 5, the Swift theme.",
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
