@@ -7,7 +7,7 @@ export interface Target {
   render: (tokens: Tokens) => string;
 }
 
-/** Every generated file. The Swift theme for the native apps (Phase 4) joins this list. */
+/** Every generated file. The Swift theme for the native apps (Phase 5) joins this list. */
 export const targets: readonly Target[] = [
   { file: 'generated/tokens.css', render: renderCss },
   { file: 'generated/tailwind.css', render: renderTailwind },

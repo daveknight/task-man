@@ -64,6 +64,10 @@ jobs:
         run: npm run test -w @app/cli
       - name: Web app builds
         run: npm run build -w @app/web
+      - name: MCP server builds
+        run: npm run build -w @app/mcp
+      - name: MCP argument mapping
+        run: npm run test -w @app/mcp
       - name: The production build has no dev credentials in it
         run: "! grep -rIl 'dev-password' apps/web/dist"
 

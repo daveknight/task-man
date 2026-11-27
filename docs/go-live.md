@@ -1,10 +1,11 @@
 # Going live: hosted Supabase and Vercel
 
-Everything here uses Supabase's free plan and Vercel's free Hobby plan. Development and tests only ever use **local** Supabase. Nothing in the repo reads or writes the hosted project's data: the web app talks to it as the signed-in user, and database changes arrive only as migrations.
+Everything here uses Supabase's free plan and Vercel's free Hobby plan. Development and tests only ever use **local** Supabase. Nothing in the repo reads or writes the hosted project's data during development or CI: the web app and the MCP server talk to it as the signed-in user, and database changes arrive only as migrations.
 
 | Piece | Where | How it gets there |
 |---|---|---|
 | Web app | Vercel project `task-man`, free address `https://task-man-lake.vercel.app` | Vercel builds `main` on every push, using [`apps/web/vercel.json`](../apps/web/vercel.json) |
+| Task MCP server | A second Vercel project, `task-man-mcp`, at `https://task-man-mcp.vercel.app/mcp` once that project exists | Not created from here. The steps, the access token, and the tools are in [mcp.md](mcp.md) |
 | Database schema | Supabase project `aihwgaginnmrrcasmhwt` | The Supabase GitHub integration applies `supabase/migrations/` when something merges to `main` |
 | Auth settings (sign-ups off, redirect URLs) | Supabase dashboard | By hand, once (below). `supabase/config.toml` is local only |
 | Your user | Supabase dashboard | By hand, once |
@@ -51,6 +52,10 @@ supabase db push                                    # shows what it will apply a
 ```
 
 then turn **Deploy to production** back on.
+
+## Task MCP server
+
+Agents call the tools over HTTP. The server runs as the signed-in user: it takes that user's Supabase access token and does not use a service-role key. It is a second Vercel project beside `task-man`, with root directory `apps/mcp`, so the URL stays up against this same hosted database. The project is not created yet. The exact clicks, the two environment variables (`SUPABASE_URL` and `SUPABASE_ANON_KEY`, never a service-role key), and how a client sends the token are in [mcp.md](mcp.md).
 
 ## Keep-alive (stops the free project pausing)
 

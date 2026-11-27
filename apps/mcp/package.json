@@ -1,0 +1,34 @@
+{
+  "name": "@app/mcp",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Remote MCP server. Tools wrap the CLI commands and run as the Supabase user, so row-level security applies.",
+  "type": "module",
+  "engines": {
+    "node": "22.x"
+  },
+  "scripts": {
+    "start": "tsx src/main.ts",
+    "test": "vitest run --dir test",
+    "test:db": "vitest run --dir test-db --testTimeout=30000 --fileParallelism=false",
+    "typecheck": "tsc -p tsconfig.json",
+    "build": "tsx scripts/bundle.ts"
+  },
+  "dependencies": {
+    "@app/cli": "*",
+    "@app/core": "*",
+    "@app/data": "*",
+    "@modelcontextprotocol/node": "^2.1.2",
+    "@modelcontextprotocol/server": "^2.4.0",
+    "@supabase/supabase-js": "^2.119.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/client": "^2.4.0",
+    "@types/node": "^22.0.0",
+    "esbuild": "^0.25.0",
+    "tsx": "^4.23.0",
+    "typescript": "^5.9.3",
+    "vitest": "^5.1.0"
+  }
+}
