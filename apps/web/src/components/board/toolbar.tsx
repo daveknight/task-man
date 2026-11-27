@@ -35,7 +35,7 @@ export interface BoardMenuProps {
   onSettings?: () => void;
 }
 
-/** The board menu: Show completed, the completed log, Show deleted (the Trash screen), and the Appearance setting. */
+/** The board menu: Show completed, the completed log, View recently deleted, and the Appearance setting. */
 export function BoardMenu({ defaultOpen, showCompleted = false, onShowCompletedChange, onTrash, onCompletedLog, account, onSettings }: BoardMenuProps) {
   const { appearance, setAppearance } = useAppearance();
   return (
@@ -49,7 +49,7 @@ export function BoardMenu({ defaultOpen, showCompleted = false, onShowCompletedC
             Show completed
           </DropdownMenuCheckboxItem>
           <DropdownMenuItem onClick={onCompletedLog}>Completed log</DropdownMenuItem>
-          <DropdownMenuItem onClick={onTrash}>Show deleted</DropdownMenuItem>
+          <DropdownMenuItem onClick={onTrash}>View recently deleted</DropdownMenuItem>
           <DropdownMenuItem onClick={() => onSettings?.()}>
             <Icon name="settings" />
             Settings

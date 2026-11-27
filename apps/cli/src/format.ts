@@ -7,7 +7,7 @@ const SECTION_TITLES: Record<Section, string> = {
   ready: 'Ready',
   upcoming: 'Upcoming',
   completed: 'Completed',
-  trash: 'Trash',
+  trash: 'Recently deleted',
 };
 
 const WEEKDAY_NAMES = { mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri', sat: 'Sat', sun: 'Sun' } as const;

@@ -39,7 +39,7 @@ Waiting is a **status**, on the same picker as In Progress, because a task can't
 - The hide-until date is its own field, `hideUntil` (`hide_until`), and only Waiting tasks have it. Which sub-state a task is in is derived, never stored, like the sections.
 - In Phase 5, the hide-until date can also send a notification.
 
-Not on the board by default: completed tasks (a "Show completed" toggle in the menu adds a collapsed Completed section at the bottom) and deleted tasks (a Trash screen in the menu).
+Not on the board by default: completed tasks (a "Show completed" toggle in the menu adds a collapsed Completed section at the bottom) and deleted tasks (a Recently deleted screen in the menu).
 
 - The section is **derived, never stored**. One shared function, `sectionFor(task, today)`, decides it, so the web app, the native apps and the CLI can never disagree.
 - A Waiting task is always in Waiting: its future hide-until date only tucks it under "hidden until later." Only an Open task has a start date, so only an Open task can be in Upcoming. Moving an Upcoming task into In Progress is "Start now" and clears its start date.
@@ -50,7 +50,7 @@ Not on the board by default: completed tasks (a "Show completed" toggle in the m
 ### Ordering and drag-and-drop
 
 - You can drag to reorder within a section. Dragging between In Progress, Waiting and Ready changes the status. Dropping into Waiting opens the Hide until picker. Dropping into Upcoming opens the start-date picker (Tomorrow, +1 week, +2 weeks, Pick date, from tomorrow and never after the due date; a Waiting or In Progress task becomes Open, and its hide-until date is cleared without asking). A task due today or earlier can't start later, so that drop, and only that drop, asks: **Remove due date** clears the due date and goes on to the start-date picker, and **Cancel** leaves the task where it started (core's `planUpcomingDrop` returns this as a decision, like `changeStatus`; the CLI's `move --upcoming --start <date>` exits with code 2 unless `--clear-due` answers it). Dropping onto a collapsed section isn't allowed. Empty In Progress, Waiting and Ready sections stay hidden, and appear as drop targets only while dragging.
-- **Dragging starts at a handle.** Every draggable row has a small handle column left of the checkbox (`DotsSixVertical`, the muted checkbox-ring color until hovered or focused and then medium grey, in light and dark, grab cursor). With a mouse the grip shows only while the row is hovered, while the handle has keyboard focus, and while the row is dragged (its column stays reserved, so titles don't shift); on screens with no hover, such as phones, it is always visible. A drag starts only when you press (touch: press and hold) on it. Keyboard users focus the handle and press Space. Rows that can't be dragged (Completed, Trash, offline) leave the column empty so titles line up, and section titles line up with them.
+- **Dragging starts at a handle.** Every draggable row has a small handle column left of the checkbox (`DotsSixVertical`, the muted checkbox-ring color until hovered or focused and then medium grey, in light and dark, grab cursor). With a mouse the grip shows only while the row is hovered, while the handle has keyboard focus, and while the row is dragged (its column stays reserved, so titles don't shift); on screens with no hover, such as phones, it is always visible. A drag starts only when you press (touch: press and hold) on it. Keyboard users focus the handle and press Space. Rows that can't be dragged (Completed, Recently deleted, offline) leave the column empty so titles line up, and section titles line up with them.
 - **A dropped row settles into its new place.** The board updates in the same tick as the drop (the cache change reaches React synchronously), so the drag overlay slides to the row's new position and never back to the old one.
 - **After a drop, the row is highlighted for 2 seconds, then the highlight fades out** (with reduced motion it just ends). It shows once the move has been saved, including a drop that first needed a Hide until or start-date answer.
 - Order is stored **per view**: a `task_positions(view_id, task_id, sort_key)` table with fractional-index string keys, so one move writes one row. The board is `view_id = 'main'`, and future filtered views get their own order for free.
@@ -80,7 +80,7 @@ One shared function in `core`, `actionsFor(task, today)`, picks the actions from
 | Hidden until later | Hide until: Tomorrow, +3 days, +1 week, Pick date, **Now** (makes it need follow-up) | **Move to In Progress** |
 | Upcoming | Start: **Start today** (moves it to Ready), +1 week, Next month, Pick date, No start date | **Start now** (In Progress) |
 | Completed (when shown) | none | **Mark not done** |
-| Trash | none | **Restore** (Delete becomes **Delete forever**) |
+| Recently deleted | none | **Restore** (Delete becomes **Delete forever**) |
 
 - A recurring task adds **Skip this occurrence** to its date presets.
 - A task due after today adds **+1 day** (a day after its due date) as the first due preset. It's left out when the task is due today or overdue, where it would equal Tomorrow, so a due date never moves to another past day.
@@ -180,11 +180,11 @@ Speak or type a rambling note, and the app turns it into one or more proposed ta
 - CI never calls a real model: it replays recorded replies through validation and the review-sheet logic.
 - `cli capture "text" [--today ...] [--provider gemini]` prints the proposed tasks as JSON without saving; `--apply` saves them. `cli capture-eval` runs every example against a real provider on demand and scores the results, for checking prompt changes.
 
-### Search, completed tasks, trash
+### Search, completed tasks, Recently deleted
 
-- Search covers titles and descriptions (Postgres full-text search plus a trigram fallback for partial words), and covers tags from phase 2. By default it searches open tasks, with a toggle to include completed ones. It never includes Trash.
+- Search covers titles and descriptions (Postgres full-text search plus a trigram fallback for partial words), and covers tags from phase 2. By default it searches open tasks, with a toggle to include completed ones. It never includes Recently deleted.
 - Completed tasks are never deleted automatically. The Completed section is sorted newest first.
-- Delete is soft (`deleted_at`). The Trash screen offers Restore and Delete Forever. A daily `pg_cron` job permanently removes anything whose deletion day is **more than 30 days** before today (deleted 30 days ago stays; 31 goes), with the CLI's `purge-trash` as the same code path for testing. Purged and deleted-forever ids are kept in a small `tombstones` table so an offline device can't bring them back.
+- Delete is soft (`deleted_at`). The Recently deleted screen offers Restore and Delete Forever. A daily `pg_cron` job permanently removes anything whose deletion day is **more than 30 days** before today (deleted 30 days ago stays; 31 goes), with the CLI's `purge-trash` as the same code path for testing. Purged and deleted-forever ids are kept in a small `tombstones` table so an offline device can't bring them back.
 
 ### State transitions
 
@@ -307,7 +307,7 @@ One table in `packages/tokens` maps each meaning to its icon on each platform, s
 | Flag | `Flag` (Fill when on) | `flag` / `flag.fill` |
 | Drag handle (reorder) | `DotsSixVertical` | `line.3.horizontal` |
 | Repeats | `ArrowClockwise` | `arrow.clockwise` |
-| Trash | `Trash` | `trash` |
+| Recently deleted | `Trash` | `trash` |
 | Capture | `Sparkle` | `sparkles` |
 
 ### Figma
@@ -368,11 +368,11 @@ export > backup.json         import backup.json
 ```
 
 - **Dates in the CLI:** `--hide-until <date>|none` sets Waiting's date. `--start` only applies to Ready and Upcoming tasks: on a Waiting or In Progress task (`add` or `edit`) it fails with "Start dates only apply to Ready and Upcoming tasks." The old `--start clear|keep` answers are gone, with no alias, and `--start <date>` going into Waiting fails with an error that points to `--hide-until`. Status changes never exit with code 2. JSON output includes `hideUntil`. Backups are version 2; import maps version 1 the way the migration does (a Waiting task's start date becomes its hide-until date, and In Progress tasks lose theirs).
-- `--today` overrides "today" everywhere, so an agent can check Upcoming-to-Ready changes, recurrence and trash purges without waiting days. The web app has a matching dev-only `?today=YYYY-MM-DD` URL parameter.
+- `--today` overrides "today" everywhere, so an agent can check Upcoming-to-Ready changes, recurrence and Recently deleted purges without waiting days. The web app has a matching dev-only `?today=YYYY-MM-DD` URL parameter.
 - `board --json` is what Playwright end-to-end tests compare the UI against. Because the CLI and the web app share `core`, a bug in the rules would fool both, so the **independent checks** are the hand-written `expect` values in the seed file and the shared test vectors. The vectors cover sections, `actionsFor`, every row of the transition table, complete, skip and undo, and repeat math across month ends, weekends and time zones.
 - CI seeds with a pinned `--today` (a fixed Wednesday) so results never depend on the day CI runs, plus a second run pinned to a Saturday. Playwright also fakes the browser clock, since timestamps still use real time.
 - The seeder writes board positions in file order. Subtasks, tags (in the order listed) and repeat rules are loaded. A repeat's weekday shift and start offset are applied to the seeded dates, and the rule itself is stored. Completion history is not seeded.
-- Seed data lives in `seed/tasks.json`: 51 tasks covering every section, both Waiting sub-states, overdue and due-today dates, start dates of today and in the past (boundary cases), long titles, emoji and accents, nested bullets, a description-only search word ("zucchini"), all three repeat modes with and without start offsets, subtasks inside recurring tasks, flagged tasks, and trash items at 29, 30 and 31 days (only 31 is removed by `purge-trash`).
+- Seed data lives in `seed/tasks.json`: 51 tasks covering every section, both Waiting sub-states, overdue and due-today dates, start dates of today and in the past (boundary cases), long titles, emoji and accents, nested bullets, a description-only search word ("zucchini"), all three repeat modes with and without start offsets, subtasks inside recurring tasks, flagged tasks, and Recently deleted items at 29, 30 and 31 days (only 31 is removed by `purge-trash`).
 
 ## Phases
 
@@ -391,7 +391,7 @@ Each phase ends with something you can use day to day and give feedback on befor
   - The Appearance setting (System, Light, Dark).
   - The board, task sheet and swipe and quick-pick popovers designed in the Figma web kit, in light and dark, and agreed before building them.
 - The four sections with Upcoming collapsed, and the task sheet (title, description with list auto-format, start and due dates, status, flag).
-- Quick add, drag to reorder and drag across sections, done/undone with undo, Show completed, Trash with the 30-day purge, search over title and description.
+- Quick add, drag to reorder and drag across sections, done/undone with undo, Show completed, Recently deleted with the 30-day purge, search over title and description.
 - The full CLI command set, Playwright end-to-end tests (including both color schemes), responsive layout so it works in mobile Safari too.
 - **Installable to the iPhone home screen** (a progressive web app): app icon, full-screen launch with no browser bars, safe-area padding for the notch and home indicator, and a cached app shell so it opens instantly. Offline, it shows the last-loaded board **read-only, with a banner**, so no edit is ever silently lost. Offline editing arrives with the native apps in Phase 4.
 - You try it against seed data in a browser preview.

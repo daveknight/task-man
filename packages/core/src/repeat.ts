@@ -412,7 +412,7 @@ function snapshotOf(task: Task, sortKey: string | null): OccurrenceSnapshot {
  */
 export function planOccurrence(input: OccurrenceInput): OccurrencePlan {
   const { task, kind, on, now, historyCount, sortKey, id } = input;
-  if (task.deletedAt) throw new Error("A task in Trash can't be completed or skipped");
+  if (task.deletedAt) throw new Error("A task in Recently deleted can't be completed or skipped");
   if (task.completedAt) throw new Error(`"${task.title}" is already completed`);
   if (!task.repeat) throw new Error("This task doesn't repeat");
   assertRepeat(task.repeat);

@@ -42,7 +42,7 @@ Some listed states are more than one frame, because one screen cannot show both 
 - Presets popover: Daily is selected, because the note “Repeats from the due date” is only rendered once a rule is set.
 - Completed row: the settled Completed section. The held row just checked off is the mid-animation state left unchecked above.
 - Sections expanded and collapsed: desktop 1440 is the two-pane layout, plus overlay 900 and phone.
-- Repeat row read-only: a task in Trash, a completed task, and the offline board, as three frames.
+- Repeat row read-only: a task in Recently deleted, a completed task, and the offline board, as three frames.
 
 
 ## Board baseline
@@ -127,7 +127,7 @@ Not captured in Figma yet; these are the states to add when Dave asks. The desig
 - [ ] Dragging a subtask by its grip: the lifted row and the drop position – desktop 1440 — skipped 2026-11-25: mid-animation only. Dave asked for settled screens.
 - [x] Board rows with subtasks show done/total next to the dates – desktop 1440 and phone
 - [x] Hover shows the delete button on a subtask row (fine pointers only) – desktop 1440
-- [x] A task in Trash: subtasks visible but read-only, no Add row – desktop 1440
+- [x] A task in Recently deleted: subtasks visible but read-only, no Add row – desktop 1440
 - [x] Offline: subtasks read-only – desktop 1440
 
 ## Tags
@@ -146,7 +146,7 @@ Not captured in Figma yet; these are the states to add when Dave asks. The desig
 - [x] A refused name (a comma, or over 30 characters): the reason under the field, no Create row – desktop 1440
 - [x] Rename: a row’s ⋯ menu, then the row turns into a field; a duplicate name shows its reason – desktop 1440
 - [x] Delete: a row’s ⋯ menu, then the confirmation “Delete “someday”? It comes off N tasks.” with Cancel and Delete tag – desktop 1440
-- [x] A task in Trash: tags visible, no picker – desktop 1440
+- [x] A task in Recently deleted: tags visible, no picker – desktop 1440
 - [x] Offline: the Tags row is read-only – desktop 1440
 - [x] Search: the Tags chip beside Only flagged and Include completed – desktop 1440, light and dark
 - [x] Search Tags menu open: every tag with its count, a blue check on the selected ones, the note “Shows tasks that have every selected tag.” – desktop 1440, light and dark
@@ -168,7 +168,7 @@ Not captured in Figma yet; these are the states to add when Dave asks. The picke
 - [x] A repeating row shows the repeat icon before its date – desktop 1440 and phone
 - [x] Phone presets: a bottom sheet, centered “Repeat”, a close button – phone
 - [x] Phone custom: back “Repeat”, centered “Custom”, blue Done – phone
-- [x] A task in Trash or completed, and offline: the Repeat row is read-only – desktop 1440
+- [x] A task in Recently deleted or completed, and offline: the Repeat row is read-only – desktop 1440
 
 Skip is the existing “Skip this occurrence” pick inside Due, shown when the task repeats. Completing or skipping advances the due date and leaves the task open, with the same toast and Undo as a normal completion (`Completed “title”`, or `Skipped “title”`). Undo puts that occurrence back. When the repeat ends, the task completes for good and the row strikes through.
 
@@ -188,7 +188,7 @@ Skip is the existing “Skip this occurrence” pick inside Due, shown when the 
 
 ## Attachments
 
-From the web attachments phase (PLAN.md Phase 3), ahead of the native apps. Photos and other files are added only on the task sheet, through Supabase Storage, from one Add file button on desktop and phone. On a phone the system picker may still offer the camera, the photo library, or files. The board row has no paperclip and no count. Thumbnails stay in the sheet. A photo is downscaled before upload. Settings, from the board menu, shows storage used of 1 GB. A file can be removed. Offline and Trash leave the files read-only. Capture does not add files. A previewable image's name opens a full-screen preview (pinch to zoom on a phone, zoom controls with a mouse, plus Open original and Close). Any other file still opens its signed URL. The address is `/tasks/<taskId>` while a task is open and `/tasks/<taskId>/files/<fileId>` while a previewable image is open, so a link or refresh reopens them. Back closes the preview, then the task, then leaves the board. Forward reopens what Back closed. A file that is not previewable does not change the address. Quick Look waits for the SwiftUI app.
+From the web attachments phase (PLAN.md Phase 3), ahead of the native apps. Photos and other files are added only on the task sheet, through Supabase Storage, from one Add file button on desktop and phone. On a phone the system picker may still offer the camera, the photo library, or files. The board row has no paperclip and no count. Thumbnails stay in the sheet. A photo is downscaled before upload. Settings, from the board menu, shows storage used of 1 GB. A file can be removed. Offline and Recently deleted leave the files read-only. Capture does not add files. A previewable image's name opens a full-screen preview (pinch to zoom on a phone, zoom controls with a mouse, plus Open original and Close). Any other file still opens its signed URL. The address is `/tasks/<taskId>` while a task is open and `/tasks/<taskId>/files/<fileId>` while a previewable image is open, so a link or refresh reopens them. Back closes the preview, then the task, then leaves the board. Forward reopens what Back closed. A file that is not previewable does not change the address. Quick Look waits for the SwiftUI app.
 
 - [x] Task sheet Files, empty: "Files" and Add file – desktop 1440, light and dark
 - [x] Task sheet with a photo thumbnail and a named file – desktop 1440, light and dark
@@ -196,7 +196,7 @@ From the web attachments phase (PLAN.md Phase 3), ahead of the native apps. Phot
 - [x] Board row of a task that has a file: no paperclip, no count, no thumbnail – desktop 1440 and phone
 - [x] Settings: storage used of 1 GB, with the meter – desktop 1440, light and dark
 - [x] Remove a file: the row is gone – desktop 1440
-- [x] A task in Trash: Files shows what was attached, with no add or remove – desktop 1440
+- [x] A task in Recently deleted: Files shows what was attached, with no add or remove – desktop 1440
 - [x] Offline: Add file disabled – desktop 1440
 - [x] Capture has no way to add a file – desktop 1440
 - [ ] Image preview: a photo's name opens full screen, with the picture, zoom, Open original, and Close; a named file still opens directly – desktop 1440, light and dark, and phone
@@ -205,7 +205,7 @@ From the web attachments phase (PLAN.md Phase 3), ahead of the native apps. Phot
 
 All desktop 1440 unless noted.
 
-- [x] Board ⋯ menu open: Show completed, Completed log, Show deleted (no icon), Settings, Appearance
+- [x] Board ⋯ menu open: Show completed, Completed log, View recently deleted (no icon), Settings, Appearance
 - [x] Context menu: right-click a row, Due submenu open
 - [x] Context menu: the right-clicked row stays highlighted while the menu is open, here on a Ready and a Waiting row (#39)
 - [x] Context menu on the selected task: the row looks selected with the menu open and stays selected after it closes (#39)

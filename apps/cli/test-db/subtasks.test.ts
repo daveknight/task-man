@@ -97,7 +97,7 @@ describe('edit', () => {
   it('leaves a completed task editable but not one in Trash', async () => {
     const { task } = await add('trashed', ['One']);
     await deleteTask(ctx, task.id, false);
-    await expect(editTask(ctx, task.id, { subtasks: { add: ['Two'] } })).rejects.toThrow('Trash');
+    await expect(editTask(ctx, task.id, { subtasks: { add: ['Two'] } })).rejects.toThrow('Recently deleted');
     await restoreTask(ctx, task.id);
     await editTask(ctx, task.id, { subtasks: { add: ['Two'] } });
     expect((await show('trashed')).subtaskCount.total).toBe(2);
