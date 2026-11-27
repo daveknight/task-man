@@ -1,23 +1,32 @@
 /**
- * The address for the task sheet and the image preview.
+ * The address for the task sheet, the image preview, and the completed log.
  *
  *   /                              the board
+ *   /completed                     the completed log
  *   /tasks/<taskId>                the task sheet, or the detail pane on a wide window
  *   /tasks/<taskId>/files/<fileId> a previewable image on that task
  *
  * The query string stays put (`?today=`, `?autosignin=`). A file that is not
  * previewable never uses the files path: it still opens its signed URL.
  * A shared or refreshed link is stacked as board, then task, then preview, so
- * Back closes the preview, then the task, then leaves the board.
+ * Back closes the preview, then the task, then leaves the board. A completed
+ * log link is stacked as board, then the log, so Back returns to the board
+ * and Forward opens the log again. Which weeks are open is remembered on the
+ * device, so coming back shows the log as it was left.
  */
+
+export const COMPLETED_PATH = '/completed';
 
 export type OverlayAddress = {
   taskId: string | null;
   fileId: string | null;
+  log: boolean;
 };
 
 export type OverlayHistoryState = {
-  overlay: 'board' | 'task' | 'file';
+  overlay: 'board' | 'task' | 'file' | 'log';
+  /** The screen under a completed-log entry this screen pushed, so Back can restore it before popstate. */
+  logBack?: OverlayAddress;
 };
 
 export type OverlayEntry = {
@@ -28,9 +37,11 @@ export type OverlayEntry = {
 
 export type HistoryAction =
   | { type: 'none' }
-  | { type: 'push'; overlay: 'task' | 'file'; url: string }
+  | { type: 'push'; overlay: 'task' | 'file' | 'log'; url: string }
   | { type: 'replace'; overlay: 'board' | 'task' | 'file'; url: string }
   | { type: 'back'; steps: 1 | 2 };
+
+const BOARD: OverlayAddress = { taskId: null, fileId: null, log: false };
 
 const TASK_PATH = /^\/tasks\/([^/]+)$/;
 const FILE_PATH = /^\/tasks\/([^/]+)\/files\/([^/]+)$/;
@@ -54,21 +65,22 @@ function withSearch(path: string, search: string): string {
   return path + (search.startsWith('?') ? search : `?${search}`);
 }
 
-/** The task and preview file named by the path, or neither when it isn't one of those. */
+/** The task, preview file, or completed log named by the path. */
 export function parseOverlayPath(pathname: string): OverlayAddress {
   const path = normalizePath(pathname);
+  if (path === COMPLETED_PATH) return { taskId: null, fileId: null, log: true };
   const file = FILE_PATH.exec(path);
   if (file) {
     const taskId = decodeSegment(file[1] ?? '');
     const fileId = decodeSegment(file[2] ?? '');
-    if (taskId && fileId) return { taskId, fileId };
+    if (taskId && fileId) return { taskId, fileId, log: false };
   }
   const task = TASK_PATH.exec(path);
   if (task) {
     const taskId = decodeSegment(task[1] ?? '');
-    if (taskId) return { taskId, fileId: null };
+    if (taskId) return { taskId, fileId: null, log: false };
   }
-  return { taskId: null, fileId: null };
+  return BOARD;
 }
 
 /** Path for a task, a preview, or the board. Ids are encoded. */
@@ -88,6 +100,12 @@ export function overlayHistoryEntries(pathname: string, search: string): Overlay
   const path = normalizePath(pathname);
   if (path === '/design' || path.startsWith('/design/')) return null;
   const query = search && !search.startsWith('?') ? `?${search}` : search;
+  if (path === COMPLETED_PATH) {
+    return [
+      { overlay: 'board', path: '/', search: query },
+      { overlay: 'log', path: COMPLETED_PATH, search: query },
+    ];
+  }
   const address = parseOverlayPath(path);
   if (address.taskId) {
     const entries: OverlayEntry[] = [
@@ -115,6 +133,29 @@ export function openFileAction(current: OverlayAddress, taskId: string, fileId: 
   const url = withSearch(overlayPath(taskId, fileId), search);
   if (current.fileId) return { type: 'replace', overlay: 'file', url };
   return { type: 'push', overlay: 'file', url };
+}
+
+/** Opening the completed log pushes it on top of the board, a task, or a preview. */
+export function openLogAction(current: OverlayAddress, search: string): HistoryAction {
+  if (current.log) return { type: 'none' };
+  return { type: 'push', overlay: 'log', url: withSearch(COMPLETED_PATH, search) };
+}
+
+/**
+ * Where Back from the completed log returns. A log this screen pushed remembers
+ * the screen under it. A direct link has the board stacked under it instead.
+ */
+export function logReturnAddress(state: OverlayHistoryState | null): OverlayAddress {
+  const back = state?.logBack;
+  if (!back || back.log) return BOARD;
+  return { taskId: back.taskId, fileId: back.fileId, log: false };
+}
+
+/** Close the completed log. Back when we pushed it; otherwise replace so a direct link doesn't leave the site. */
+export function closeLogAction(current: OverlayAddress, state: OverlayHistoryState | null, search: string): HistoryAction {
+  if (!current.log) return { type: 'none' };
+  if (state?.overlay === 'log') return { type: 'back', steps: 1 };
+  return { type: 'replace', overlay: 'board', url: withSearch('/', search) };
 }
 
 /** Close the preview. Back when we pushed it; otherwise replace so a direct link doesn't leave the site. */

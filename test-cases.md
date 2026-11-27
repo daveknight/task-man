@@ -219,7 +219,7 @@ All desktop 1440 unless noted.
 
 ## Completed log
 
-From Phase 2c. A read-only screen opened from Completed log in the board menu (Show completed still toggles the board section). Grouped by Monday-start week, then by day, newest first. The newest week starts open and older weeks start collapsed; each week remembers whether you left it open. One-off finishes and each recorded completion of a repeating task are listed. Skips are not. Rows have a check mark and a struck-through title, no checkbox, drag handle, menu or swipe. A repeating row shows the repeat icon and that occurrence's due date. Nothing here edits a task.
+From Phase 2c. A read-only screen opened from Completed log in the board menu (Show completed still toggles the board section). The address is `/completed`, so a link or refresh opens it. Back returns to the board, and Forward opens the log again. Grouped by Monday-start week, then by day, newest first. The newest week starts open and older weeks start collapsed; each week remembers whether you left it open, including after Back and Forward. One-off finishes and each recorded completion of a repeating task are listed. Skips are not. Rows have a check mark and a struck-through title, no checkbox, drag handle, menu or swipe. A repeating row shows the repeat icon and that occurrence's due date. Nothing here edits a task.
 
 - [x] Completed log: This week open (Pick up dry cleaning on Tue Nov 17, Assemble bookshelf on Mon Nov 16), Last week and older weeks collapsed – desktop 1440, light and dark
 - [x] An older week expanded: “Pay November credit card bill” with its due date struck through – desktop 1440
