@@ -1,6 +1,7 @@
 import { createMcpHandler, type AuthInfo } from '@modelcontextprotocol/server';
 import type { Scope } from '@app/data';
 import { openUser } from './auth.ts';
+import { resourceMetadataUrl } from './oauth/metadata.ts';
 import { createTaskServer } from './tools.ts';
 
 const scopes = new WeakMap<AuthInfo, Scope>();
@@ -13,7 +14,7 @@ const handler = createMcpHandler((ctx) => {
 
 /** MCP over HTTP. A missing or rejected token is answered here, before a tool runs. */
 export async function authorizeAndServe(request: Request): Promise<Response> {
-  const opened = await openUser(request.headers.get('authorization'));
+  const opened = await openUser(request.headers.get('authorization'), resourceMetadataUrl(request));
   if (opened instanceof Response) return opened;
   scopes.set(opened.auth, opened.scope);
   try {
@@ -23,10 +24,10 @@ export async function authorizeAndServe(request: Request): Promise<Response> {
   }
 }
 
-/** The public MCP path. Other paths are not this protocol. */
+/** The public MCP path. `/` is the same handler when a host mounts this function there. */
 export async function handleMcp(request: Request): Promise<Response> {
   const path = new URL(request.url).pathname;
-  if (path !== '/mcp' && path !== '/api/mcp') {
+  if (path !== '/mcp' && path !== '/api/mcp' && path !== '/') {
     return new Response('Not found', { status: 404, headers: { 'content-type': 'text/plain; charset=utf-8' } });
   }
   return authorizeAndServe(request);
