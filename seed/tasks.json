@@ -568,7 +568,7 @@
       "afterPurge": "kept",
       "title": "Compare robot vacuum models",
       "deleted": "-30d",
-      "description": "See which one handles the stairs and the pet hair.",
+      "description": "See which one handles the stairs and the pet hair."
     },
     {
       "expect": "trash",
