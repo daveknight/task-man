@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { listen, type ListeningServer } from '../src/listen.ts';
-import { loginPage } from '../src/oauth/page.ts';
+import { loginPage, loginResponse } from '../src/oauth/page.ts';
 import { s256Challenge } from '../src/oauth/pkce.ts';
 import { staticRedirectAllowed } from '../src/oauth/redirects.ts';
 
@@ -49,6 +49,16 @@ describe('login page', () => {
     expect(html).toContain('value="a&quot;b&lt;c"');
     expect(html).toContain('&lt;b&gt;');
   });
+
+  it('allows the sign-in POST to the authorize URL for that origin', () => {
+    const policy = (origin: string) => loginResponse({ fields, email: '', origin }).headers.get('content-security-policy');
+    expect(policy('https://mcp.example')).toBe(
+      "default-src 'none'; style-src 'unsafe-inline'; form-action https://mcp.example/authorize; base-uri 'none'",
+    );
+    expect(policy('http://127.0.0.1:8787')).toBe(
+      "default-src 'none'; style-src 'unsafe-inline'; form-action http://127.0.0.1:8787/authorize; base-uri 'none'",
+    );
+  });
 });
 
 describe('OAuth discovery', () => {
@@ -95,6 +105,18 @@ describe('OAuth discovery', () => {
     expect(response.status).toBe(401);
     const challenge = response.headers.get('www-authenticate') ?? '';
     expect(challenge).toContain(`resource_metadata="${new URL(server.url).origin}/.well-known/oauth-protected-resource/mcp"`);
+  });
+
+  it('serves the login page with form-action for this listener', async () => {
+    const origin = new URL(server.url).origin;
+    const redirect = 'http://127.0.0.1/callback';
+    const response = await fetch(
+      `${origin}/authorize?response_type=code&client_id=taskman-test&redirect_uri=${encodeURIComponent(redirect)}&code_challenge=E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM&code_challenge_method=S256`,
+    );
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-security-policy')).toBe(
+      `default-src 'none'; style-src 'unsafe-inline'; form-action ${origin}/authorize; base-uri 'none'`,
+    );
   });
 
   it('refuses a redirect off the allowlist and sends a PKCE error back to an allowed one', async () => {
