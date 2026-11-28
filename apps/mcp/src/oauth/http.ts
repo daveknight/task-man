@@ -141,12 +141,12 @@ export async function handleAuthorize(request: Request): Promise<Response> {
   if (params instanceof Response) return params;
   const prepared = await prepare(request, params);
   if (!prepared.ok) return prepared.response;
-  if (request.method === 'GET') return loginResponse({ fields: prepared.fields, email: '', origin: prepared.issuer });
+  if (request.method === 'GET') return loginResponse({ fields: prepared.fields, email: '' });
 
   const email = params.get('email')?.trim() ?? '';
   const password = params.get('password') ?? '';
   if (!email || !password) {
-    return loginResponse({ fields: prepared.fields, email, error: 'Wrong email or password.', status: 401, origin: prepared.issuer });
+    return loginResponse({ fields: prepared.fields, email, error: 'Wrong email or password.', status: 401 });
   }
   let url: string;
   let anonKey: string;
@@ -162,7 +162,7 @@ export async function handleAuthorize(request: Request): Promise<Response> {
   if (signed.error || !signed.data.session) {
     const message = signed.error ? signInMessage(signed.error) : 'Wrong email or password.';
     const status = signed.error?.status === 429 ? 429 : 401;
-    return loginResponse({ fields: prepared.fields, email, error: message, status, origin: prepared.issuer });
+    return loginResponse({ fields: prepared.fields, email, error: message, status });
   }
   const session = signed.data.session;
   const expiresAt = new Date((session.expires_at ?? Math.floor(Date.now() / 1000) + session.expires_in) * 1000).toISOString();
@@ -179,7 +179,7 @@ export async function handleAuthorize(request: Request): Promise<Response> {
       scope: grantedScope(prepared.input.scope),
     });
   } catch {
-    return loginResponse({ fields: prepared.fields, email, error: "Couldn't sign in. Try again.", status: 500, origin: prepared.issuer });
+    return loginResponse({ fields: prepared.fields, email, error: "Couldn't sign in. Try again.", status: 500 });
   }
   const back = new URL(prepared.fields.redirectUri);
   back.searchParams.set('code', code);

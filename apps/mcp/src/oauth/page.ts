@@ -112,17 +112,14 @@ export function loginPage(input: { fields: LoginFields; email: string; error?: s
 }
 
 /**
- * Claude's browser does not treat form-action 'self' as this page's origin, and
- * form-action does not match a path. Allow the sign-in POST to this request's
- * origin only: scheme, host, and port. That value is publicOrigin(request).origin,
- * not a fixed deploy host.
+ * Chrome does not match a host source in form-action against a path on that host.
+ * 'self', the /authorize URL, and the origin each blocked the sign-in POST.
+ * The directive is omitted. It does not fall back to default-src, so the POST
+ * is allowed. Do not add form-action *.
  */
-function loginContentSecurityPolicy(origin: string): string {
-  const target = new URL(origin).origin;
-  return `default-src 'none'; style-src 'unsafe-inline'; form-action ${target}; base-uri 'none'`;
-}
+const LOGIN_CONTENT_SECURITY_POLICY = "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'";
 
-export function loginResponse(input: { fields: LoginFields; email: string; error?: string; status?: number; origin: string }): Response {
+export function loginResponse(input: { fields: LoginFields; email: string; error?: string; status?: number }): Response {
   return new Response(loginPage(input), {
     status: input.status ?? (input.error ? 401 : 200),
     headers: {
@@ -130,7 +127,7 @@ export function loginResponse(input: { fields: LoginFields; email: string; error
       'cache-control': 'no-store',
       'referrer-policy': 'no-referrer',
       'x-frame-options': 'DENY',
-      'content-security-policy': loginContentSecurityPolicy(input.origin),
+      'content-security-policy': LOGIN_CONTENT_SECURITY_POLICY,
     },
   });
 }
