@@ -50,13 +50,16 @@ describe('login page', () => {
     expect(html).toContain('&lt;b&gt;');
   });
 
-  it('allows the sign-in POST to the authorize URL for that origin', () => {
+  it('allows the sign-in POST to the request origin, with no path', () => {
     const policy = (origin: string) => loginResponse({ fields, email: '', origin }).headers.get('content-security-policy');
     expect(policy('https://mcp.example')).toBe(
-      "default-src 'none'; style-src 'unsafe-inline'; form-action https://mcp.example/authorize; base-uri 'none'",
+      "default-src 'none'; style-src 'unsafe-inline'; form-action https://mcp.example; base-uri 'none'",
     );
     expect(policy('http://127.0.0.1:8787')).toBe(
-      "default-src 'none'; style-src 'unsafe-inline'; form-action http://127.0.0.1:8787/authorize; base-uri 'none'",
+      "default-src 'none'; style-src 'unsafe-inline'; form-action http://127.0.0.1:8787; base-uri 'none'",
+    );
+    expect(policy('https://mcp.example/authorize')).toBe(
+      "default-src 'none'; style-src 'unsafe-inline'; form-action https://mcp.example; base-uri 'none'",
     );
   });
 });
@@ -115,7 +118,7 @@ describe('OAuth discovery', () => {
     );
     expect(response.status).toBe(200);
     expect(response.headers.get('content-security-policy')).toBe(
-      `default-src 'none'; style-src 'unsafe-inline'; form-action ${origin}/authorize; base-uri 'none'`,
+      `default-src 'none'; style-src 'unsafe-inline'; form-action ${origin}; base-uri 'none'`,
     );
   });
 
