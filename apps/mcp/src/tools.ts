@@ -1,6 +1,7 @@
 import { loadBoard } from '@app/cli/commands';
 import {
   addTask,
+  deleteTask,
   doneTask,
   editTask,
   findTask,
@@ -13,11 +14,12 @@ import {
   type Changed,
   type Context,
 } from '@app/cli/tasks';
-import { HISTORY_ZONE, localDate, resolveDate, type ISODate } from '@app/core';
-import { loadSnapshot, type Scope } from '@app/data';
+import { HISTORY_ZONE, localDate, resolveDate, type ISODate, type Task } from '@app/core';
+import { addAttachment, downloadAttachment, loadSnapshot, type Scope } from '@app/data';
 import { McpServer } from '@modelcontextprotocol/server';
 import * as z from 'zod/v4';
 import { repeatFlagsIfSet, tagsFlag, toSubtaskEdits, type RepeatInput, type SubtaskInput } from './args.ts';
+import { decodeFileData, fileMediaType, pickFile } from './files.ts';
 
 const DATE = 'A day: YYYY-MM-DD, today, or relative to today (+3d, -2w, +1m). none clears a date.';
 const TASK = 'A task id, an id prefix of at least 4 characters, or a title prefix.';
@@ -130,28 +132,82 @@ async function applyUpdate(scope: Scope, input: UpdateInput): Promise<Changed> {
   return note ? { ...edited, note } : edited;
 }
 
-async function listFiles(scope: Scope, ref: string) {
+interface StoredFile {
+  id: string;
+  filename: string;
+  mime: string;
+  bytes: number;
+  storagePath: string;
+}
+
+async function taskFiles(scope: Scope, ref: string): Promise<{ task: Task; files: StoredFile[] }> {
   const snapshot = await loadSnapshot(scope);
   const task = findTask(snapshot, ref);
   const { data, error } = await scope.db
     .from('attachments')
-    .select('filename,mime,bytes,created_at,id')
+    .select('id,filename,mime,bytes,storage_path,created_at')
     .eq('user_id', scope.userId)
     .eq('task_id', task.id)
     .order('created_at')
     .order('id');
   if (error) throw new Error(`list files: ${error.message}`);
+  const files = (data ?? []).map((row: { id: string; filename: string; mime: string; bytes: number | string; storage_path: string }) => ({
+    id: row.id,
+    filename: row.filename,
+    mime: row.mime,
+    bytes: Number(row.bytes),
+    storagePath: row.storage_path,
+  }));
+  return { task, files };
+}
+
+async function listFiles(scope: Scope, ref: string) {
+  const { task, files } = await taskFiles(scope, ref);
   return {
     taskId: task.id,
-    files: (data ?? []).map((row: { filename: string; mime: string; bytes: number | string }) => ({
-      name: row.filename,
-      type: row.mime,
-      size: Number(row.bytes),
-    })),
+    files: files.map((file) => ({ id: file.id, name: file.filename, type: file.mime, size: file.bytes })),
   };
 }
 
-/** Tools are the CLI commands. They do not reorder, upload, download, or set reminders. */
+/** Stores the bytes through the same bucket, row, and access token as the app. Photos are not downscaled. */
+async function uploadFile(scope: Scope, ref: string, input: { name: string; type?: string; data: string }) {
+  const snapshot = await loadSnapshot(scope);
+  const task = findTask(snapshot, ref);
+  if (task.deletedAt) throw new Error(`"${task.title}" is in Recently deleted, so a file can't be added. Restore the task first.`);
+  const body = decodeFileData(input.data);
+  const saved = await addAttachment(scope, task.id, {
+    name: input.name,
+    type: fileMediaType(input.type),
+    size: body.byteLength,
+    body,
+  });
+  return { taskId: task.id, file: { id: saved.id, name: saved.filename, type: saved.mime, size: saved.bytes } };
+}
+
+/** Reads the bytes back through storage, as the caller's access token. */
+async function downloadFile(scope: Scope, ref: string, fileRef: string) {
+  const { task, files } = await taskFiles(scope, ref);
+  const file = pickFile(files, fileRef);
+  const bytes = await downloadAttachment(scope, file.storagePath);
+  if (bytes.byteLength !== file.bytes) throw new Error("Couldn't read the file.");
+  return {
+    taskId: task.id,
+    file: { id: file.id, name: file.filename, type: file.mime, size: file.bytes },
+    data: Buffer.from(bytes).toString('base64'),
+  };
+}
+
+/** Sets deleted_at. Never passes the CLI's delete-forever flag, and never completes the task. */
+async function deleteToRecentlyDeleted(scope: Scope, ref: string, today: string | undefined): Promise<Changed> {
+  const snapshot = await loadSnapshot(scope);
+  const task = findTask(snapshot, ref);
+  if (task.deletedAt) {
+    throw new Error(`"${task.title}" is already in Recently deleted. Delete does not mark it done, and it does not remove the task permanently.`);
+  }
+  return deleteTask(context(scope, today), task.id, false);
+}
+
+/** Tools follow the app and the CLI. They do not reorder tasks or set reminders. */
 export function createTaskServer(scope: Scope): McpServer {
   const server = new McpServer({ name: 'taskman', version: '0.0.0' });
 
@@ -310,14 +366,58 @@ export function createTaskServer(scope: Scope): McpServer {
   );
 
   server.registerTool(
+    'delete_task',
+    {
+      title: 'Delete a task',
+      description:
+        'Move a task to Recently deleted. Delete sets the deletion time and takes the task off the board. It is not marking the task done. It is not complete_task, not skip_task, and not undo_task. The task is not removed permanently; it stays in Recently deleted. complete_task marks a task done. skip_task skips one occurrence of a repeat. undo_task undoes the latest Done or Skipped occurrence. A task already in Recently deleted is left there.',
+      inputSchema: z.object({ task: z.string().describe(TASK), today: date.optional() }),
+      annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false },
+    },
+    async ({ task, today }) => run(() => deleteToRecentlyDeleted(scope, task, today)),
+  );
+
+  server.registerTool(
     'list_attachments',
     {
       title: 'List files',
-      description: 'Files on one task: name, type, and size only. This server does not upload or download file bytes.',
+      description: 'Files on one task: id, name, type, and size. Use upload_attachment to add bytes and download_attachment to read them.',
       inputSchema: z.object({ task: z.string().describe(TASK) }),
       annotations: readOnly,
     },
     async ({ task }) => run(() => listFiles(scope, task)),
+  );
+
+  server.registerTool(
+    'upload_attachment',
+    {
+      title: 'Upload a file',
+      description:
+        'Add one file to a task. data is the file bytes as base64, not a data: URL. The bytes are stored in the same private bucket as the app, using the caller\'s access token, so row-level security applies. Photos are stored as sent and are not downscaled. A task in Recently deleted cannot take a new file.',
+      inputSchema: z.object({
+        task: z.string().describe(TASK),
+        name: z.string().describe('The file name to store.'),
+        type: z.string().optional().describe('The media type, such as image/jpeg or text/plain. Defaults to application/octet-stream.'),
+        data: z.string().describe('The file bytes, base64-encoded.'),
+      }),
+      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+    },
+    async ({ task, name, type, data }) => run(() => uploadFile(scope, task, { name, type, data })),
+  );
+
+  server.registerTool(
+    'download_attachment',
+    {
+      title: 'Download a file',
+      description:
+        'Read one file\'s bytes. data in the result is base64. file is the file name, or its id when two files share a name. This is a read through the same storage path as the app, using the caller\'s access token. It does not change the task or its history.',
+      inputSchema: z.object({
+        task: z.string().describe(TASK),
+        file: z.string().describe('The file name, or the file id from list_attachments.'),
+      }),
+      annotations: readOnly,
+    },
+    async ({ task, file }) => run(() => downloadFile(scope, task, file)),
   );
 
   return server;

@@ -101,6 +101,18 @@ export async function addAttachment(scope: Scope, taskId: string, file: { name: 
   return attachmentFromRow(inserted.data);
 }
 
+/**
+ * The stored bytes of one object. `scope.db` sends the caller's access token,
+ * so the storage select policy is what allows the read.
+ */
+export async function downloadAttachment({ db }: Scope, storagePath: string): Promise<Uint8Array> {
+  const downloaded = await db.storage.from(ATTACHMENTS_BUCKET).download(storagePath);
+  if (downloaded.error || !downloaded.data) {
+    throw new Error(downloaded.error ? `download file: ${downloaded.error.message}` : "Couldn't read the file.");
+  }
+  return new Uint8Array(await downloaded.data.arrayBuffer());
+}
+
 function uploadMessage(message: string): string {
   if (/over 50 MB|payload too large|exceeded the maximum/i.test(message)) return 'This file is over 50 MB.';
   if (/Storage is full/i.test(message)) return 'Storage is full. 1 GB is the limit.';
