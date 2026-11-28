@@ -50,17 +50,10 @@ describe('login page', () => {
     expect(html).toContain('&lt;b&gt;');
   });
 
-  it('allows the sign-in POST to the request origin, with no path', () => {
-    const policy = (origin: string) => loginResponse({ fields, email: '', origin }).headers.get('content-security-policy');
-    expect(policy('https://mcp.example')).toBe(
-      "default-src 'none'; style-src 'unsafe-inline'; form-action https://mcp.example; base-uri 'none'",
-    );
-    expect(policy('http://127.0.0.1:8787')).toBe(
-      "default-src 'none'; style-src 'unsafe-inline'; form-action http://127.0.0.1:8787; base-uri 'none'",
-    );
-    expect(policy('https://mcp.example/authorize')).toBe(
-      "default-src 'none'; style-src 'unsafe-inline'; form-action https://mcp.example; base-uri 'none'",
-    );
+  it('omits form-action so the sign-in POST is allowed', () => {
+    const policy = loginResponse({ fields, email: '' }).headers.get('content-security-policy');
+    expect(policy).toBe("default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'");
+    expect(policy).not.toContain('form-action');
   });
 });
 
@@ -110,16 +103,16 @@ describe('OAuth discovery', () => {
     expect(challenge).toContain(`resource_metadata="${new URL(server.url).origin}/.well-known/oauth-protected-resource/mcp"`);
   });
 
-  it('serves the login page with form-action for this listener', async () => {
+  it('serves the login page without a form-action directive', async () => {
     const origin = new URL(server.url).origin;
     const redirect = 'http://127.0.0.1/callback';
     const response = await fetch(
       `${origin}/authorize?response_type=code&client_id=taskman-test&redirect_uri=${encodeURIComponent(redirect)}&code_challenge=E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM&code_challenge_method=S256`,
     );
     expect(response.status).toBe(200);
-    expect(response.headers.get('content-security-policy')).toBe(
-      `default-src 'none'; style-src 'unsafe-inline'; form-action ${origin}; base-uri 'none'`,
-    );
+    const policy = response.headers.get('content-security-policy');
+    expect(policy).toBe("default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'");
+    expect(policy).not.toContain('form-action');
   });
 
   it('refuses a redirect off the allowlist and sends a PKCE error back to an allowed one', async () => {
