@@ -112,13 +112,14 @@ export function loginPage(input: { fields: LoginFields; email: string; error?: s
 }
 
 /**
- * Claude's browser does not treat form-action 'self' as this page's origin, so the
- * sign-in POST to /authorize is blocked. Name this server's authorize URL. The host
- * is the request's public origin; it is not a fixed deploy host.
+ * Claude's browser does not treat form-action 'self' as this page's origin, and
+ * form-action does not match a path. Allow the sign-in POST to this request's
+ * origin only: scheme, host, and port. That value is publicOrigin(request).origin,
+ * not a fixed deploy host.
  */
 function loginContentSecurityPolicy(origin: string): string {
-  const authorize = new URL('/authorize', origin);
-  return `default-src 'none'; style-src 'unsafe-inline'; form-action ${authorize.href}; base-uri 'none'`;
+  const target = new URL(origin).origin;
+  return `default-src 'none'; style-src 'unsafe-inline'; form-action ${target}; base-uri 'none'`;
 }
 
 export function loginResponse(input: { fields: LoginFields; email: string; error?: string; status?: number; origin: string }): Response {
