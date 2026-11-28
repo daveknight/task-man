@@ -1,6 +1,6 @@
 # Task MCP server
 
-Agents call TaskMan over HTTP. The server is `apps/mcp`. It uses the same task rules as the app and the same reads and writes as the CLI. It does not upload or download files, reorder tasks, or send reminders.
+Agents call TaskMan over HTTP. The server is `apps/mcp`. It uses the same task rules as the app and the same reads and writes as the CLI. File upload and download use the same private storage bucket and the caller's access token, so row-level security applies. It does not reorder tasks or send reminders.
 
 The URL is not live until the Vercel project below exists. After that project is deployed, the address is its production URL plus `/mcp`. Name the project `task-man-mcp` and the address is:
 
@@ -107,11 +107,18 @@ A pasted token, if you prefer it for this app, is the section above: set `bearer
 | `complete_task` | Mark done. A repeat records the occurrence and advances |
 | `skip_task` | Skip the current occurrence of a repeat |
 | `undo_task` | Undo the latest Done or Skipped occurrence. A one-off completed task is marked not done |
-| `list_attachments` | Name, type, and size of files on a task. No upload and no download |
+| `delete_task` | Move a task to Recently deleted. This is not marking it done. It is not `complete_task`, `skip_task`, or `undo_task`, and it does not delete the task permanently |
+| `list_attachments` | Id, name, type, and size of files on a task |
+| `upload_attachment` | Add a file. `data` is the bytes as base64. Stored with the caller's access token. Photos are not downscaled |
+| `download_attachment` | Read one file. `data` in the result is the bytes as base64. A read: it does not change the task |
 
 Dates are `YYYY-MM-DD`, `today`, or relative (`+3d`, `-2w`, `+1m`). `none` clears a date. Only an Open task has a start date. Only a Waiting task has a Hide until date. Going into Waiting with no Hide until date is Don't hide. Tags replace the whole set; an empty list removes them.
 
-Reordering, file bytes, and reminders are not tools. A webhook that posts history changes is not part of this server.
+`delete_task` moves the task to Recently deleted by setting the deletion time. The task stays in the account. Delete is not marking the task done, not completing it, not skipping an occurrence, and not undoing one. Use `complete_task` to mark a task done, `skip_task` to skip the current occurrence of a repeat, and `undo_task` to undo the latest Done or Skipped occurrence. A task that is already in Recently deleted is left there. This server has no tool that deletes a task permanently.
+
+`upload_attachment` and `download_attachment` send file bytes as base64. The server stores and reads them with the same Supabase client the other tools use: the caller's access token, the anon key, and the private `attachments` bucket. A service-role key is still rejected. Uploading a file adds one history row that a file was added. Downloading a file writes no history row. Deleting a task adds one history row that the task was deleted, which is a different row from a completion. A task in Recently deleted cannot take a new file. Downloading a file that is already there still works.
+
+Reordering and reminders are not tools. A webhook that posts history changes is not part of this server.
 
 ## Run it locally
 
